@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">voteraction</string>
+    <string name="title_activity_main">voteraction</string>
+    <string name="package_name">com.creatiav.voteraction</string>
+    <string name="custom_url_scheme">com.creatiav.voteraction</string>
+</resources>

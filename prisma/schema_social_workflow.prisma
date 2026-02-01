@@ -1,0 +1,171 @@
+// Social Media Workflow Models
+// Add these to main schema.prisma
+
+// 1. Candidate Post Request
+model CandidatePostRequest {
+  id              Int      @id @default(autoincrement())
+  subject         String   // विषय
+  location        String   // स्थान
+  importantPeople String?  // JSON array of names (comma separated input)
+  description     String?  // Additional details
+  photoUrls       String?  // JSON array of uploaded photo URLs
+  videoUrls       String?  // JSON array of uploaded video URLs
+  
+  status          String   @default("PENDING") // PENDING, ACCEPTED, PUBLISHED
+  
+  // After Social Media Team posts
+  facebookUrl     String?
+  twitterUrl      String?
+  instagramUrl    String?
+  whatsappUrl     String?
+  publishedAt     DateTime?
+  
+  assemblyId      Int
+  createdBy       Int      // Candidate user ID
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  acceptedAt      DateTime? // When Social Media Team accepted
+  acceptedBy      Int?     // Social Media Team member ID
+  
+  assembly        Assembly @relation(fields: [assemblyId], references: [id])
+  creator         User     @relation("CandidatePostRequests", fields: [createdBy], references: [id])
+  acceptor        User?    @relation("AcceptedPostRequests", fields: [acceptedBy], references: [id])
+  workerTasks     WorkerSocialTask[]
+  
+  @@index([assemblyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// 2. Social Media Team Content for Approval
+model SocialMediaApproval {
+  id              Int      @id @default(autoincrement())
+  title           String   // Content title/description
+  contentType     String   // "PHOTO", "VIDEO"
+  mediaUrls       String   // JSON array of uploaded media
+  notes           String?  // Notes for candidate
+  
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  assemblyId      Int
+  createdBy       Int      // Social Media Team member ID
+  approvedBy      Int?     // Candidate user ID
+  createdAt       DateTime @default(now())
+  approvedAt      DateTime?
+  rejectionReason String?
+  
+  // After approval and posting
+  postedUrls      String?  // JSON: {facebook, twitter, instagram}
+  postedAt        DateTime?
+  
+  assembly        Assembly @relation(fields: [assemblyId], references: [id])
+  creator         User     @relation("CreatedApprovals", fields: [createdBy], references: [id])
+  approver        User?    @relation("ApprovedContent", fields: [approvedBy], references: [id])
+  
+  @@index([assemblyId])
+  @@index([status])
+}
+
+// 3. Digital Campaign Material (By Social Media Team)
+model CampaignMaterial {
+  id              Int      @id @default(autoincrement())
+  title           String
+  description     String?
+  materialType    String   // "PHOTO", "VIDEO", "GRAPHIC"
+  fileUrls        String   // JSON array of files
+  
+  // Distribution
+  platform        String   @default("ALL") // "WHATSAPP", "FACEBOOK", "INSTAGRAM", "ALL"
+  expiresAt       DateTime? // Optional expiry for time-sensitive content
+  
+  assemblyId      Int
+  createdBy       Int      // Social Media Team member ID
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  assembly        Assembly @relation(fields: [assemblyId], references: [id])
+  creator         User     @relation("CampaignMaterials", fields: [createdBy], references: [id])
+  workerTasks     WorkerSocialTask[]
+  
+  @@index([assemblyId])
+  @@index([createdAt])
+}
+
+// 4. Worker Social Media Tasks
+model WorkerSocialTask {
+  id              Int      @id @default(autoincrement())
+  taskType        String   // "POST_ENGAGEMENT" (like/share/comment), "MATERIAL_SHARE"
+  
+  // For POST_ENGAGEMENT
+  postRequestId   Int?
+  
+  // For MATERIAL_SHARE
+  campaignMaterialId Int?
+  
+  workerId        Int
+  assemblyId      Int
+  
+  // Task details
+  dueDate         DateTime // 24 hours from creation
+  
+  // Tracking (for POST_ENGAGEMENT)
+  liked           Boolean  @default(false)
+  likedAt         DateTime?
+  shared          Boolean  @default(false)
+  sharedAt        DateTime?
+  commented       Boolean  @default(false)
+  commentedAt     DateTime?
+  
+  // For MATERIAL_SHARE
+  sharedOnWhatsapp Boolean @default(false)
+  sharedOnFacebook Boolean @default(false)
+  sharedOnInstagram Boolean @default(false)
+  
+  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, OVERDUE
+  completedAt     DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  worker          Worker   @relation(fields: [workerId], references: [id])
+  assembly        Assembly @relation(fields: [assemblyId], references: [id])
+  postRequest     CandidatePostRequest? @relation(fields: [postRequestId], references: [id])
+  campaignMaterial CampaignMaterial?    @relation(fields: [campaignMaterialId], references: [id])
+  proofs          WorkerSocialTaskProof[]
+  
+  @@index([workerId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// 5. Task Proof Screenshots (Auto-delete after 3 days)
+model WorkerSocialTaskProof {
+  id              Int      @id @default(autoincrement())
+  taskId          Int
+  proofType       String   // "LIKE", "SHARE", "COMMENT", "WHATSAPP_SHARE"
+  screenshotUrl   String
+  
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime // createdAt + 3 days, auto-delete
+  
+  task            WorkerSocialTask @relation(fields: [taskId], references: [id])
+  
+  @@index([taskId])
+  @@index([expiresAt]) // For cleanup job
+}
+
+// Add these relations to existing User model:
+// - candidatePostRequests CandidatePostRequest[] @relation("CandidatePostRequests")
+// - acceptedPostRequests  CandidatePostRequest[] @relation("AcceptedPostRequests")
+// - createdApprovals      SocialMediaApproval[]  @relation("CreatedApprovals")
+// - approvedContent       SocialMediaApproval[]  @relation("ApprovedContent")
+// - campaignMaterials     CampaignMaterial[]     @relation("CampaignMaterials")
+
+// Add these relations to existing Assembly model:
+// - candidatePostRequests CandidatePostRequest[]
+// - socialMediaApprovals  SocialMediaApproval[]
+// - campaignMaterials     CampaignMaterial[]
+// - workerSocialTasks     WorkerSocialTask[]
+
+// Add this relation to existing Worker model:
+// - socialTasks           WorkerSocialTask[]

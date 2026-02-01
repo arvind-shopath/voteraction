@@ -1,0 +1,73 @@
+nohup: ignoring input
+
+> voteraction@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 22.7s
+  Running TypeScript ...
+  Collecting page data using 1 worker ...
+  Generating static pages using 1 worker (0/29) ...
+  Generating static pages using 1 worker (7/29) 
+  Generating static pages using 1 worker (14/29) 
+  Generating static pages using 1 worker (21/29) 
+✓ Generating static pages using 1 worker (29/29) in 603.7ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /admin
+├ ƒ /admin/assemblies
+├ ƒ /admin/issues
+├ ƒ /admin/logs
+├ ƒ /admin/parties
+├ ƒ /admin/users
+├ ƒ /admin/voters
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/cleanup
+├ ƒ /api/upload
+├ ƒ /api/voters/import
+├ ƒ /api/voters/import/process
+├ ƒ /api/voters/import/queue
+├ ƒ /booths
+├ ƒ /dashboard
+├ ƒ /field-reports
+├ ƒ /issues
+├ ƒ /jansampark
+├ ○ /pending
+├ ○ /pending-assembly
+├ ƒ /poll-day
+├ ƒ /reports
+├ ƒ /settings
+├ ƒ /social
+├ ƒ /surveys
+├ ƒ /voters
+├ ƒ /voters/import
+├ ƒ /worker/tasks
+└ ƒ /workers
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+> voteraction@0.1.0 start
+> next start -p 3001
+
+⨯ Failed to start server
+Error: listen EADDRINUSE: address already in use :::3001
+    at <unknown> (Error: listen EADDRINUSE: address already in use :::3001)
+    at new Promise (<anonymous>) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '::',
+  port: 3001
+}

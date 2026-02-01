@@ -1,0 +1,615 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Assembly {
+  id                 Int               @id @default(autoincrement())
+  number             Int               @unique
+  name               String
+  district           String
+  state              String            @default("Uttar Pradesh")
+  candidateName      String?
+  candidateImageUrl  String?
+  party              String            @default("Independent")
+  themeColor         String            @default("#1E3A8A")
+  logoUrl            String?
+  facebookUrl        String?
+  instagramUrl       String?
+  twitterUrl         String?
+  prevPartyVotes     Int               @default(0)
+  prevCandidateVotes Int               @default(0)
+  totalVoters        Int               @default(0)
+  totalBooths        Int               @default(0)
+  historicalResults  String?           // JSON string for 6 lines of [Party, Candidate, Votes]
+  casteEquation      String?           // JSON string for [Caste, Percentage]
+  enabledFeatures    String?           // JSON array of enabled feature keys for this candidate
+  
+  // Campaign Info
+  importantAreas     String?           // JSON array of important area names
+  importantNewspapers String?          // JSON array of important newspaper names
+  campaignTags       String?           // JSON array of campaign tags
+  candidateBusiness  String?           // Candidate's business/profession
+  importantIssues    String?           // JSON array of important issues
+  importantCastes    String?           // JSON array of important castes
+  
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  electionDate       DateTime?
+  booths                  Booth[]
+  importJobs              ImportJob[]
+  issues                  Issue[]
+  jansamparkRoutes        JansamparkRoute[]
+  publicRelations         PublicRelation[]
+  socialPosts             SocialPost[]
+  systemLogs              SystemLog[]
+  users                   User[]
+  voters                  Voter[]
+  workers                 Worker[]
+  campaigns               Campaign[]
+  tasks                   Task[]
+  workerJanSamparks       WorkerJanSampark[]
+  electionHistory         ElectionHistory[]
+  candidatePostRequests   CandidatePostRequest[]
+  socialMediaApprovals    SocialMediaApproval[]
+  campaignMaterials       CampaignMaterial[]
+  workerSocialTasks       WorkerSocialTask[]
+  socialSessions          SocialSession[]
+  sharedAssignments       UserAssemblyAssignment[] // For shared team assignments
+
+  @@index([number])
+}
+
+model Campaign {
+  id             Int             @id @default(autoincrement())
+  name           String
+  candidateName  String?
+  assemblyId     Int
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  assembly       Assembly        @relation(fields: [assemblyId], references: [id])
+  users          User[]
+  workers        Worker[]
+  voterFeedbacks VoterFeedback[]
+
+  @@index([assemblyId])
+}
+
+model PublicRelation {
+  id          Int      @id @default(autoincrement())
+  location    String
+  visitDate   DateTime @default(now())
+  description String?
+  atmosphere  String?
+  assemblyId  Int
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  assembly    Assembly @relation(fields: [assemblyId], references: [id])
+}
+
+model JansamparkRoute {
+  id               Int               @id @default(autoincrement())
+  date             DateTime          @default(now())
+  assemblyId       Int
+  posterMade       Boolean           @default(false)
+  posterMadeAt     DateTime?
+  posterMadeBy     Int?
+  posterNotNeeded  Boolean           @default(false)
+  posterStatus     String?           // "MADE", "NOT_NEEDED", null (pending)
+  createdAt        DateTime          @default(now())
+  assembly         Assembly          @relation(fields: [assemblyId], references: [id])
+  posterUser       User?             @relation(fields: [posterMadeBy], references: [id])
+  visits           JansamparkVisit[]
+}
+
+model JansamparkVisit {
+  id         Int             @id @default(autoincrement())
+  village    String
+  time       String?
+  atmosphere String?
+  notes      String?
+  routeId    Int
+  route      JansamparkRoute @relation(fields: [routeId], references: [id])
+}
+
+model User {
+  id            Int         @id @default(autoincrement())
+  email         String?     @unique
+  emailVerified DateTime?
+  image         String?
+  username      String?     @unique
+  password      String?
+  role          String      @default("MANAGER")
+  status        String      @default("Pending")
+  expiryDate    DateTime?
+  assemblyId    Int?
+  campaignId    Int?
+  name          String?
+  mobile        String?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  accounts                Account[]
+  sessions                Session[]
+  systemLogs              SystemLog[]
+  assembly                Assembly?                @relation(fields: [assemblyId], references: [id])
+  campaign                Campaign?                @relation(fields: [campaignId], references: [id])
+  worker                  Worker?
+  candidatePostRequests   CandidatePostRequest[]   @relation("CandidatePostRequests")
+  acceptedPostRequests    CandidatePostRequest[]   @relation("AcceptedPostRequests")
+  createdApprovals        SocialMediaApproval[]    @relation("CreatedApprovals")
+  approvedContent         SocialMediaApproval[]    @relation("ApprovedContent")
+  posterRoutes            JansamparkRoute[]
+  campaignMaterials       CampaignMaterial[]       @relation("CampaignMaterials")
+  sharedAssignments       UserAssemblyAssignment[] // For shared team assignments
+}
+
+model Account {
+  id                Int     @id @default(autoincrement())
+  userId            Int
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SystemLog {
+  id         Int       @id @default(autoincrement())
+  action     String
+  details    String?
+  userId     Int?
+  assemblyId Int?
+  createdAt  DateTime  @default(now())
+  assembly   Assembly? @relation(fields: [assemblyId], references: [id])
+  user       User?     @relation(fields: [userId], references: [id])
+}
+
+model Voter {
+  id             Int      @id @default(autoincrement())
+  name           String
+  age            Int?
+  gender         String?
+  relativeName   String?
+  relationType   String?
+  houseNumber    String?
+  familySize     Int      @default(1)
+  epic           String?  @unique
+  boothNumber    Int?
+  village        String?
+  area           String?
+  caste          String?
+  subCaste       String?
+  surname        String?
+  supportStatus  String   @default("Neutral")
+  notes          String?
+  mobile         String?
+  isVoted        Boolean  @default(false)
+  status         String   @default("Active") // Active, In-active, Dead, Shifted
+  updatedByName  String?  // Name of the person who last edited
+  assemblyId     Int
+  importJobId    Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  pannaPramukhId Int?
+  pannaPramukh   Worker?  @relation("PannaPramukhVoters", fields: [pannaPramukhId], references: [id])
+  assembly       Assembly @relation(fields: [assemblyId], references: [id])
+  importJob      ImportJob? @relation(fields: [importJobId], references: [id])
+  feedbacks      VoterFeedback[]
+
+  @@index([boothNumber])
+  @@index([pannaPramukhId])
+  @@index([surname])
+  @@index([caste])
+  @@index([village])
+  @@index([assemblyId])
+  @@index([importJobId])
+}
+
+model VoterFeedback {
+  id            Int      @id @default(autoincrement())
+  voterId       Int
+  campaignId    Int
+  supportStatus String   @default("Neutral")
+  notes         String?
+  isVoted       Boolean  @default(false)
+  status        String   @default("Active")
+  mobile        String?
+  updatedByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  voter    Voter    @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([voterId, campaignId])
+}
+
+model Booth {
+  id              Int      @id @default(autoincrement())
+  number          Int
+  name            String?
+  area            String?
+  totalVoters     Int      @default(0)
+  coveragePercent Int      @default(0)
+  status          String   @default("Medium")
+  inchargeName    String?
+  inchargeMobile  String?
+  historicalResults String? // JSON string for parties and votes
+  casteEquation    String? // JSON string for castes and counts
+  assemblyId      Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  assembly        Assembly @relation(fields: [assemblyId], references: [id])
+  workers         Worker[]
+
+  @@unique([number, assemblyId])
+}
+
+model Worker {
+  id               Int      @id @default(autoincrement())
+  name             String
+  mobile           String?  @unique
+  type             String   @default("FIELD")
+  userId           Int?     @unique
+  boothId          Int?
+  housesCovered    Int      @default(0)
+  attendanceRate   Int      @default(0)
+  performanceScore Int      @default(0)
+  assemblyId       Int
+  campaignId       Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime? // Soft delete - worker data preserved
+  tasks            Task[]
+  assignedVoters   Voter[]  @relation("PannaPramukhVoters")
+  assembly         Assembly @relation(fields: [assemblyId], references: [id])
+  campaign         Campaign? @relation(fields: [campaignId], references: [id])
+  booth            Booth?   @relation(fields: [boothId], references: [id])
+  user             User?    @relation(fields: [userId], references: [id])
+  workerJanSamparks WorkerJanSampark[]
+  socialTasks      WorkerSocialTask[]
+
+  @@index([assemblyId])
+}
+
+model Task {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  status      String    @default("Pending")
+  priority    String    @default("Medium")
+  dueDate     DateTime?
+  workerId    Int
+  assemblyId  Int
+  report      String?
+  mediaUrls   String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  assembly    Assembly  @relation(fields: [assemblyId], references: [id])
+  worker      Worker    @relation(fields: [workerId], references: [id])
+
+  @@index([workerId])
+  @@index([assemblyId])
+}
+
+model Issue {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  category    String?
+  priority    String   @default("Medium")
+  status      String   @default("Open")
+  boothNumber Int?
+  reportedBy  String?
+  daysPending Int      @default(0)
+  assemblyId  Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedByName String?  // Name of the person who last edited
+  area        String?
+  mediaUrls   String?
+  videoUrl    String?
+  village     String?
+  assembly    Assembly @relation(fields: [assemblyId], references: [id])
+
+  @@index([assemblyId])
+}
+
+model SocialPost {
+  id              Int       @id @default(autoincrement())
+  content         String
+  imageUrl        String?
+  status          String    @default("Draft")
+  postType        String    @default("Post") // Post, Media
+  platform        String?
+  assemblyId      Int
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  publishedAt     DateTime?
+  eventName       String?
+  importantPeople String?
+  location        String?
+  mediaUrls       String?
+  videoUrl        String?
+  liveLink        String?
+  externalId      String?
+  assembly        Assembly  @relation(fields: [assemblyId], references: [id])
+
+  @@index([assemblyId])
+  @@index([status])
+  @@index([postType])
+}
+
+model ImportJob {
+  id            Int       @id @default(autoincrement())
+  fileName      String
+  filePath      String
+  status        String    @default("PENDING")
+  progress      Int       @default(0)
+  assemblyId    Int
+  boothNumber   Int?
+  boothName     String?
+  commonAddress String?
+  expectedCount Int?
+  startPage     Int?
+  endPage       Int?
+  totalVoters   Int       @default(0)
+  errorMessage  String?
+  logs          String?
+  addedAt       DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  completedAt   DateTime?
+  assembly      Assembly  @relation(fields: [assemblyId], references: [id])
+  voters        Voter[]
+}
+
+model WorkerJanSampark {
+  id             Int      @id @default(autoincrement())
+  personName     String
+  mobile         String?
+  village        String?
+  description    String?
+  imageUrl       String?
+  atmosphere     String?  @default("Neutral")
+  workerId       Int
+  assemblyId     Int
+  voterId        Int?     // Optional link to voter
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  worker         Worker   @relation(fields: [workerId], references: [id])
+  assembly       Assembly @relation(fields: [assemblyId], references: [id])
+}
+
+model Party {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  color     String   @default("#1E3A8A")
+  logo      String?
+  createdAt DateTime @default(now())
+}
+
+model ElectionHistory {
+  id            Int      @id @default(autoincrement())
+  year          Int      // Election year (e.g., 2022, 2017)
+  candidateName String
+  partyName     String
+  votesReceived Int
+  votePercentage Float?
+  totalVotes    Int?     // Total votes polled in that election
+  result        String?  // "WON" or "LOST"
+  margin        Int?     // Victory/defeat margin
+  assemblyId    Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  assembly      Assembly @relation(fields: [assemblyId], references: [id])
+
+  @@index([assemblyId])
+  @@index([year])
+}
+
+// ==================== SOCIAL MEDIA WORKFLOW MODELS ====================
+
+// 1. Candidate Post Request
+model CandidatePostRequest {
+  id              Int      @id @default(autoincrement())
+  subject         String   // विषय
+  location        String   // स्थान
+  importantPeople String?  // JSON array of names
+  description     String?
+  photoUrls       String?  // JSON array
+  videoUrls       String?  // JSON array
+  postType        String   @default("Post") // Post, Media
+  
+  status          String   @default("PENDING") // PENDING, ACCEPTED, PUBLISHED
+  
+  // After Social Media Team posts
+  facebookUrl     String?
+  twitterUrl      String?
+  instagramUrl    String?
+  whatsappUrl     String?
+  publishedAt     DateTime?
+  
+  assemblyId      Int
+  createdBy       Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  acceptedAt      DateTime?
+  acceptedBy      Int?
+  
+  assembly        Assembly @relation(fields: [assemblyId], references: [id])
+  creator         User     @relation("CandidatePostRequests", fields: [createdBy], references: [id])
+  acceptor        User?    @relation("AcceptedPostRequests", fields: [acceptedBy], references: [id])
+  workerTasks     WorkerSocialTask[]
+  
+  @@index([assemblyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// 2. Social Media Approval (Team → Candidate)
+model SocialMediaApproval {
+  id              Int      @id @default(autoincrement())
+  title           String
+  contentType     String   // "PHOTO", "VIDEO"
+  mediaUrls       String   // JSON array
+  notes           String?
+  
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  assemblyId      Int
+  createdBy       Int
+  approvedBy      Int?
+  createdAt       DateTime @default(now())
+  approvedAt      DateTime?
+  rejectionReason String?
+  
+  postedUrls      String?  // JSON after posting
+  postedAt        DateTime?
+  
+  assembly        Assembly @relation(fields: [assemblyId], references: [id])
+  creator         User     @relation("CreatedApprovals", fields: [createdBy], references: [id])
+  approver        User?    @relation("ApprovedContent", fields: [approvedBy], references: [id])
+  
+  @@index([assemblyId])
+  @@index([status])
+}
+
+// 3. Campaign Material (Photos/Videos by Social Media Team)
+model CampaignMaterial {
+  id              Int      @id @default(autoincrement())
+  title           String
+  description     String?
+  materialType    String   // "PHOTO", "VIDEO", "GRAPHIC"
+  fileUrls        String   // JSON array
+  
+  platform        String   @default("ALL") // "WHATSAPP", "FACEBOOK", "INSTAGRAM", "ALL"
+  expiresAt       DateTime?
+  
+  assemblyId      Int
+  createdBy       Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  assembly        Assembly @relation(fields: [assemblyId], references: [id])
+  creator         User     @relation("CampaignMaterials", fields: [createdBy], references: [id])
+  workerTasks     WorkerSocialTask[]
+  
+  @@index([assemblyId])
+  @@index([createdAt])
+}
+
+// 4. Worker Social Media Tasks
+model WorkerSocialTask {
+  id                   Int      @id @default(autoincrement())
+  taskType             String   // "POST_ENGAGEMENT", "MATERIAL_SHARE"
+  
+  postRequestId        Int?
+  campaignMaterialId   Int?
+  
+  workerId             Int
+  assemblyId           Int
+  
+  dueDate              DateTime // 24 hours from creation
+  
+  // POST_ENGAGEMENT tracking
+  liked                Boolean  @default(false)
+  likedAt              DateTime?
+  shared               Boolean  @default(false)
+  sharedAt             DateTime?
+  commented            Boolean  @default(false)
+  commentedAt          DateTime?
+  
+  // MATERIAL_SHARE tracking
+  sharedOnWhatsapp     Boolean  @default(false)
+  sharedOnFacebook     Boolean  @default(false)
+  sharedOnInstagram    Boolean  @default(false)
+  
+  status               String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, OVERDUE
+  completedAt          DateTime?
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  worker               Worker   @relation(fields: [workerId], references: [id])
+  assembly             Assembly @relation(fields: [assemblyId], references: [id])
+  postRequest          CandidatePostRequest? @relation(fields: [postRequestId], references: [id])
+  campaignMaterial     CampaignMaterial?     @relation(fields: [campaignMaterialId], references: [id])
+  proofs               WorkerSocialTaskProof[]
+  
+  @@index([workerId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// 5. Task Proof Screenshots (Auto-delete after 3 days)
+model WorkerSocialTaskProof {
+  id              Int      @id @default(autoincrement())
+  taskId          Int
+  proofType       String   // "LIKE", "SHARE", "COMMENT", "WHATSAPP_SHARE"
+  screenshotUrl   String
+  
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime // Auto-delete after 3 days
+  
+  task            WorkerSocialTask @relation(fields: [taskId], references: [id])
+  
+  @@index([taskId])
+  @@index([expiresAt])
+}
+
+// 6. Social Media Session Syncing (For Desktop App)
+model SocialSession {
+  id              Int      @id @default(autoincrement())
+  platform        String   // "FACEBOOK", "INSTAGRAM", "TWITTER"
+  candidateId     Int
+  sessionData     String   // Encrypted JSON blob of cookies/tokens
+  
+  updatedBy       Int?     // User ID who last updated the session
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  
+  assembly        Assembly @relation(fields: [candidateId], references: [id])
+  
+  @@unique([platform, candidateId])
+  @@index([platform, candidateId])
+}
+
+// Junction table for Many-to-Many relationship between Users and Assemblies
+// This allows shared teams (like Social Media) to be assigned to multiple candidates
+model UserAssemblyAssignment {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  assemblyId  Int
+  role        String   // Which role/capacity: "SOCIAL_MEDIA", "WORKER", etc.
+  assignedAt  DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assembly    Assembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, assemblyId, role])
+  @@index([userId])
+  @@index([assemblyId])
+  @@index([role])
+}
