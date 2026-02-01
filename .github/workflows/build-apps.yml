@@ -16,7 +16,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
+      - name: Ensure Directories
+        run: |
+          mkdir out -ErrorAction SilentlyContinue
+          echo "<html><body>Voteraction Wrapper</body></html>" > out/index.html
       - name: Build Next.js
         run: npm run build
       - name: Build Electron App
@@ -39,7 +43,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -47,6 +51,10 @@ jobs:
           java-version: '17'
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+      - name: Ensure Directories
+        run: |
+          mkdir -p out
+          echo "<html><body>Voteraction Wrapper</body></html>" > out/index.html
       - name: Build Next.js
         run: npm run build
       - name: Capacitor Sync
