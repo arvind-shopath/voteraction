@@ -152,8 +152,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ paddingBottom: '100px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+    <div className="overflow-x-hidden" style={{ paddingBottom: '100px' }}>
+      <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#1E293B' }}>
             {isGlobalDisplay ? t.adminView : (selectedAssemblyId ? assemblies.find(a => a.id === selectedAssemblyId)?.name + ' ' + t.workspace : t.workspace)}
@@ -164,7 +164,7 @@ export default function Dashboard() {
         </div>
 
         {canSwitch && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'white', padding: '8px 16px', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+          <div className="mobile-full-width" style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'white', padding: '8px 16px', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
             <Filter size={16} color="#64748B" />
             <select
               value={selectedAssemblyId || ''}
@@ -184,7 +184,7 @@ export default function Dashboard() {
                   }
                 }
               }}
-              style={{ border: 'none', outline: 'none', fontWeight: '700', fontSize: '14px', color: '#1E293B', cursor: 'pointer' }}
+              style={{ border: 'none', outline: 'none', fontWeight: '700', fontSize: '14px', color: '#1E293B', cursor: 'pointer', maxWidth: '150px' }}
             >
               <option value="">{lang === 'hi' ? 'सीट चुनें' : 'Select Assembly'}</option>
               {assemblies.map((a: any, idx: number) => (
@@ -198,7 +198,7 @@ export default function Dashboard() {
                   const id = Number(e.target.value);
                   setSelectedCampaignId(id || null);
                 }}
-                style={{ border: 'none', outline: 'none', fontWeight: '700', fontSize: '14px', color: '#1E293B', cursor: 'pointer', marginLeft: '8px' }}
+                style={{ border: 'none', outline: 'none', fontWeight: '700', fontSize: '14px', color: '#1E293B', cursor: 'pointer', marginLeft: '8px', maxWidth: '150px' }}
               >
                 <option value="">{lang === 'hi' ? 'अभियान चुनें (सभी)' : 'Select Campaign (All)'}</option>
                 {assemblies.find(a => a.id === selectedAssemblyId)?.campaigns?.map((c: any) => (

@@ -304,8 +304,8 @@ export default function VotersPage() {
     const isGroundWorker = ['WORKER', 'BOOTH_MANAGER', 'PANNA_PRAMUKH', 'FIELD'].includes(effectiveRole || '');
 
     return (
-        <div style={{ paddingBottom: '40px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div className="overflow-x-hidden" style={{ paddingBottom: '40px' }}>
+            <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                     <h1 style={{ fontSize: '24px', fontWeight: '800' }}>
                         {isPannaPramukh ? (filters.pannaOnly ? 'आपका पन्ना (Assigned Voters)' : 'मेरे बूथ के मतदाता') : isFieldWorker ? 'पूरी विधानसभा की मतदाता सूची' : isGroundWorker ? 'बूथ की मतदाता सूची' : 'मतदाता सूची और परिवार प्रबंधन'}
@@ -320,7 +320,7 @@ export default function VotersPage() {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="mobile-full-width" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     {isPannaPramukh && (
                         <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '10px', height: 'fit-content' }}>
                             <button
@@ -335,10 +335,10 @@ export default function VotersPage() {
                             </button>
                         </div>
                     )}
-                    <button onClick={handleExport} style={{ padding: '8px 16px', background: 'white', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>
+                    <button className="mobile-full-width" onClick={handleExport} style={{ padding: '8px 16px', background: 'white', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
                         डाटा एक्सपोर्ट (Excel)
                     </button>
-                    <button onClick={() => setViewVoter({ id: 0, name: '', epic: '', assemblyId: filters.assemblyId || 0, family: [] })} style={{ padding: '8px 16px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '700' }}>
+                    <button className="mobile-full-width" onClick={() => setViewVoter({ id: 0, name: '', epic: '', assemblyId: filters.assemblyId || 0, family: [] })} style={{ padding: '8px 16px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}>
                         + नया मतदाता
                     </button>
                 </div>
@@ -455,8 +455,8 @@ export default function VotersPage() {
                                 </select>
                                 <ChevronDown size={18} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748B', pointerEvents: 'none' }} />
                             </div>
-                            <div style={{ flex: '0 0 auto' }}>
-                                <button className="filter-btn-mobile" onClick={fetchVoters} style={{ padding: '12px 24px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
+                            <div className="mobile-full-width" style={{ flex: '0 0 auto' }}>
+                                <button className="mobile-full-width" onClick={fetchVoters} style={{ padding: '12px 24px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' }}>
                                     डेटा दिखाएँ
                                 </button>
                             </div>

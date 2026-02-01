@@ -126,25 +126,26 @@ export default function BoothsPage() {
     }
 
     return (
-        <div style={{ paddingBottom: '60px' }}>
+        <div className="overflow-x-hidden" style={{ paddingBottom: '60px' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                     <h1 style={{ fontSize: '24px', fontWeight: '900' }}>बूथ प्रबंधन (Booth Management)</h1>
                     <p style={{ color: '#64748B', fontSize: '14px', marginTop: '4px' }}>कुल {booths.length} में से {filteredBooths.length} बूथ दिखाई दे रहे हैं</p>
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }} className="mobile-full-width">
                     <button
+                        className="mobile-full-width"
                         onClick={handleOpenAdd}
-                        style={{ padding: '10px 20px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        style={{ padding: '10px 20px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
                         <Plus size={18} /> नया बूथ जोड़ें
                     </button>
-                    <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }}>
-                        <button onClick={() => setView('grid')} style={{ padding: '8px 12px', background: view === 'grid' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: view === 'grid' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>
+                    <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }} className="mobile-full-width">
+                        <button onClick={() => setView('grid')} style={{ flex: 1, padding: '8px 12px', background: view === 'grid' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: view === 'grid' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <LayoutGrid size={18} />
                         </button>
-                        <button onClick={() => setView('list')} style={{ padding: '8px 12px', background: view === 'list' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: view === 'list' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>
+                        <button onClick={() => setView('list')} style={{ flex: 1, padding: '8px 12px', background: view === 'list' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: view === 'list' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <List size={18} />
                         </button>
                     </div>
@@ -153,7 +154,7 @@ export default function BoothsPage() {
 
             {/* Search and Filters Bar */}
             <div className="card" style={{ padding: '20px', borderRadius: '20px', background: 'white', marginBottom: '32px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-                <div style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
+                <div className="mobile-full-width" style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
                     <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
                     <input
                         type="text"
@@ -164,10 +165,10 @@ export default function BoothsPage() {
                     />
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }} className="mobile-full-width">
+                    <div className="mobile-full-width" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
                         <TrendingUp size={16} color="#64748B" />
-                        <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} style={{ border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '700', outline: 'none' }}>
+                        <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '700', outline: 'none' }}>
                             <option value="All">सभी स्थिति</option>
                             <option value="Strong">मजबूत (Favor)</option>
                             <option value="Medium">औसत (Neutral)</option>
@@ -175,17 +176,17 @@ export default function BoothsPage() {
                         </select>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+                    <div className="mobile-full-width" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
                         <Users size={16} color="#64748B" />
-                        <select value={filters.caste} onChange={e => setFilters({ ...filters, caste: e.target.value })} style={{ border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '700', outline: 'none' }}>
+                        <select value={filters.caste} onChange={e => setFilters({ ...filters, caste: e.target.value })} style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '700', outline: 'none' }}>
                             <option value="All">सभी जातियां</option>
                             {uniqueCastes.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+                    <div className="mobile-full-width" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
                         <User size={16} color="#64748B" />
-                        <select value={filters.assignment} onChange={e => setFilters({ ...filters, assignment: e.target.value })} style={{ border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '700', outline: 'none' }}>
+                        <select value={filters.assignment} onChange={e => setFilters({ ...filters, assignment: e.target.value })} style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '700', outline: 'none' }}>
                             <option value="All">मैनेजर स्थिति</option>
                             <option value="Assigned">मैनेजर नियुक्त</option>
                             <option value="Unassigned">बिना मैनेजर</option>
@@ -196,7 +197,7 @@ export default function BoothsPage() {
 
             {/* Content View */}
             {view === 'grid' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
                     {filteredBooths.map((booth) => (
                         <div key={booth.id} className="card" style={{
                             padding: '24px',
@@ -264,60 +265,62 @@ export default function BoothsPage() {
                 </div>
             ) : (
                 <div className="card" style={{ background: 'white', borderRadius: '24px', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', textAlign: 'left' }}>
-                                <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>बूथ नं.</th>
-                                <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>बूथ का नाम / क्षेत्र</th>
-                                <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>स्थिति (Support)</th>
-                                <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>प्रमुख जाति</th>
-                                <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>मतदाता</th>
-                                <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>मैनेजर</th>
-                                <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B', textAlign: 'right' }}>एक्शन</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredBooths.map((booth) => (
-                                <tr key={booth.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                                    <td style={{ padding: '20px', fontWeight: '900', fontSize: '16px', color: '#1E293B' }}>{booth.number}</td>
-                                    <td style={{ padding: '20px' }}>
-                                        <div style={{ fontWeight: '800', color: '#1E293B' }}>{booth.name || '-'}</div>
-                                        <div style={{ fontSize: '12px', color: '#94A3B8' }}>{booth.area || '-'}</div>
-                                    </td>
-                                    <td style={{ padding: '20px' }}>
-                                        <span style={{
-                                            padding: '4px 12px',
-                                            borderRadius: '8px',
-                                            fontSize: '12px',
-                                            fontWeight: '800',
-                                            background: booth.status === 'Strong' ? '#D1FAE5' : booth.status === 'Medium' ? '#FEF3C7' : '#FEE2E2',
-                                            color: booth.status === 'Strong' ? '#065F46' : booth.status === 'Medium' ? '#92400E' : '#B91C1C'
-                                        }}>
-                                            {booth.status === 'Strong' ? 'मजबूत' : booth.status === 'Medium' ? 'औसत' : 'कमजोर'}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '20px', fontWeight: '700', color: '#475569' }}>{booth.dominantCaste}</td>
-                                    <td style={{ padding: '20px', fontWeight: '700' }}>{booth.totalVoters}</td>
-                                    <td style={{ padding: '20px' }}>
-                                        {booth.isAssigned ? (
-                                            <span style={{ color: '#10B981', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <CheckCircle2 size={16} /> नियुक्त
-                                            </span>
-                                        ) : (
-                                            <span style={{ color: '#EF4444', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <AlertCircle size={16} /> पेंडिंग
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '20px', textAlign: 'right' }}>
-                                        <button onClick={() => handleEdit(booth)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '10px', padding: '8px', cursor: 'pointer', color: '#64748B' }}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                        </button>
-                                    </td>
+                    <div className="responsive-table-wrapper">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+                            <thead>
+                                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', textAlign: 'left' }}>
+                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>बूथ नं.</th>
+                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>बूथ का नाम / क्षेत्र</th>
+                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>स्थिति (Support)</th>
+                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>प्रमुख जाति</th>
+                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>मतदाता</th>
+                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>मैनेजर</th>
+                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B', textAlign: 'right' }}>एक्शन</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {filteredBooths.map((booth) => (
+                                    <tr key={booth.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                                        <td style={{ padding: '20px', fontWeight: '900', fontSize: '16px', color: '#1E293B' }}>{booth.number}</td>
+                                        <td style={{ padding: '20px' }}>
+                                            <div style={{ fontWeight: '800', color: '#1E293B' }}>{booth.name || '-'}</div>
+                                            <div style={{ fontSize: '12px', color: '#94A3B8' }}>{booth.area || '-'}</div>
+                                        </td>
+                                        <td style={{ padding: '20px' }}>
+                                            <span style={{
+                                                padding: '4px 12px',
+                                                borderRadius: '8px',
+                                                fontSize: '12px',
+                                                fontWeight: '800',
+                                                background: booth.status === 'Strong' ? '#D1FAE5' : booth.status === 'Medium' ? '#FEF3C7' : '#FEE2E2',
+                                                color: booth.status === 'Strong' ? '#065F46' : booth.status === 'Medium' ? '#92400E' : '#B91C1C'
+                                            }}>
+                                                {booth.status === 'Strong' ? 'मजबूत' : booth.status === 'Medium' ? 'औसत' : 'कमजोर'}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '20px', fontWeight: '700', color: '#475569' }}>{booth.dominantCaste}</td>
+                                        <td style={{ padding: '20px', fontWeight: '700' }}>{booth.totalVoters}</td>
+                                        <td style={{ padding: '20px' }}>
+                                            {booth.isAssigned ? (
+                                                <span style={{ color: '#10B981', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <CheckCircle2 size={16} /> नियुक्त
+                                                </span>
+                                            ) : (
+                                                <span style={{ color: '#EF4444', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <AlertCircle size={16} /> पेंडिंग
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '20px', textAlign: 'right' }}>
+                                            <button onClick={() => handleEdit(booth)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '10px', padding: '8px', cursor: 'pointer', color: '#64748B' }}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 

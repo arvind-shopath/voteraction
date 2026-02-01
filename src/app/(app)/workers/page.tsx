@@ -264,9 +264,9 @@ export default function WorkersPage() {
     }
 
     return (
-        <div style={{ paddingBottom: '80px' }}>
+        <div className="overflow-x-hidden" style={{ paddingBottom: '80px' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
+            <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
                 <div>
                     <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#1E293B' }}>कार्यकर्ता एवं टीम मैनेजमेंट</h1>
                     <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
@@ -281,21 +281,21 @@ export default function WorkersPage() {
                         </div>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', marginRight: '8px' }}>
-                        <button onClick={() => setViewMode('grid')} style={{ padding: '8px 12px', background: viewMode === 'grid' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: viewMode === 'grid' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="mobile-full-width" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div className="mobile-full-width" style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }}>
+                        <button className="mobile-full-width" onClick={() => setViewMode('grid')} style={{ flex: 1, padding: '8px 12px', background: viewMode === 'grid' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: viewMode === 'grid' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             <LayoutList size={16} /> <span style={{ fontSize: '13px', fontWeight: '700' }}>Grid</span>
                         </button>
-                        <button onClick={() => setViewMode('hierarchy')} style={{ padding: '8px 12px', background: viewMode === 'hierarchy' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: viewMode === 'hierarchy' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button className="mobile-full-width" onClick={() => setViewMode('hierarchy')} style={{ flex: 1, padding: '8px 12px', background: viewMode === 'hierarchy' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: viewMode === 'hierarchy' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             <Network size={16} /> <span style={{ fontSize: '13px', fontWeight: '700' }}>Hierarchy</span>
                         </button>
                     </div>
                     {viewMode === 'grid' && (
-                        <div style={{ position: 'relative' }}>
+                        <div className="mobile-full-width" style={{ position: 'relative' }}>
                             <select
                                 value={filterType}
                                 onChange={(e) => setFilterType(e.target.value)}
-                                style={{ padding: '12px 16px', paddingRight: '40px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', fontWeight: '700', appearance: 'none', cursor: 'pointer' }}
+                                style={{ width: '100%', padding: '12px 16px', paddingRight: '40px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', fontWeight: '700', appearance: 'none', cursor: 'pointer' }}
                             >
                                 <option value="ALL">सभी कार्यकर्ता</option>
                                 <option value="FIELD">ग्राउंड कार्यकर्ता</option>
@@ -306,7 +306,7 @@ export default function WorkersPage() {
                             <Filter size={16} style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', color: '#64748B', pointerEvents: 'none' }} />
                         </div>
                     )}
-                    <button onClick={() => setShowAdd(true)} style={{ padding: '12px 24px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <button className="mobile-full-width" onClick={() => setShowAdd(true)} style={{ padding: '12px 24px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                         <UserPlus size={18} /> नया सदस्य
                     </button>
                 </div>
@@ -338,7 +338,7 @@ export default function WorkersPage() {
                         </div>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
                         {filteredWorkers.map((worker: any) => (
                             <div key={worker.id} className="card" style={{
                                 position: 'relative', overflow: 'hidden', borderRadius: '24px', border: '1px solid #E2E8F0',

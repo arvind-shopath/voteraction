@@ -463,3 +463,101 @@ export async function getAssemblyInfo(assemblyId: number) {
         where: { id: assemblyId }
     });
 }
+
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
+
+const execAsync = promisify(exec);
+
+export async function syncGitHubApps() {
+    const session = await auth();
+    const currentUser = session?.user as any;
+
+    if (currentUser?.role !== 'SUPERADMIN') {
+        throw new Error("Only Super Admin can sync apps.");
+    }
+
+    const token = process.env.GITHUB_ACCESS_TOKEN;
+    const repo = "arvind-shopath/voteraction";
+    const appsDir = path.join(process.cwd(), 'public', 'apps');
+
+    if (!token) throw new Error("GitHub token not configured.");
+
+    try {
+        // 1. Get latest artifacts list
+        const res = await fetch(`https://api.github.com/repos/${repo}/actions/artifacts`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28'
+            }
+        });
+
+        if (!res.ok) throw new Error(`GitHub API Error: ${res.statusText}`);
+        const data = await res.json();
+        const artifacts = data.artifacts || [];
+
+        const androidArtifact = artifacts.find((a: any) => a.name === "Voteraction-Android");
+        const windowsArtifact = artifacts.find((a: any) => a.name === "Voteraction-Windows");
+
+        if (!androidArtifact && !windowsArtifact) {
+            throw new Error("No Voteraction app artifacts found on GitHub. Please check if the build has finished.");
+        }
+
+        const stats: any = {};
+
+        // 2. Download and Unzip Function
+        async function downloadAndExtract(artifact: any, targetFileName: string) {
+            const artifactRes = await fetch(artifact.archive_download_url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!artifactRes.ok) throw new Error(`Failed to download ${artifact.name}`);
+
+            const buffer = await artifactRes.arrayBuffer();
+            const tempZip = path.join(appsDir, `${artifact.name}.zip`);
+
+            if (!fs.existsSync(appsDir)) fs.mkdirSync(appsDir, { recursive: true });
+
+            fs.writeFileSync(tempZip, Buffer.from(buffer));
+
+            // Extract using CLI unzip
+            await execAsync(`unzip -o ${tempZip} -d ${appsDir}`);
+
+            // Cleanup zip
+            fs.unlinkSync(tempZip);
+
+            // Move/Rename file if needed (e.g., app-debug.apk -> voteraction.apk)
+            // Note: unzip puts the files in the directory. We might need to find the .apk/.exe specifically.
+            const files = fs.readdirSync(appsDir);
+            const extractedFile = files.find(f =>
+                (artifact.name.includes('Android') && f.endsWith('.apk')) ||
+                (artifact.name.includes('Windows') && f.endsWith('.exe'))
+            );
+
+            if (extractedFile) {
+                const finalPath = path.join(appsDir, targetFileName);
+                // Ensure no permission issues
+                fs.renameSync(path.join(appsDir, extractedFile), finalPath);
+                fs.chmodSync(finalPath, 0o644);
+                return true;
+            }
+            return false;
+        }
+
+        if (androidArtifact) {
+            stats.android = await downloadAndExtract(androidArtifact, 'creatiav.apk');
+        }
+        if (windowsArtifact) {
+            stats.windows = await downloadAndExtract(windowsArtifact, 'creatiav_setup.exe');
+        }
+
+        revalidatePath('/apps');
+        return { success: true, stats };
+    } catch (error: any) {
+        console.error("Sync Error:", error);
+        throw new Error(error.message || "Failed to sync apps from GitHub.");
+    }
+}

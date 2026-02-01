@@ -92,16 +92,17 @@ function AdminCandidateView() {
     const pastRoutes = routes.filter(r => new Date(r.date) < new Date(new Date().setHours(0, 0, 0, 0)));
 
     return (
-        <div style={{ padding: '30px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif', paddingBottom: '100px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div className="overflow-x-hidden" style={{ padding: '20px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif', paddingBottom: '100px' }}>
+            <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                 <div>
-                    <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', letterSpacing: '-0.5px' }}>Candidate Management</h1>
+                    <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#111827', letterSpacing: '-0.5px' }}>Candidate Management</h1>
                     <p style={{ color: '#6B7280', fontWeight: '500', marginTop: '4px' }}>Manage daily routes and status</p>
                 </div>
                 {!showCreate && (
                     <button
+                        className="mobile-full-width"
                         onClick={() => { setEditId(null); setDate(''); setVisits([{ village: '', time: '', atmosphere: 'Neutral' }]); setShowCreate(true); }}
-                        style={{ background: '#2563EB', color: 'white', padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
+                        style={{ background: '#2563EB', color: 'white', padding: '12px 24px', borderRadius: '12px', border: 'none', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
                     >
                         <Plus size={20} /> New Route
                     </button>
@@ -191,8 +192,8 @@ function VisitRow({ visit, onChange, onRemove, showRemove }: any) {
     ];
 
     return (
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: '#F9FAFB', padding: '16px', borderRadius: '16px', border: '1px solid #F3F4F6' }}>
-            <div style={{ flex: 1 }}>
+        <div className="mobile-stack" style={{ display: 'flex', gap: '16px', alignItems: 'center', background: '#F9FAFB', padding: '16px', borderRadius: '16px', border: '1px solid #F3F4F6' }}>
+            <div className="mobile-full-width" style={{ flex: 1 }}>
                 <input
                     placeholder="Village Name"
                     value={visit.village}
@@ -200,7 +201,7 @@ function VisitRow({ visit, onChange, onRemove, showRemove }: any) {
                     style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #D1D5DB', fontWeight: '600' }}
                 />
             </div>
-            <div style={{ width: '120px' }}>
+            <div className="mobile-full-width" style={{ width: '120px' }}>
                 <input
                     placeholder="Time"
                     value={visit.time}
@@ -229,7 +230,7 @@ function VisitRow({ visit, onChange, onRemove, showRemove }: any) {
             </div>
 
             {showRemove && (
-                <button onClick={onRemove} style={{ padding: '8px', color: '#9CA3AF', cursor: 'pointer', border: 'none', background: 'none', marginLeft: '8px' }}>
+                <button className="mobile-hide" onClick={onRemove} style={{ padding: '8px', color: '#9CA3AF', cursor: 'pointer', border: 'none', background: 'none', marginLeft: '8px' }}>
                     <X size={20} />
                 </button>
             )}
@@ -356,7 +357,7 @@ function BoothManagerView() {
     const historyRoutes = routes.filter(r => new Date(r.date) < new Date() && new Date(r.date).toISOString().split('T')[0] !== todayStr);
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px', fontFamily: 'system-ui, sans-serif' }}>
+        <div className="overflow-x-hidden" style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px', paddingBottom: '80px', fontFamily: 'system-ui, sans-serif' }}>
             <div style={{ marginBottom: '32px' }}>
                 <h1 style={{ fontSize: '24px', fontWeight: '900', color: '#111827', marginBottom: '8px' }}>जनसंपर्क (Public Relations)</h1>
             </div>
@@ -416,14 +417,12 @@ function BoothManagerView() {
                         <input
                             placeholder="voter name, father name or mobile..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: '16px', border: '2px solid #E2E8F0', fontSize: '16px', fontWeight: '600' }}
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                         {voters.length === 0 && searchTerm.length > 2 && (
-                            <div style={{ textAlign: 'center', padding: '40px', background: '#F8FAFC', borderRadius: '16px', border: '1px dashed #CBD5E1' }}>
+                            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', background: '#F8FAFC', borderRadius: '16px', border: '1px dashed #CBD5E1' }}>
                                 <p style={{ color: '#64748B', fontWeight: '600', marginBottom: '12px' }}>कोई मतदाता नहीं मिला</p>
                                 <button onClick={() => setShowAddVoter(true)} style={{ color: '#2563EB', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}>
                                     + नया मतदाता जोड़ें (Add New)
@@ -558,11 +557,11 @@ function GroundWorkerView() {
         if (!term && !booth) { setVoters([]); return; }
         setSearchLoading(true);
         try {
-            const res = await getVoters({ 
-                search: term, 
+            const res = await getVoters({
+                search: term,
                 booth: booth || undefined,
-                assemblyId, 
-                pageSize: 20 
+                assemblyId,
+                pageSize: 20
             });
             setVoters(res.voters);
         } catch (e) { console.error(e); } finally { setSearchLoading(false); }
@@ -595,22 +594,22 @@ function GroundWorkerView() {
     const upcomingRoutes = routes.filter(r => new Date(r.date) > new Date() && new Date(r.date).toISOString().split('T')[0] !== todayStr);
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '80px', fontFamily: 'system-ui, sans-serif' }}>
+        <div className="overflow-x-hidden" style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px', paddingBottom: '80px', fontFamily: 'system-ui, sans-serif' }}>
             <div style={{ marginBottom: '32px' }}>
                 <h1 style={{ fontSize: '24px', fontWeight: '900', color: '#111827', marginBottom: '8px' }}>ग्राउंड वर्कर जनसंपर्क (PR Entry)</h1>
                 <p style={{ color: '#64748B', fontWeight: '500' }}>बूथ सेलेक्ट करें और मतदाताओं से मुलाकात अपडेट करें</p>
             </div>
 
             <div style={{ display: 'grid', gap: '40px' }}>
-                
+
                 {/* SECTION: BOOTH SELECTION */}
                 <section style={{ background: '#F8FAFC', padding: '24px', borderRadius: '20px', border: '2px solid #E2E8F0' }}>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: '200px' }}>
+                    <div className="mobile-stack" style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <div className="mobile-full-width" style={{ flex: 1, minWidth: '200px' }}>
                             <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#475569', marginBottom: '8px' }}>बूथ का चयन करें (Select Booth)</label>
-                            <div style={{ position: 'relative' }}>
-                                <select 
-                                    value={selectedBooth} 
+                            <div className="mobile-full-width" style={{ position: 'relative' }}>
+                                <select
+                                    value={selectedBooth}
                                     onChange={(e) => {
                                         setSelectedBooth(e.target.value);
                                         setNewVoter(prev => ({ ...prev, boothNumber: e.target.value }));
@@ -625,9 +624,10 @@ function GroundWorkerView() {
                                 <ChevronDown size={20} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748B' }} />
                             </div>
                         </div>
-                        <button 
+                        <button
+                            className="mobile-full-width"
                             onClick={() => setShowAddVoter(true)}
-                            style={{ background: '#10B981', color: 'white', padding: '14px 24px', borderRadius: '12px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            style={{ background: '#10B981', color: 'white', padding: '14px 24px', borderRadius: '12px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                         >
                             <Plus size={20} /> नया मतदाता जोड़ें
                         </button>
@@ -636,7 +636,7 @@ function GroundWorkerView() {
 
                 {/* SECTION: VOTER SEARCH & INTERACTION */}
                 <section>
-                    <div style={{ position: 'relative', marginBottom: '24px' }}>
+                    <div className="mobile-full-width" style={{ position: 'relative', marginBottom: '24px' }}>
                         <Search size={24} color="#94A3B8" style={{ position: 'absolute', left: '16px', top: '16px' }} />
                         <input
                             placeholder="मतदाता का नाम या मोबाइल..."
@@ -647,7 +647,7 @@ function GroundWorkerView() {
                         {searchLoading && <Loader2 className="animate-spin" style={{ position: 'absolute', right: '16px', top: '16px' }} color="#2563EB" />}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                         {voters.length === 0 && (searchTerm || selectedBooth) && !searchLoading && (
                             <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px', background: '#F8FAFC', borderRadius: '24px', border: '2px dashed #E2E8F0' }}>
                                 <p style={{ color: '#64748B', fontWeight: '600' }}>कोई मतदाता नहीं मिला। कृपया सर्च बदलें या बूथ चुनें।</p>
@@ -717,7 +717,7 @@ function GroundWorkerView() {
                                 </select>
                             </div>
                             <input value={newVoter.mobile} onChange={e => setNewVoter({ ...newVoter, mobile: e.target.value })} placeholder="मोबाइल नंबर" style={{ padding: '12px', borderRadius: '10px', border: '1px solid #CBD5E1' }} />
-                            
+
                             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
                                 <button onClick={() => setShowAddVoter(false)} style={{ flex: 1, padding: '14px', borderRadius: '14px', background: '#F1F5F9', fontWeight: '800', color: '#475569', border: 'none', cursor: 'pointer' }}>कैंसिल</button>
                                 <button onClick={handleAddVoter} style={{ flex: 2, padding: '14px', borderRadius: '14px', background: '#2563EB', color: 'white', fontWeight: '800', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.4)' }}>सेव मतदाता</button>

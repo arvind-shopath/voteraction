@@ -4,6 +4,7 @@ import { Tent, Users, Globe, ArrowRight, AlertTriangle, ListTodo, Clock } from '
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { cookies } from 'next/headers';
+import SyncAppsButton from '@/components/SyncAppsButton';
 
 export default async function AdminDashboard() {
     const session = await auth();
@@ -102,6 +103,10 @@ export default async function AdminDashboard() {
                             </div>
                             <ArrowRight size={18} color="#CBD5E1" />
                         </Link>
+
+                        {isSuperAdmin && (
+                            <SyncAppsButton />
+                        )}
                     </div>
                 </div>
 
