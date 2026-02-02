@@ -163,90 +163,64 @@ export async function deleteAssembly(id: number) {
     const session = await auth();
     const role = (session?.user as any)?.role;
 
-    // Allow SUPERADMIN and ADMIN to delete (as requested by user who needs the 'right')
     if (role !== 'SUPERADMIN' && role !== 'ADMIN') {
         throw new Error("Unauthorized: Only Admins can delete assemblies.");
     }
 
     try {
-        await prisma.$transaction(async (tx: any) => {
-            // 1. Delete Indirect Dependent Children
+        const result = await prisma.$transaction(async (tx: any) => {
+            const voterCount = await tx.voter.count({ where: { assemblyId: id } });
+            const preserveData = voterCount > 0;
+            let message = '';
 
-            // Jansampark Visits
+            // Clean up candidate-specific child records
             const routes = await tx.jansamparkRoute.findMany({ where: { assemblyId: id }, select: { id: true } });
             if (routes.length > 0) {
                 await tx.jansamparkVisit.deleteMany({ where: { routeId: { in: routes.map((r: any) => r.id) } } });
             }
-
-            // Worker Social Task Proofs
             const socialTasks = await tx.workerSocialTask.findMany({ where: { assemblyId: id }, select: { id: true } });
             if (socialTasks.length > 0) {
                 await tx.workerSocialTaskProof.deleteMany({ where: { taskId: { in: socialTasks.map((t: any) => t.id) } } });
             }
 
-            // Voter Feedback (Linked to Campaign or Voter, both linked to Assembly)
-            // Safer to delete by Voter IDs or Campaign IDs
-            const campaigns = await tx.campaign.findMany({ where: { assemblyId: id }, select: { id: true } });
-            if (campaigns.length > 0) {
-                await tx.voterFeedback.deleteMany({ where: { campaignId: { in: campaigns.map((c: any) => c.id) } } });
+            // Direct children deletion (operational)
+            const childrenToDelete = [
+                tx.systemLog, tx.userAssemblyAssignment, tx.socialSession, tx.electionHistory,
+                tx.workerSocialTask, tx.campaignMaterial, tx.socialMediaApproval, tx.candidatePostRequest,
+                tx.workerJanSampark, tx.task, tx.jansamparkRoute, tx.publicRelation, tx.socialPost,
+                tx.issue, tx.importJob, tx.worker, tx.campaign, tx.user
+            ];
+            for (const table of childrenToDelete) {
+                await table.deleteMany({ where: { assemblyId: id } });
             }
-            // Also delete by voter if needed, but campaign deletion usually covers feedback in schema logic, 
-            // but here we are manual. 
-            // Let's delete all feedbacks where voter.assemblyId = id
-            // Requires fetch first as deleteMany doesn't support deep relation filter in SQLite sometimes or ensures verify.
-            // Actually, deleting Campaigns covers one leg. Deleting Voters covers the other.
-            // We should delete feedbacks explicitly.
-            // Simplified: Delete based on Campaigns first.
 
-            // 2. Delete Direct Children (Order matters for some)
-            await tx.systemLog.deleteMany({ where: { assemblyId: id } });
-            await tx.userAssemblyAssignment.deleteMany({ where: { assemblyId: id } });
-            await tx.socialSession.deleteMany({ where: { candidateId: id } }); // candidateId references Assembly
-            await tx.electionHistory.deleteMany({ where: { assemblyId: id } });
-            await tx.workerSocialTask.deleteMany({ where: { assemblyId: id } });
-            await tx.campaignMaterial.deleteMany({ where: { assemblyId: id } });
-            await tx.socialMediaApproval.deleteMany({ where: { assemblyId: id } });
-            await tx.candidatePostRequest.deleteMany({ where: { assemblyId: id } });
-            await tx.workerJanSampark.deleteMany({ where: { assemblyId: id } });
-            await tx.task.deleteMany({ where: { assemblyId: id } }); // Worker Tasks
-            await tx.jansamparkRoute.deleteMany({ where: { assemblyId: id } });
-            await tx.publicRelation.deleteMany({ where: { assemblyId: id } });
-            await tx.socialPost.deleteMany({ where: { assemblyId: id } });
-            await tx.issue.deleteMany({ where: { assemblyId: id } });
+            if (preserveData) {
+                await tx.assembly.update({
+                    where: { id },
+                    data: {
+                        candidateName: null, candidateImageUrl: null, party: 'Independent',
+                        campaignTags: null, candidateBusiness: null, importantIssues: null, importantCastes: null
+                    }
+                });
+                message = `Assembly reset: Candidate info removed, ${voterCount} voter records preserved.`;
+            } else {
+                await tx.booth.deleteMany({ where: { assemblyId: id } });
+                await tx.assembly.delete({ where: { id } });
+                message = 'Empty assembly deleted.';
+            }
 
-            // Delete Voters (Big table)
-            await tx.voter.deleteMany({ where: { assemblyId: id } });
-
-            // Delete Import Jobs (must be after voters)
-            await tx.importJob.deleteMany({ where: { assemblyId: id } });
-
-            // Delete Workers
-            // Workers might have relations to Users. 
-            // We delete workers first.
-            await tx.worker.deleteMany({ where: { assemblyId: id } });
-
-            // Delete Booths
-            await tx.booth.deleteMany({ where: { assemblyId: id } });
-
-            // Delete Campaigns
-            await tx.campaign.deleteMany({ where: { assemblyId: id } });
-
-            // Delete Users attached to this assembly
-            await tx.user.deleteMany({ where: { assemblyId: id } });
-
-            // 3. Finally Delete Assembly
-            await tx.assembly.delete({ where: { id } });
+            return { success: true, message, preserved: preserveData };
         });
 
         revalidatePath('/admin');
-        revalidatePath('/admin/assemblies');
-        revalidatePath('/admin/candidates');
-        return { success: true };
+        return result;
     } catch (error: any) {
-        console.error('Delete Assembly Error:', error);
+        console.error('deleteAssembly Error:', error);
         throw new Error(error.message || 'Failed to delete assembly');
     }
 }
+
+
 
 export async function toggleCandidateStatus(assemblyId: number) {
     const session = await auth();
@@ -347,8 +321,27 @@ export async function secureUpdateUserPassword(userId: number, newPassword: stri
 }
 
 export async function deleteUser(id: number) {
-    await prisma.user.delete({ where: { id } });
-    revalidatePath('/admin/users');
+    try {
+        await prisma.$transaction(async (tx: any) => {
+            // Find if user has a worker record
+            const worker = await tx.worker.findUnique({ where: { userId: id } });
+            if (worker) {
+                // Delete worker relations first if any
+                await tx.workerSocialTask.deleteMany({ where: { workerId: worker.id } });
+                await tx.workerJanSampark.deleteMany({ where: { workerId: worker.id } });
+                await tx.task.deleteMany({ where: { workerId: worker.id } });
+                await tx.worker.delete({ where: { id: worker.id } });
+            }
+
+            // Delete user
+            await tx.user.delete({ where: { id } });
+        });
+        revalidatePath('/admin/users');
+        return { success: true };
+    } catch (error: any) {
+        console.error('deleteUser Error:', error);
+        throw new Error(error.message || 'Failed to delete user');
+    }
 }
 
 export async function toggleUserStatus(id: number, currentStatus: string) {
@@ -413,15 +406,40 @@ export async function updateUserName(id: number, name: string) {
 }
 
 export async function assignUserToAssembly(userId: number, assemblyId: number | null) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error("User not found");
+
+    let campaignId = null;
+
+    if (assemblyId && user.role === 'MANAGER') {
+        const existingCampaign = await prisma.campaign.findFirst({
+            where: {
+                assemblyId: assemblyId,
+                name: { contains: user.name || '' }
+            }
+        });
+
+        if (existingCampaign) {
+            campaignId = existingCampaign.id;
+        } else {
+            const newCampaign = await prisma.campaign.create({
+                data: {
+                    name: `${user.name || 'Candidate'} Campaign`,
+                    candidateName: user.name,
+                    assemblyId: assemblyId
+                }
+            });
+            campaignId = newCampaign.id;
+        }
+    }
+
     await prisma.user.update({
         where: { id: userId },
-        data: { assemblyId, campaignId: null } // Reset campaign when assembly changes
+        data: { assemblyId, campaignId }
     });
+
     revalidatePath('/admin/users');
     revalidatePath('/admin/candidates');
-    if (assemblyId) {
-        revalidatePath(`/admin/candidates/${assemblyId}`);
-    }
 }
 
 // Assign entire team (e.g., all Social Media users) to an assembly
@@ -476,11 +494,18 @@ export async function createCampaign(data: { name: string, assemblyId: number, c
 }
 
 export async function assignUserToCampaign(userId: number, campaignId: number | null) {
+    let assemblyId = null;
+    if (campaignId) {
+        const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+        if (campaign) assemblyId = campaign.assemblyId;
+    }
+
     await prisma.user.update({
         where: { id: userId },
-        data: { campaignId }
+        data: { campaignId, assemblyId }
     });
     revalidatePath('/admin/users');
+    revalidatePath('/admin/candidates');
 }
 
 export async function setUserWorkerType(userId: number, workerType: string | null) {

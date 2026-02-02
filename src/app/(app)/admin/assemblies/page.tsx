@@ -441,6 +441,24 @@ export default function AssembliesPage() {
                             <Palette size={14} /> पार्टी: {assembly.party || 'Independent'}
                         </div>
 
+                        {/* Candidates Section */}
+                        <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '12px', marginBottom: '16px', border: '1px solid #F1F5F9' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                <Users size={14} color="#059669" />
+                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B' }}>साझा कैंडिडेट्स:</span>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {assembly.users?.filter((u: any) => u.role === 'MANAGER').map((u: any) => (
+                                    <div key={u.id} style={{ padding: '4px 10px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '11px', fontWeight: '700', color: '#475569' }}>
+                                        {u.name}
+                                    </div>
+                                ))}
+                                {assembly.users?.filter((u: any) => u.role === 'MANAGER').length === 0 && (
+                                    <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>कोई कैंडिडेट नहीं</div>
+                                )}
+                            </div>
+                        </div>
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', borderTop: '1px solid #F1F5F9', paddingTop: '20px' }}>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>मतदाता</div>
@@ -452,7 +470,7 @@ export default function AssembliesPage() {
                             </div>
                             <div style={{ textAlign: 'center', borderLeft: '1px solid #F1F5F9' }}>
                                 <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>कैंडिडेट्स</div>
-                                <div style={{ fontWeight: '800', fontSize: '15px', color: '#059669' }}>{assembly._count?.campaigns || 0}</div>
+                                <div style={{ fontWeight: '800', fontSize: '15px', color: '#059669' }}>{assembly.users?.filter((u: any) => u.role === 'MANAGER').length || 0}</div>
                             </div>
                         </div>
 
@@ -460,7 +478,7 @@ export default function AssembliesPage() {
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <button onClick={() => handleEdit(assembly)} style={{ flex: 1, padding: '10px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '13px', fontWeight: '700', color: '#475569', cursor: 'pointer' }}>एडिट करें</button>
                                 <button onClick={() => openCampaignModal(assembly)} style={{ flex: 1, padding: '10px', background: '#ECFDF5', border: '1px solid #059669', color: '#059669', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                    <Users size={14} /> कैंडिडेट्स ({assembly._count?.campaigns || 0})
+                                    <Users size={14} /> अभियान ({assembly._count?.campaigns || 0})
                                 </button>
                             </div>
                             <button onClick={() => handleViewData(assembly.id)} style={{ width: '100%', padding: '12px', background: 'white', border: '1px solid #2563EB', color: '#2563EB', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>वोटर डेटा देखें</button>
