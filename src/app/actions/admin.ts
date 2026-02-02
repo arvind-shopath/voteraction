@@ -548,10 +548,10 @@ export async function syncGitHubApps() {
         }
 
         if (androidArtifact) {
-            stats.android = await downloadAndExtract(androidArtifact, 'creatiav.apk');
+            stats.android = await downloadAndExtract(androidArtifact, 'voteraction.apk');
         }
         if (windowsArtifact) {
-            stats.windows = await downloadAndExtract(windowsArtifact, 'creatiav_setup.exe');
+            stats.windows = await downloadAndExtract(windowsArtifact, 'voteraction_setup.exe');
         }
 
         revalidatePath('/apps');
