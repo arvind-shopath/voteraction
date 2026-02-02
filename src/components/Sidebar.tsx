@@ -193,7 +193,11 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 </div>
                 <style jsx>{`
                     @media (max-width: 768px) {
-                        .mobile-close-btn { display: block !important; }
+                        .mobile-close-btn { 
+                            display: block !important; 
+                            z-index: 10000;
+                            cursor: pointer;
+                        }
                     }
                 `}</style>
 
