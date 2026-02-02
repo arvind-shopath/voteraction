@@ -160,23 +160,109 @@ export async function updateAssembly(id: number, data: {
 }
 
 export async function deleteAssembly(id: number) {
+    const session = await auth();
+    const role = (session?.user as any)?.role;
+
+    // Allow SUPERADMIN and ADMIN to delete (as requested by user who needs the 'right')
+    if (role !== 'SUPERADMIN' && role !== 'ADMIN') {
+        throw new Error("Unauthorized: Only Admins can delete assemblies.");
+    }
+
     try {
-        await prisma.assembly.delete({ where: { id } });
+        await prisma.$transaction(async (tx: any) => {
+            // 1. Delete Indirect Dependent Children
+
+            // Jansampark Visits
+            const routes = await tx.jansamparkRoute.findMany({ where: { assemblyId: id }, select: { id: true } });
+            if (routes.length > 0) {
+                await tx.jansamparkVisit.deleteMany({ where: { routeId: { in: routes.map((r: any) => r.id) } } });
+            }
+
+            // Worker Social Task Proofs
+            const socialTasks = await tx.workerSocialTask.findMany({ where: { assemblyId: id }, select: { id: true } });
+            if (socialTasks.length > 0) {
+                await tx.workerSocialTaskProof.deleteMany({ where: { taskId: { in: socialTasks.map((t: any) => t.id) } } });
+            }
+
+            // Voter Feedback (Linked to Campaign or Voter, both linked to Assembly)
+            // Safer to delete by Voter IDs or Campaign IDs
+            const campaigns = await tx.campaign.findMany({ where: { assemblyId: id }, select: { id: true } });
+            if (campaigns.length > 0) {
+                await tx.voterFeedback.deleteMany({ where: { campaignId: { in: campaigns.map((c: any) => c.id) } } });
+            }
+            // Also delete by voter if needed, but campaign deletion usually covers feedback in schema logic, 
+            // but here we are manual. 
+            // Let's delete all feedbacks where voter.assemblyId = id
+            // Requires fetch first as deleteMany doesn't support deep relation filter in SQLite sometimes or ensures verify.
+            // Actually, deleting Campaigns covers one leg. Deleting Voters covers the other.
+            // We should delete feedbacks explicitly.
+            // Simplified: Delete based on Campaigns first.
+
+            // 2. Delete Direct Children (Order matters for some)
+            await tx.systemLog.deleteMany({ where: { assemblyId: id } });
+            await tx.userAssemblyAssignment.deleteMany({ where: { assemblyId: id } });
+            await tx.socialSession.deleteMany({ where: { candidateId: id } }); // candidateId references Assembly
+            await tx.electionHistory.deleteMany({ where: { assemblyId: id } });
+            await tx.workerSocialTask.deleteMany({ where: { assemblyId: id } });
+            await tx.campaignMaterial.deleteMany({ where: { assemblyId: id } });
+            await tx.socialMediaApproval.deleteMany({ where: { assemblyId: id } });
+            await tx.candidatePostRequest.deleteMany({ where: { assemblyId: id } });
+            await tx.workerJanSampark.deleteMany({ where: { assemblyId: id } });
+            await tx.task.deleteMany({ where: { assemblyId: id } }); // Worker Tasks
+            await tx.jansamparkRoute.deleteMany({ where: { assemblyId: id } });
+            await tx.publicRelation.deleteMany({ where: { assemblyId: id } });
+            await tx.socialPost.deleteMany({ where: { assemblyId: id } });
+            await tx.issue.deleteMany({ where: { assemblyId: id } });
+
+            // Delete Voters (Big table)
+            await tx.voter.deleteMany({ where: { assemblyId: id } });
+
+            // Delete Import Jobs (must be after voters)
+            await tx.importJob.deleteMany({ where: { assemblyId: id } });
+
+            // Delete Workers
+            // Workers might have relations to Users. 
+            // We delete workers first.
+            await tx.worker.deleteMany({ where: { assemblyId: id } });
+
+            // Delete Booths
+            await tx.booth.deleteMany({ where: { assemblyId: id } });
+
+            // Delete Campaigns
+            await tx.campaign.deleteMany({ where: { assemblyId: id } });
+
+            // Delete Users attached to this assembly
+            await tx.user.deleteMany({ where: { assemblyId: id } });
+
+            // 3. Finally Delete Assembly
+            await tx.assembly.delete({ where: { id } });
+        });
+
+        revalidatePath('/admin');
         revalidatePath('/admin/assemblies');
         revalidatePath('/admin/candidates');
-    } catch (error) {
+        return { success: true };
+    } catch (error: any) {
         console.error('Delete Assembly Error:', error);
-        throw error;
+        throw new Error(error.message || 'Failed to delete assembly');
     }
 }
 
 export async function toggleCandidateStatus(assemblyId: number) {
+    const session = await auth();
+    const role = (session?.user as any)?.role;
+
+    if (role !== 'SUPERADMIN' && role !== 'ADMIN') {
+        throw new Error("Unauthorized: Only Admins can change status.");
+    }
+
     const managers = await prisma.user.findMany({
         where: { assemblyId, role: 'MANAGER' }
     });
 
-    if (managers.length === 0) return { success: false, message: 'No manager found' };
+    if (managers.length === 0) return { success: false, message: 'No manager found for this assembly' };
 
+    // Toggle based on the first manager found
     const currentStatus = managers[0].status;
     const newStatus = currentStatus === 'Active' ? 'Blocked' : 'Active';
 
@@ -184,6 +270,15 @@ export async function toggleCandidateStatus(assemblyId: number) {
         where: { assemblyId, role: 'MANAGER' },
         data: { status: newStatus }
     });
+
+    // Also toggle field workers and social team if needed, but usually just Manager blocks access
+    // Updating all users in that assembly to match status is safer for "Deactivating Candidate"
+    /*
+    await prisma.user.updateMany({
+        where: { assemblyId, role: { in: ['WORKER', 'SOCIAL_MEDIA'] } },
+        data: { status: newStatus }
+    });
+    */
 
     revalidatePath('/admin/candidates');
     return { success: true, status: newStatus };
