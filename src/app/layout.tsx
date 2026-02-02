@@ -1,4 +1,4 @@
-import './globals.css';
+import './main.css';
 import { Inter, Noto_Sans_Devanagari } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
