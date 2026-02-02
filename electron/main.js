@@ -39,6 +39,32 @@ function createWindow() {
 
     win.loadURL(url);
 
+    // Isolated Sessions for different candidates
+    win.webContents.setWindowOpenHandler(({ frameName, url: targetUrl }) => {
+        // frameName example: 'CreatiAV_67_facebook'
+        if (frameName.startsWith('CreatiAV_')) {
+            // Extract candidate ID from frameName to group by candidate if needed, 
+            // or just use specific window's name for maximum isolation.
+            // Using frameName directly means Facebook and Instagram for same candidate are even isolated from each other.
+            // If we want same candidate's social windows to share cookies, we use group by ID.
+            const candidateId = frameName.split('_')[1];
+
+            return {
+                action: 'allow',
+                overrideBrowserWindowOptions: {
+                    width: 1200,
+                    height: 900,
+                    webPreferences: {
+                        partition: `persist:candidate_${candidateId}`, // Shares session among all social windows for THIS candidate
+                        contextIsolation: true,
+                        nodeIntegration: false
+                    }
+                }
+            }
+        }
+        return { action: 'allow' }
+    });
+
     win.once('ready-to-show', () => {
         win.show();
     });
