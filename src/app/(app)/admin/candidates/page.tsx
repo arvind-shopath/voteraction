@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getAssemblies, getUsers, getCampaigns, updateAssembly } from '@/app/actions/admin';
+import { getAssemblies, getUsers, getCampaigns, updateAssembly, deleteAssembly, toggleCandidateStatus } from '@/app/actions/admin';
 import {
     Users, Star, MapPin, Search, Filter,
     ChevronDown, ChevronRight, Edit,
     LayoutGrid, List, Search as SearchIcon,
-    Shield, Share2, Users as UsersIcon, Settings, X, CheckCircle
+    Shield, Share2, Users as UsersIcon, Settings, X, CheckCircle, Trash2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { APP_FEATURES, FEATURE_CATEGORIES, getEnabledFeatures } from '@/lib/features';
@@ -130,6 +130,7 @@ export default function CandidatesPage() {
                     // Social media count from sharedAssignments
                     const smCount = (a as any).sharedAssignments?.filter((sa: any) => sa.role === 'SOCIAL_MEDIA').length || 0;
                     const fieldCount = assemblyUsers.filter(u => u.role !== 'SOCIAL_MEDIA' && u.role !== 'ADMIN' && u.role !== 'SUPERADMIN').length;
+                    const managerIsActive = assemblyUsers.some(u => u.role === 'MANAGER' && u.status === 'Active');
 
                     return (
                         <div
@@ -236,6 +237,55 @@ export default function CandidatesPage() {
                                 >
                                     मैनेज करें <ChevronRight size={16} />
                                 </div>
+                            </div>
+
+                            {/* Actions Overlay */}
+                            <div style={{ position: 'absolute', top: '24px', right: '24px', display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`${a.candidateName} को ${managerIsActive ? 'Deactivate' : 'Activate'} करना चाहते हैं?`)) {
+                                            await toggleCandidateStatus(a.id);
+                                            fetchData();
+                                        }
+                                    }}
+                                    style={{
+                                        background: managerIsActive ? '#DCFCE7' : '#FEE2E2',
+                                        color: managerIsActive ? '#166534' : '#991B1B',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        padding: '6px 10px',
+                                        fontSize: '11px',
+                                        fontWeight: '800',
+                                        cursor: 'pointer',
+                                        textTransform: 'uppercase'
+                                    }}
+                                >
+                                    {managerIsActive ? 'Active' : 'Inactive'}
+                                </button>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm('क्या आप वाकई इस कैंडिडेट/विधानसभा को डिलीट करना चाहते हैं? यह डेटा रिकवर नहीं होगा!')) {
+                                            await deleteAssembly(a.id);
+                                            fetchData();
+                                        }
+                                    }}
+                                    style={{
+                                        background: '#FEF2F2',
+                                        color: '#EF4444',
+                                        border: '1px solid #FECACA',
+                                        borderRadius: '8px',
+                                        width: '28px',
+                                        height: '28px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
                             </div>
                         </div>
                     );

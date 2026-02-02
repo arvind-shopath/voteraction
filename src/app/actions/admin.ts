@@ -159,6 +159,36 @@ export async function updateAssembly(id: number, data: {
     }
 }
 
+export async function deleteAssembly(id: number) {
+    try {
+        await prisma.assembly.delete({ where: { id } });
+        revalidatePath('/admin/assemblies');
+        revalidatePath('/admin/candidates');
+    } catch (error) {
+        console.error('Delete Assembly Error:', error);
+        throw error;
+    }
+}
+
+export async function toggleCandidateStatus(assemblyId: number) {
+    const managers = await prisma.user.findMany({
+        where: { assemblyId, role: 'MANAGER' }
+    });
+
+    if (managers.length === 0) return { success: false, message: 'No manager found' };
+
+    const currentStatus = managers[0].status;
+    const newStatus = currentStatus === 'Active' ? 'Blocked' : 'Active';
+
+    await prisma.user.updateMany({
+        where: { assemblyId, role: 'MANAGER' },
+        data: { status: newStatus }
+    });
+
+    revalidatePath('/admin/candidates');
+    return { success: true, status: newStatus };
+}
+
 // User Actions
 export async function getUsers() {
     return await prisma.user.findMany({

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getAssemblies, createAssembly, updateAssembly, getCampaigns, createCampaign } from '@/app/actions/admin';
+import { getAssemblies, createAssembly, updateAssembly, getCampaigns, createCampaign, deleteAssembly } from '@/app/actions/admin';
 import { Tent, Plus, MapPin, Loader2, X, Filter, Users, UserPlus, Trash2, Palette } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PARTIES, PARTY_CONFIG } from '@/lib/constants';
@@ -413,10 +413,25 @@ export default function AssembliesPage() {
                                 <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>सीट नं. {assembly.number}</div>
                                 <div style={{ fontSize: '20px', fontWeight: '800', color: '#1E293B' }}>{assembly.name}</div>
                             </div>
-                            <div style={{ padding: '10px', background: '#F0F7FF', borderRadius: '10px' }}>
-                                <Tent size={24} color={assembly.themeColor || "#2563EB"} />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Warning: Deleting ${assembly.name} will delete ALL associated data (Voters, Booths, Users)! Are you sure?`)) {
+                                            await deleteAssembly(assembly.id);
+                                            fetchAssemblies();
+                                        }
+                                    }}
+                                    style={{ padding: '10px', background: '#FEF2F2', borderRadius: '10px', border: '1px solid #FECACA', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    <Trash2 size={20} />
+                                </button>
+                                <div style={{ padding: '10px', background: '#F0F7FF', borderRadius: '10px' }}>
+                                    <Tent size={24} color={assembly.themeColor || "#2563EB"} />
+                                </div>
                             </div>
                         </div>
+
 
                         <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
                             <MapPin size={14} /> {assembly.district}, {assembly.state}
@@ -450,9 +465,10 @@ export default function AssembliesPage() {
                             </div>
                             <button onClick={() => handleViewData(assembly.id)} style={{ width: '100%', padding: '12px', background: 'white', border: '1px solid #2563EB', color: '#2563EB', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>वोटर डेटा देखें</button>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    </div >
+                ))
+                }
+            </div >
 
             {
                 showCampaignModal && (
