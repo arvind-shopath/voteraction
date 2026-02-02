@@ -62,10 +62,26 @@ jobs:
           rm -rf android
           npx cap add android
           npx cap sync
-          mkdir -p android/app/src/main/res/drawable
-          cp public/logo.png android/app/src/main/res/drawable/logo.png
-          sed -i 's/@mipmap\/ic_launcher/@drawable\/logo/g' android/app/src/main/AndroidManifest.xml
-          sed -i 's/@mipmap\/ic_launcher_round/@drawable\/logo/g' android/app/src/main/AndroidManifest.xml
+          # Create mipmap directories if they don't exist (just in case)
+          mkdir -p android/app/src/main/res/mipmap-mdpi
+          mkdir -p android/app/src/main/res/mipmap-hdpi
+          mkdir -p android/app/src/main/res/mipmap-xhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
+          
+          # Copy logo to all mipmap folders as ic_launcher.png and ic_launcher_round.png
+          # using the same source logo for simplicity. Ideally should be resized but this works.
+          cp public/logo.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          cp public/logo.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          cp public/logo.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          cp public/logo.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          cp public/logo.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          
+          cp public/logo.png android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+          cp public/logo.png android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+          cp public/logo.png android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
+          cp public/logo.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
+          cp public/logo.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
       - name: Build Android APK
         run: |
           cd android
