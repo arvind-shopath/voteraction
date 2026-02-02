@@ -26,7 +26,8 @@
     "pdf-lib": "^1.17.1",
     "prisma": "^5.11.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "electron-is-dev": "^3.0.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -36,7 +37,6 @@
     "@types/react-dom": "^19",
     "electron": "^40.1.0",
     "electron-builder": "^26.7.0",
-    "electron-is-dev": "^3.0.1",
     "typescript": "^5"
   },
   "build": {
