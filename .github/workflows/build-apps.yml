@@ -57,6 +57,7 @@ jobs:
           echo "<html><body>Voteraction Wrapper</body></html>" > out/index.html
       - name: Build Next.js
         run: npm run build
+      - name: Capacitor Sync
         run: |
           rm -rf android
           npx cap add android
