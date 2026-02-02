@@ -53,8 +53,10 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
 
     useEffect(() => {
         setMounted(true);
-        const stored = localStorage.getItem('app_lang');
-        if (stored) setLang(stored);
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('app_lang');
+            if (stored) setLang(stored);
+        }
     }, []);
 
     const realRole = session?.user?.role || 'MANAGER';
