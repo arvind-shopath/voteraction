@@ -187,9 +187,9 @@ export default function BoothsPage() {
                     <div className="mobile-full-width" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
                         <User size={16} color="#64748B" />
                         <select value={filters.assignment} onChange={e => setFilters({ ...filters, assignment: e.target.value })} style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '700', outline: 'none' }}>
-                            <option value="All">मैनेजर स्थिति</option>
-                            <option value="Assigned">मैनेजर नियुक्त</option>
-                            <option value="Unassigned">बिना मैनेजर</option>
+                            <option value="All">कैंडिडेट स्थिति</option>
+                            <option value="Assigned">कैंडिडेट नियुक्त</option>
+                            <option value="Unassigned">बिना कैंडिडेट</option>
                         </select>
                     </div>
                 </div>
@@ -274,7 +274,7 @@ export default function BoothsPage() {
                                     <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>स्थिति (Support)</th>
                                     <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>प्रमुख जाति</th>
                                     <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>मतदाता</th>
-                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>मैनेजर</th>
+                                    <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B' }}>कैंडिडेट</th>
                                     <th style={{ padding: '20px', fontSize: '13px', fontWeight: '800', color: '#64748B', textAlign: 'right' }}>एक्शन</th>
                                 </tr>
                             </thead>

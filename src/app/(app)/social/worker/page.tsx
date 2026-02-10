@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useView } from '@/context/ViewContext';
 import { getSocialPosts } from '@/app/actions/social';
 import { Loader2, Megaphone } from 'lucide-react';
 
@@ -12,13 +13,15 @@ export default function WorkerSocialPage() {
     const [officialPosts, setOfficialPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const assemblyId = 1;
+    const { simulationPersona } = useView();
+    const assemblyId = (simulationPersona as any)?.assemblyId || (session?.user as any)?.assemblyId || 13;
+
 
     // Redirect if manager or social media team
     useEffect(() => {
         if (status === 'authenticated') {
             const role = session?.user?.role;
-            if (role === 'MANAGER' || role === 'SOCIAL_MEDIA' || ['ADMIN', 'SUPERADMIN'].includes(role)) {
+            if (role === 'CANDIDATE' || role === 'SOCIAL_MEDIA' || ['ADMIN', 'SUPERADMIN'].includes(role)) {
                 router.push('/social');
             }
         }

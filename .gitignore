@@ -44,5 +44,10 @@ next-env.d.ts
 /dist
 /out
 /electron/dist
+/ocr_venv
+/pdf data
+/public/uploads
+/public/temp_uploads
 node_modules
 .next
+node_modules

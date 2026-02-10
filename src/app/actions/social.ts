@@ -2,6 +2,7 @@
 
 import { prisma as prismaClient } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { createNotification } from './notifications';
 
 const prisma = prismaClient as any;
 
@@ -143,7 +144,7 @@ export async function getSocialEngagementStats(assemblyId: number) {
             id: true,
             name: true,
             type: true,
-            tasks: {
+            socialTasks: {
                 where: {
                     taskType: 'MATERIAL_SHARE'
                 },
@@ -160,9 +161,9 @@ export async function getSocialEngagementStats(assemblyId: number) {
         id: w.id,
         name: w.name,
         type: w.type,
-        shareCount: w.tasks.filter((t: any) => t.shared).length,
-        likeCount: w.tasks.filter((t: any) => t.liked).length,
-        commentCount: w.tasks.filter((t: any) => t.commented).length
+        shareCount: (w.socialTasks || []).filter((t: any) => t.shared).length,
+        likeCount: (w.socialTasks || []).filter((t: any) => t.liked).length,
+        commentCount: (w.socialTasks || []).filter((t: any) => t.commented).length
     })).sort((a: any, b: any) => (b.shareCount + b.likeCount + b.commentCount) - (a.shareCount + a.likeCount + a.commentCount));
 
     return {
@@ -195,6 +196,10 @@ export async function markPostAsSharedTask(postId: number, userId: number, assem
         }
     });
 
+    // Add Points
+    const { addWorkerPoints } = await import('./worker');
+    await addWorkerPoints(worker.id, 'SOCIAL_SHARE', 20, `Shared Social Post: ${post?.id}`, true);
+
     return { success: true };
 }
 
@@ -210,23 +215,43 @@ export async function createCandidatePostRequest(data: {
     platform?: string,
     postType?: string,         // NEW: Post Type
     assemblyId: number,
-    createdBy: number
+    createdBy: any
 }) {
+    const { subject, location, importantPeople, description, photoUrls, videoUrls, platform, postType, assemblyId, createdBy } = data;
     const postRequest = await prisma.candidatePostRequest.create({
         data: {
-            ...data,
+            subject,
+            location,
+            importantPeople,
+            description,
+            photoUrls,
+            videoUrls,
+            platform,
+            postType: postType || 'Post',
+            assemblyId: typeof assemblyId === 'string' ? parseInt(assemblyId) : assemblyId,
+            createdBy: typeof createdBy === 'string' ? parseInt(createdBy) : createdBy,
             status: 'PENDING' // Default status
         }
     });
 
+    // Notify SOCIAL_MEDIA team of this assembly
+    await createNotification({
+        title: "नयी पोस्ट रिक्वेस्ट",
+        message: `${subject}: ${location} से कैंडिडेट द्वारा नयी पोस्ट रिक्वेस्ट मिली है।`,
+        type: "REQUEST",
+        assemblyId: typeof assemblyId === 'string' ? parseInt(assemblyId) : assemblyId
+
+    });
+
     revalidatePath('/social');
+    revalidatePath('/social-sena');
     return postRequest;
 }
 
-export async function getCandidatePostRequests(assemblyId: number, status?: string) {
+export async function getCandidatePostRequests(id: number, status?: string, isManagerId: boolean = false) {
     return await prisma.candidatePostRequest.findMany({
         where: {
-            assemblyId,
+            ...(isManagerId ? { createdBy: id } : { assemblyId: id }),
             ...(status ? { status } : {})
         },
         include: {
@@ -254,6 +279,21 @@ export async function acceptCandidatePostRequest(requestId: number, acceptedBy: 
         data: {
             status: 'ACCEPTED',
             acceptedBy,
+            acceptedAt: new Date()
+        }
+    });
+
+    revalidatePath('/social');
+    revalidatePath('/social');
+    return updated;
+}
+
+export async function rejectCandidatePostRequest(requestId: number, rejectedBy: number) {
+    const updated = await prisma.candidatePostRequest.update({
+        where: { id: requestId },
+        data: {
+            status: 'REJECTED',
+            acceptedBy: rejectedBy, // Reusing field or add rejectedBy
             acceptedAt: new Date()
         }
     });
@@ -327,6 +367,20 @@ export async function createSocialMediaApproval(data: {
         }
     });
 
+    // Notify the Candidate (MANAGER) of this assembly
+    const manager = await prisma.user.findFirst({
+        where: { assemblyId: data.assemblyId, role: 'CANDIDATE' }
+    });
+
+    if (manager) {
+        await createNotification({
+            title: "अप्रूवल की आवश्यकता",
+            message: `नया कंटेंट "${data.title}" आपके अप्रूवल के लिए भेजा गया है।`,
+            type: "APPROVAL",
+            userId: manager.id
+        });
+    }
+
     revalidatePath('/social');
     return approval;
 }
@@ -342,6 +396,15 @@ export async function approveSocialMediaContent(approvalId: number, approvedBy: 
     });
 
     revalidatePath('/social');
+
+    // Notify the Creator (SOCIAL_MEDIA) that content was approved
+    await createNotification({
+        title: "कंटेंट स्वीकृत (Approved)",
+        message: `आपका कंटेंट "${updated.title}" कैंडिडेट द्वारा अप्रूव कर दिया गया है।`,
+        type: "INFO",
+        userId: updated.createdBy
+    });
+
     return updated;
 }
 
@@ -357,12 +420,23 @@ export async function rejectSocialMediaContent(approvalId: number, approvedBy: n
     });
 
     revalidatePath('/social');
+
+    // Notify the Creator (SOCIAL_MEDIA) that content was rejected
+    await createNotification({
+        title: "कंटेंट अस्वीकृत (Rejected)",
+        message: `आपका कंटेंट "${updated.title}" कैंडिडेट द्वारा रिजेक्ट कर दिया गया है। कारण: ${reason}`,
+        type: "ALERT",
+        userId: updated.createdBy
+    });
+
     return updated;
 }
 
-export async function getSocialMediaApprovals(assemblyId: number) {
+export async function getSocialMediaApprovals(id: number, isManagerId: boolean = false) {
     return await prisma.socialMediaApproval.findMany({
-        where: { assemblyId },
+        where: isManagerId ? {
+            createdBy: id // Or filter by candidate the approval is for
+        } : { assemblyId: id },
         include: {
             creator: {
                 select: { name: true, role: true }
@@ -395,9 +469,9 @@ export async function createCampaignMaterial(data: {
     return material;
 }
 
-export async function getCampaignMaterials(assemblyId: number) {
+export async function getCampaignMaterials(id: number, isManagerId: boolean = false) {
     return await prisma.campaignMaterial.findMany({
-        where: { assemblyId },
+        where: isManagerId ? { createdBy: id } : { assemblyId: id },
         include: {
             creator: {
                 select: {
@@ -463,6 +537,16 @@ export async function uploadTaskProof(taskId: number, proofType: string, screens
         where: { id: taskId },
         data: updateData
     });
+
+    // 4. Add Points
+    const { addWorkerPoints } = await import('./worker');
+    const pointsMap: Record<string, number> = { 'LIKE': 5, 'COMMENT': 10, 'SHARE': 20 };
+    if (pointsMap[proofType]) {
+        const task = await prisma.workerSocialTask.findUnique({ where: { id: taskId } });
+        if (task) {
+            await addWorkerPoints(task.workerId, `SOCIAL_${proofType}`, pointsMap[proofType], `Engaged with social post: ${proofType}`, true);
+        }
+    }
 
     // Check if task is fully complete (logic can be adjusted)
     // For now, if at least one action is done, we can mark as IN_PROGRESS
@@ -532,6 +616,19 @@ export async function trackMaterialInteraction(materialId: number, userId: numbe
         where: { id: task.id },
         data: updateData
     });
+
+    // Add Points
+    const { addWorkerPoints } = await import('./worker');
+    const material = await prisma.campaignMaterial.findUnique({ where: { id: materialId } });
+    if (material) {
+        let points = 20; // Default
+        if (actionType === 'LIKE') points = 5;
+        if (actionType === 'COMMENT') points = 10;
+        if (actionType === 'SHARE') {
+            points = material.materialType === 'Video' ? 20 : 10;
+        }
+        await addWorkerPoints(userId, `MATERIAL_${actionType}`, points, `${actionType}: ${material.title}`);
+    }
 
     revalidatePath('/social');
     return { success: true };

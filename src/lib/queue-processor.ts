@@ -1,5 +1,5 @@
 import { prisma as prismaClient } from '@/lib/prisma';
-import { extractTextFromPdf, parseUPVoterRoll } from './pdf-parser';
+import { extractTextFromPdf, parseUPVoterRoll, parseVotersAdvanced } from './pdf-parser';
 
 const prisma = prismaClient as any;
 import { unlink } from 'fs/promises';
@@ -17,12 +17,12 @@ export async function processImportQueue() {
         console.log('--- Background Queue Worker Started ---');
 
         // Initial Cleanup: Recover jobs stuck in PROCESSING from a previous crash
-        // BUT only if they haven't been updated for more than 30 minutes (to avoid resetting active slow work)
-        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+        // BUT only if they haven't been updated for more than 5 minutes (to avoid resetting active slow work)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
         const stuckJobs = await (prisma as any).importJob.updateMany({
             where: {
                 status: 'PROCESSING',
-                updatedAt: { lt: thirtyMinutesAgo }
+                updatedAt: { lt: fiveMinutesAgo }
             },
             data: { status: 'PENDING' }
         });
@@ -54,6 +54,10 @@ export async function processImportQueue() {
             }
 
             console.log(`--- Processing Job #${job.id}: ${job.fileName} ---`);
+            const startPage = job.startPage && job.startPage > 0 ? job.startPage : 1;
+            const endPage = job.endPage && job.endPage > 0 ? job.endPage : 9999;
+            console.log(`--- Page Range: ${startPage} to ${endPage} ---`);
+
             try {
                 // Mark Processing
                 await (prisma as any).importJob.update({
@@ -61,29 +65,33 @@ export async function processImportQueue() {
                     data: { status: 'PROCESSING', progress: 5 }
                 });
 
-                const text = await extractTextFromPdf(job.filePath, async (pct) => {
-                    // Update progress and updatedAt automatically
-                    await (prisma as any).importJob.update({
-                        where: { id: job.id },
-                        data: { progress: pct }
-                    });
-                }, job.startPage || undefined, job.endPage || undefined);
+                // USE ADVANCED PYTHON PARSER (Phase 3)
+                const validVoters = await parseVotersAdvanced(
+                    job.filePath,
+                    async (pct) => {
+                        await (prisma as any).importJob.update({
+                            where: { id: job.id },
+                            data: { progress: pct }
+                        });
+                    },
+                    startPage,
+                    endPage,
+                    job.commonAddress || "",
+                    job.boothName || ""
+                );
 
-                if (!text || text.length < 50) {
-                    throw new Error('Failed to extract meaningful text from PDF');
+                if (!validVoters || validVoters.length === 0) {
+                    throw new Error('Advanced OCR found no voters. PDF might be empty or in unsupported format.');
                 }
 
-                // ... rest of the processing logic (voters, family size, etc.) ...
-                // [Keeping the existing logic but ensuring it's robust]
-
-                const voters = parseUPVoterRoll(text, job.commonAddress || undefined, job.boothName || undefined);
-                const seenEpics = new Set<string>();
-                const validVoters = voters.filter(v => {
-                    if (!v.epic || v.epic.length < 9) return false;
-                    if (seenEpics.has(v.epic)) return false;
-                    seenEpics.add(v.epic);
-                    return true;
-                });
+                // Update Job's boothName if missing but found in voters
+                if (!job.boothName && validVoters[0]?.village) {
+                    await (prisma as any).importJob.update({
+                        where: { id: job.id },
+                        data: { boothName: validVoters[0].village }
+                    });
+                    job.boothName = validVoters[0].village;
+                }
 
                 // Upsert Logic
                 let created = 0, updated = 0;
@@ -92,24 +100,48 @@ export async function processImportQueue() {
                 for (const voter of validVoters) {
                     try {
                         const finalBoothNumber = job.boothNumber !== null ? job.boothNumber : (voter.boothNumber || 0);
-                        // Construct combined address: Village/Ward + Common Area
-                        const combinedAddress = [job.boothName, job.commonAddress].filter(Boolean).join(', ');
+                        // Construct combined address: House No + Village/Ward + Common Area
+                        let addressParts = [];
+                        if (voter.houseNumber) {
+                            addressParts.push(`Makan Number- ${voter.houseNumber}`);
+                        }
 
-                        const data = {
+                        // Prioritize the village detected for this specific voter
+                        // If the PDF parser found a village for this page/voter, use it.
+                        // Otherwise fallback to the job-level boothName (if any).
+                        const currentVillage = voter.village || job.boothName || '';
+                        if (currentVillage) addressParts.push(currentVillage);
+
+                        // job.commonAddress is the "rest of address"
+                        if (job.commonAddress) addressParts.push(job.commonAddress);
+
+                        const combinedAddress = addressParts.join(', ');
+
+                        console.log(`--- Box Found: ${voter.name} | EPIC: ${voter.epic} ---`);
+                        if (voter.originalText) {
+                            console.log(`--- OCR Snippet: ${voter.originalText.substring(0, 80).replace(/\n/g, ' ')} ---`);
+                        }
+
+                        const data: any = {
                             name: voter.name || 'Unknown',
-                            age: voter.age || 0,
+                            age: parseInt(String(voter.age || 0)) || 0,
                             gender: voter.gender || 'M',
                             relativeName: voter.relativeName || '',
                             relationType: voter.relationType || 'Father',
                             houseNumber: voter.houseNumber || '',
                             boothNumber: finalBoothNumber,
-                            village: voter.village || '',
+                            village: currentVillage || '',
                             area: combinedAddress || voter.area || '',
                             assemblyId: job.assemblyId
                         };
 
-                        const houseKey = `${data.village}|${data.area}|${data.houseNumber}`;
+                        const houseKey = `${data.village}|${data.houseNumber}`;
                         if (data.houseNumber) affectedHouses.add(houseKey);
+
+                        if (voter.epic === 'Unknown' || !voter.epic) {
+                            console.log(`--- [SKIP] No EPIC detected for: ${voter.name} ---`);
+                            continue;
+                        }
 
                         const existing = await prisma.voter.findUnique({ where: { epic: voter.epic } });
 
@@ -120,15 +152,27 @@ export async function processImportQueue() {
                             await prisma.voter.create({ data: { ...data, epic: voter.epic, importJobId: job.id } });
                             created++;
                         }
-                    } catch (e) { }
+                    } catch (e: any) {
+                        console.error(`--- Voter Save Error (${voter.epic}): ${e.message} ---`);
+                    }
                 }
 
                 // Sync Families
                 for (const houseKey of affectedHouses) {
-                    const [village, area, houseNumber] = houseKey.split('|');
-                    const count = await prisma.voter.count({ where: { village, area, houseNumber, assemblyId: job.assemblyId } });
+                    const [village, houseNumber] = houseKey.split('|');
+                    const count = await prisma.voter.count({
+                        where: {
+                            village: village || '',
+                            houseNumber: houseNumber || '',
+                            assemblyId: job.assemblyId
+                        }
+                    });
                     await prisma.voter.updateMany({
-                        where: { village, area, houseNumber, assemblyId: job.assemblyId },
+                        where: {
+                            village: village || '',
+                            houseNumber: houseNumber || '',
+                            assemblyId: job.assemblyId
+                        },
                         data: { familySize: count }
                     });
                 }

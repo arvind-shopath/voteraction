@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { getIssues, createIssue, updateIssue } from '@/app/actions/issues';
+import { useSession } from 'next-auth/react';
+import { useView } from '@/context/ViewContext';
 import { AlertCircle, Clock, MapPin, CheckCircle2, Plus } from 'lucide-react';
 
 export default function IssuesPage() {
@@ -24,7 +26,10 @@ export default function IssuesPage() {
 
     const [uploading, setUploading] = useState(false);
 
-    const assemblyId = 1;
+    const { data: session }: any = useSession();
+    const { simulationPersona } = useView();
+    const assemblyId = (simulationPersona as any)?.assemblyId || (session?.user as any)?.assemblyId || 13;
+
 
     useEffect(() => {
         fetchIssues();
@@ -46,7 +51,7 @@ export default function IssuesPage() {
         formDataUpload.append('file', file);
 
         try {
-            const res = await fetch('/api/upload', {
+            const res = await fetch('/api/cloud/upload', {
                 method: 'POST',
                 body: formDataUpload
             });
@@ -113,9 +118,9 @@ export default function IssuesPage() {
     };
 
     const columns = [
-        { name: 'खुली हुई (Open)', status: 'Open', color: 'var(--danger)' },
-        { name: 'प्रक्रिया में (In Progress)', status: 'InProgress', color: 'var(--warning)' },
-        { name: 'हल हो गई (Closed)', status: 'Closed', color: 'var(--success)' },
+        { name: 'खुली हुई', status: 'Open', color: 'var(--danger)' },
+        { name: 'प्रक्रिया में', status: 'InProgress', color: 'var(--warning)' },
+        { name: 'हल हो गई', status: 'Closed', color: 'var(--success)' },
     ];
 
     const uniqueAreas = ['All', ...Array.from(new Set(issues.map(i => i.area).filter(a => a)))];
@@ -123,6 +128,11 @@ export default function IssuesPage() {
 
     return (
         <div>
+            <div style={{ textAlign: 'center', marginBottom: '32px', padding: '16px', background: '#FEF2F2', borderRadius: '16px', border: '1px solid #FECACA' }}>
+                <p style={{ color: '#DC2626', fontSize: '13px', fontWeight: '800' }}>
+                    📢 ये जगह फाइल स्टोर करने के लिए नहीं हैं.. यहां से आप फोटो और वीडियो सिर्फ भेज सकते हैं.. ये फाइलें 7 दिन में डिलीट हो जाएंगी.. प्लीज अपने पास बैकअप रखे..
+                </p>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                     <h1 style={{ fontSize: '24px', fontWeight: '700' }}>समस्या एवं शिकायत ट्रैकिंग</h1>
@@ -178,11 +188,11 @@ export default function IssuesPage() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                                     <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                                         style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }}>
-                                        <option>Infrastructure</option>
-                                        <option>Utility</option>
-                                        <option>Road</option>
-                                        <option>Sanitation</option>
-                                        <option>Other</option>
+                                        <option value="Infrastructure">इन्फ्रास्ट्रक्चर</option>
+                                        <option value="Utility">बिजली / पानी</option>
+                                        <option value="Road">सड़क / मार्ग</option>
+                                        <option value="Sanitation">सफाई / स्वच्छता</option>
+                                        <option value="Other">अन्य</option>
                                     </select>
                                     <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                                         style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }}>
@@ -269,7 +279,21 @@ export default function IssuesPage() {
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '100px' }}>लोड हो रहा है...</div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', height: 'calc(100vh - 200px)' }}>
+                <div className="grid-3-responsive" style={{ height: 'calc(100vh - 200px)' }}>
+                    <style jsx>{`
+                        .grid-3-responsive {
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            gap: 24px;
+                        }
+                        @media (max-width: 1024px) {
+                            .grid-3-responsive {
+                                grid-template-columns: 1fr;
+                                height: auto !important;
+                                gap: 32px;
+                            }
+                        }
+                    `}</style>
                     {columns.map((column) => (
                         <div key={column.status} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{

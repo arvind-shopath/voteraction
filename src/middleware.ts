@@ -7,6 +7,16 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
     const isLoggedIn = !!req.auth;
     const { nextUrl } = req;
+    const userRole = (req.auth?.user as any)?.role;
+
+    // Redirect /voters/import to /voters/data-import
+    if (nextUrl.pathname === '/voters/import') {
+        return NextResponse.redirect(new URL("/voters/data-import", nextUrl));
+    }
+
+    // Set x-url header for layout checks
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-url', nextUrl.pathname);
 
     const isAppPath = nextUrl.pathname.startsWith("/dashboard") ||
         nextUrl.pathname.startsWith("/voters") ||
@@ -22,20 +32,25 @@ export default auth((req) => {
         }
 
         const userStatus = (req.auth?.user as any)?.status;
-        const userRole = (req.auth?.user as any)?.role;
 
         // If not active, redirect to pending page
         if (userStatus !== "Active") {
-            return NextResponse.redirect(new URL("/pending", nextUrl));
+            const res = NextResponse.redirect(new URL("/pending", nextUrl));
+            return res;
         }
 
         // If active but no assembly assigned, still pending assembly
         if (!userRole || (userRole !== "ADMIN" && userRole !== "SUPERADMIN" && !(req.auth?.user as any)?.assemblyId)) {
-            return NextResponse.redirect(new URL("/pending-assembly", nextUrl));
+            const res = NextResponse.redirect(new URL("/pending-assembly", nextUrl));
+            return res;
         }
     }
 
-    return NextResponse.next();
+    return NextResponse.next({
+        request: {
+            headers: requestHeaders,
+        }
+    });
 });
 
 export const config = {

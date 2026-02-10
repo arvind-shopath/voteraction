@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getAssemblySettings, updateAssemblySettings } from '@/app/actions/settings';
 import { getParties, getAssemblies } from '@/app/actions/admin';
+import { useSession } from 'next-auth/react';
 import { Palette, User, Flag, Save, Check, Image as ImageIcon, TrendingUp, Upload, Shield, ChevronDown, List, PieChart, Languages, Plus, Trash2, Facebook, Instagram, Twitter } from 'lucide-react';
 
 import TagInput from '@/components/TagInput';
@@ -13,6 +14,7 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const { data: session } = useSession();
 
     // Campaign Info State
     const [importantAreas, setImportantAreas] = useState<string[]>([]);
@@ -23,7 +25,7 @@ export default function SettingsPage() {
     const [importantCastes, setImportantCastes] = useState<string[]>([]);
 
     // Admin features
-    const [userRole, setUserRole] = useState('MANAGER');
+    const [userRole, setUserRole] = useState('CANDIDATE');
     const [assemblies, setAssemblies] = useState<any[]>([]);
     const [selectedAssemblyId, setSelectedAssemblyId] = useState<number | null>(null);
     const [dbParties, setDbParties] = useState<any[]>([]);
@@ -52,7 +54,7 @@ export default function SettingsPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        const role = localStorage.getItem('userRole') || 'MANAGER';
+        const role = localStorage.getItem('userRole') || 'CANDIDATE';
         setUserRole(role);
 
         const savedLang = localStorage.getItem('app_lang') as 'hi' | 'en' || 'hi';
@@ -245,6 +247,8 @@ export default function SettingsPage() {
         setSaving(true);
         try {
             const targetId = selectedAssemblyId || 1;
+            const userId = (session?.user as any)?.id;
+
             await updateAssemblySettings(targetId, {
                 candidateName: settings.candidateName,
                 candidateImageUrl: settings.candidateImageUrl,
@@ -256,6 +260,7 @@ export default function SettingsPage() {
                 twitterUrl: settings.twitterUrl,
                 prevPartyVotes: settings.prevPartyVotes,
                 prevCandidateVotes: settings.prevCandidateVotes,
+                electionDate: settings.electionDate || null,
                 historicalResults: JSON.stringify(historical),
                 casteEquation: JSON.stringify(castes),
                 // Campaign Info
@@ -264,7 +269,8 @@ export default function SettingsPage() {
                 campaignTags: JSON.stringify(campaignTags),
                 candidateBusiness: candidateBusiness,
                 importantIssues: JSON.stringify(importantIssues),
-                importantCastes: JSON.stringify(importantCastes)
+                importantCastes: JSON.stringify(importantCastes),
+                candidateUserId: userId
             });
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
@@ -401,6 +407,41 @@ export default function SettingsPage() {
                                 <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '8px', color: '#374151' }}>प्रत्याशी के अपने वोट</label>
                                 <input name="prevCandidateVotes" type="number" value={settings.prevCandidateVotes || 0} onChange={handleChange} style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '15px' }} />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Election Date Settings */}
+                    <div className="card" style={{ padding: '32px', background: 'linear-gradient(135deg, #FEF3C7 0%, #FEF9E7 100%)', border: '2px solid #F59E0B' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', color: '#92400E' }}>
+                            🗳️ मतदान की तारीख (Election Date)
+                        </h3>
+                        <p style={{ fontSize: '13px', color: '#78350F', marginBottom: '16px', fontWeight: '600' }}>
+                            ⚠️ यह तारीख सेट करने पर "मतदान वार रूम" एक्टिव हो जाएगा। कार्यकर्ता और कैंडिडेट दोनों को वार रूम दिखेगा।
+                        </p>
+                        <div>
+                            <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '8px', color: '#78350F' }}>मतदान का दिन (Election Date)</label>
+                            <input
+                                name="electionDate"
+                                type="date"
+                                value={settings.electionDate ? new Date(settings.electionDate).toISOString().slice(0, 10) : ''}
+                                onChange={handleChange}
+                                style={{
+                                    width: '100%',
+                                    padding: '14px',
+                                    border: '2px solid #F59E0B',
+                                    borderRadius: '12px',
+                                    fontSize: '15px',
+                                    fontWeight: '700',
+                                    background: 'white'
+                                }}
+                            />
+                            {settings.electionDate && (
+                                <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(34,197,94,0.1)', borderRadius: '10px', border: '1px solid #22C55E' }}>
+                                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#166534' }}>
+                                        ✅ सेट की गई तारीख: {new Date(settings.electionDate).toLocaleDateString('hi-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

@@ -4,7 +4,9 @@ import { usePathname } from 'next/navigation';
 
 interface LayoutContextType {
     isSidebarOpen: boolean;
+    isSidebarCollapsed: boolean;
     toggleSidebar: () => void;
+    toggleCollapse: () => void;
     closeSidebar: () => void;
 }
 
@@ -12,10 +14,24 @@ const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
 
 export const LayoutProvider = ({ children }: { children: ReactNode }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+    useEffect(() => {
+        const stored = localStorage.getItem('sidebar_collapsed');
+        if (stored === 'true') setIsSidebarCollapsed(true);
+    }, []);
+
     const pathname = usePathname();
 
     const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
     const closeSidebar = () => setIsSidebarOpen(false);
+    const toggleCollapse = () => {
+        setIsSidebarCollapsed(prev => {
+            const next = !prev;
+            localStorage.setItem('sidebar_collapsed', String(next));
+            return next;
+        });
+    };
 
     // Auto close sidebar on route change (for mobile)
     useEffect(() => {
@@ -23,7 +39,7 @@ export const LayoutProvider = ({ children }: { children: ReactNode }) => {
     }, [pathname]);
 
     return (
-        <LayoutContext.Provider value={{ isSidebarOpen, toggleSidebar, closeSidebar }}>
+        <LayoutContext.Provider value={{ isSidebarOpen, isSidebarCollapsed, toggleSidebar, toggleCollapse, closeSidebar }}>
             {children}
         </LayoutContext.Provider>
     );

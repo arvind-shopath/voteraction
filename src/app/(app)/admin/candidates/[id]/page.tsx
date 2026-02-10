@@ -101,12 +101,12 @@ export default function CandidateDetailPage() {
     if (!assembly) return <div style={{ padding: '100px', textAlign: 'center' }}>कैंडिडेट नहीं मिला।</div>;
 
     const assemblyUsers = users.filter(u => u.assemblyId === assembly.id && u.status !== 'Pending');
-    const candidateUser = assemblyUsers.find(u => u.role === 'MANAGER');
-    const fieldTeam = assemblyUsers.filter(u => u.role !== 'SOCIAL_MEDIA' && u.role !== 'MANAGER');
+    const candidateUser = assemblyUsers.find(u => u.role === 'CANDIDATE');
+    const fieldTeam = assemblyUsers.filter(u => !['SOCIAL_MEDIA', 'CANDIDATE', 'ADMIN', 'SUPERADMIN'].includes(u.role));
 
     // Social team comes from sharedAssignments (many-to-many)
     const socialTeam = (assembly as any).sharedAssignments
-        ?.filter((a: any) => a.role === 'SOCIAL_MEDIA')
+        ?.filter((a: any) => a.role === 'SOCIAL_MEDIA' && !['ADMIN', 'SUPERADMIN'].includes(a.user?.role))
         ?.map((a: any) => a.user) || [];
 
     // Talent Pool for adding new members

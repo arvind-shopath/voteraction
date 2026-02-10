@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getAssemblies, updateAssembly } from '@/app/actions/admin';
-import { ArrowLeft, Save, Loader } from 'lucide-react';
+import { ArrowLeft, Save, Loader, ShieldCheck } from 'lucide-react';
 import TagInput from '@/components/TagInput';
 
 export default function CandidateSettingsPage() {
@@ -22,6 +22,13 @@ export default function CandidateSettingsPage() {
     const [candidateBusiness, setCandidateBusiness] = useState('');
     const [importantIssues, setImportantIssues] = useState<string[]>([]);
     const [importantCastes, setImportantCastes] = useState<string[]>([]);
+
+    // Security Settings
+    const [proxyEnabled, setProxyEnabled] = useState(false);
+    const [proxyHost, setProxyHost] = useState('');
+    const [proxyPort, setProxyPort] = useState('');
+    const [proxyUsername, setProxyUsername] = useState('');
+    const [proxyPassword, setProxyPassword] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -43,6 +50,13 @@ export default function CandidateSettingsPage() {
                 setCandidateBusiness(currentAssembly.candidateBusiness || '');
                 setImportantIssues(currentAssembly.importantIssues ? JSON.parse(currentAssembly.importantIssues) : []);
                 setImportantCastes(currentAssembly.importantCastes ? JSON.parse(currentAssembly.importantCastes) : []);
+
+                // Security
+                setProxyEnabled(currentAssembly.proxyEnabled || false);
+                setProxyHost(currentAssembly.proxyHost || '');
+                setProxyPort(currentAssembly.proxyPort || '');
+                setProxyUsername(currentAssembly.proxyUsername || '');
+                setProxyPassword(currentAssembly.proxyPassword || '');
             } catch (e) {
                 console.error('Error parsing JSON:', e);
             }
@@ -60,7 +74,13 @@ export default function CandidateSettingsPage() {
                 campaignTags: JSON.stringify(campaignTags),
                 candidateBusiness: candidateBusiness,
                 importantIssues: JSON.stringify(importantIssues),
-                importantCastes: JSON.stringify(importantCastes)
+                importantCastes: JSON.stringify(importantCastes),
+                // Security
+                proxyEnabled,
+                proxyHost,
+                proxyPort,
+                proxyUsername,
+                proxyPassword
             } as any);
 
             alert('✅ Campaign Info सेव हो गई!');
@@ -179,6 +199,72 @@ export default function CandidateSettingsPage() {
                     tags={importantCastes}
                     onChange={setImportantCastes}
                 />
+            </div>
+
+            {/* Security & Proxy Section */}
+            <div className="card" style={{ padding: '32px', marginBottom: '24px', border: '1px solid #FEE2E2', background: '#FFFDFD' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#B91C1C', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShieldCheck size={24} /> 🔒 सोशल मीडिया सुरक्षा (Security & Proxy)
+                </h2>
+                <p style={{ fontSize: '13px', color: '#991B1B', marginBottom: '24px', fontWeight: '600' }}>
+                    सूचना: सोशल मीडिया अकाउंट्स (Facebook/Twitter) को एक से अधिक जगह से चलाने पर "Account Ban" होने का खतरा रहता है। इससे बचने के लिए नीचे दिए गए Proxy सेटिंग्स का उपयोग करें।
+                </p>
+
+                <div style={{ marginBottom: '24px', padding: '16px', background: '#FEE2E2', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input
+                        type="checkbox"
+                        id="proxy-toggle"
+                        checked={proxyEnabled}
+                        onChange={e => setProxyEnabled(e.target.checked)}
+                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="proxy-toggle" style={{ fontSize: '15px', fontWeight: '800', color: '#991B1B', cursor: 'pointer' }}>
+                        इस कैंडिडेट के लिए Dedicated Proxy एक्टिव करें
+                    </label>
+                </div>
+
+                {proxyEnabled && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', animation: 'fadeIn 0.3s ease' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#475569', marginBottom: '8px' }}>Proxy Host (IP)</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. 154.23.xx.xx"
+                                value={proxyHost}
+                                onChange={e => setProxyHost(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #E2E8F0' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#475569', marginBottom: '8px' }}>Proxy Port</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. 8080"
+                                value={proxyPort}
+                                onChange={e => setProxyPort(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #E2E8F0' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#475569', marginBottom: '8px' }}>Proxy Username</label>
+                            <input
+                                type="text"
+                                value={proxyUsername}
+                                onChange={e => setProxyUsername(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #E2E8F0' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#475569', marginBottom: '8px' }}>Proxy Password</label>
+                            <input
+                                type="password"
+                                value={proxyPassword}
+                                onChange={e => setProxyPassword(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #E2E8F0' }}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Save Button */}

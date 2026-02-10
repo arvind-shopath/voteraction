@@ -11,11 +11,12 @@ import {
 
 export default function SocialAnalyticsPage() {
     const { data: session }: any = useSession();
-    const { effectiveRole } = useView();
+    const { effectiveRole, simulationPersona } = useView();
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
-    const assemblyId = 1;
+    const assemblyId = (simulationPersona as any)?.assemblyId || (session?.user as any)?.assemblyId || 13;
+
     const role = effectiveRole || session?.user?.role;
     const isTeam = role === 'SOCIAL_MEDIA' || ['ADMIN', 'SUPERADMIN'].includes(role);
 

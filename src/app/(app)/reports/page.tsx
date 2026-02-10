@@ -75,7 +75,7 @@ export default function ReportsPage() {
                     {[
                         'एडमिन ने "बूथ 12" की मतदाता सूची डाउनलोड की',
                         'अनिल कुमार (कार्यकर्ता) ने नई शिकायत दर्ज की',
-                        'कैंपेन मैनेजर ने सोशल मीडिया पोस्ट को अनुमति दी',
+                        'कैंपेन कैंडिडेट ने सोशल मीडिया पोस्ट को अनुमति दी',
                         'सिस्टम ने स्वत: बैकअप पूरा किया'
                     ].map((log, i) => (
                         <div key={i} style={{ padding: '10px 16px', fontSize: '13px', background: '#F9FAFB', borderRadius: '4px', color: 'var(--text-secondary)', borderLeft: '3px solid #CBD5E1' }}>

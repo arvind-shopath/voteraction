@@ -31,6 +31,7 @@ export default function UsersPage() {
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [editMode, setEditMode] = useState<'USER_NAME' | 'CANDIDATE_NAME'>('USER_NAME');
     const [newInput, setNewInput] = useState('');
+    const [newMobileInput, setNewMobileInput] = useState('');
     const [targetAssemblyId, setTargetAssemblyId] = useState<number | null>(null);
     const [feedbackMessage, setFeedbackMessage] = useState({ title: '', message: '', type: 'success' });
 
@@ -93,6 +94,7 @@ export default function UsersPage() {
     const triggerUpdateUserName = (user: any) => {
         setSelectedUser(user);
         setNewInput(user.name || '');
+        setNewMobileInput(user.mobile || '');
         setEditMode('USER_NAME');
         setEditModalOpen(true);
     };
@@ -114,7 +116,7 @@ export default function UsersPage() {
         if (editMode === 'CANDIDATE_NAME' && targetAssemblyId) {
             await updateAssembly(targetAssemblyId, { candidateName: newInput.trim() });
         } else if (editMode === 'USER_NAME' && selectedUser) {
-            await updateUserName(selectedUser.id, newInput.trim());
+            await updateUserName(selectedUser.id, newInput.trim(), newMobileInput.trim());
         }
         setEditModalOpen(false);
         fetchData();
@@ -174,9 +176,9 @@ export default function UsersPage() {
 
     const pendingUsers = filteredUsers.filter(u => u.status === 'Pending');
     const globalAdmins = filteredUsers.filter(u => (u.role === 'ADMIN' || u.role === 'SUPERADMIN') && u.status !== 'Pending');
-    const creativeSMTeam = filteredUsers.filter(u => u.role === 'SOCIAL_MEDIA' && !u.assemblyId && u.status !== 'Pending');
-    const candidatePool = filteredUsers.filter(u => u.role === 'MANAGER' && !u.assemblyId && u.status !== 'Pending');
-    const otherUnassigned = filteredUsers.filter(u => u.role !== 'SOCIAL_MEDIA' && u.role !== 'MANAGER' && u.role !== 'ADMIN' && u.role !== 'SUPERADMIN' && u.status !== 'Pending');
+    const creativeSMTeam = filteredUsers.filter(u => ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && !u.assemblyId && u.status !== 'Pending');
+    const candidatePool = filteredUsers.filter(u => u.role === 'CANDIDATE' && !u.assemblyId && u.status !== 'Pending');
+    const otherUnassigned = filteredUsers.filter(u => !['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR', 'CANDIDATE', 'ADMIN', 'SUPERADMIN'].includes(u.role) && u.status !== 'Pending');
 
     if (loading) return (
         <div style={{ padding: '80px', textAlign: 'center' }}>
@@ -219,8 +221,11 @@ export default function UsersPage() {
                 >
                     <option value="ALL">सभी रोल्स</option>
                     <option value="ADMIN">एडमिन</option>
-                    <option value="MANAGER">कैंडिडेट</option>
-                    <option value="SOCIAL_MEDIA">सोशल मीडिया</option>
+                    <option value="CANDIDATE">कैंडिडेट</option>
+                    <option value="SOCIAL_MEDIA">सोशल सेना (General)</option>
+                    <option value="SM_MANAGER">सोशल सेना मैनेजर</option>
+                    <option value="DESIGNER">डिजाइनर</option>
+                    <option value="EDITOR">वीडियो एडिटर</option>
                 </select>
             </div>
 
@@ -250,7 +255,7 @@ export default function UsersPage() {
                     onDelete={triggerDelete}
                 />
                 <UserGroupSection
-                    title="Creative Social Media Team"
+                    title="Social Sena"
                     icon={<Share2 size={20} color="#EF4444" />}
                     users={creativeSMTeam}
                     id="sm_team"
@@ -303,15 +308,34 @@ export default function UsersPage() {
                         { label: 'अपडेट करें', onClick: confirmUpdateName, type: 'primary' }
                     ]}
                 >
-                    <div style={{ padding: '24px' }}>
-                        <input
-                            type="text"
-                            value={newInput}
-                            onChange={(e) => setNewInput(e.target.value)}
-                            autoFocus
-                            placeholder="यहाँ नाम लिखें..."
-                            style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '2px solid #E2E8F0', outline: 'none', fontSize: '16px', fontWeight: '600' }}
-                        />
+                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>
+                                {editMode === 'USER_NAME' ? "यूजर का नाम" : "कैंडिडेट का नाम"}
+                            </label>
+                            <input
+                                type="text"
+                                value={newInput}
+                                onChange={(e) => setNewInput(e.target.value)}
+                                autoFocus
+                                placeholder="यहाँ नाम लिखें..."
+                                style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '2px solid #E2E8F0', outline: 'none', fontSize: '16px', fontWeight: '600' }}
+                            />
+                        </div>
+                        {editMode === 'USER_NAME' && (
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>
+                                    मोबाइल नंबर (लॉगिन आईडी)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newMobileInput}
+                                    onChange={(e) => setNewMobileInput(e.target.value)}
+                                    placeholder="मोबाइल नंबर बदलें..."
+                                    style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '2px solid #E2E8F0', outline: 'none', fontSize: '16px', fontWeight: '600' }}
+                                />
+                            </div>
+                        )}
                     </div>
                 </PremiumModal>
             )}
@@ -337,6 +361,9 @@ export default function UsersPage() {
                                 placeholder="नया पासवर्ड (कम से कम 6 अक्षर)"
                                 style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: '16px', border: '2px solid #E2E8F0', outline: 'none', fontSize: '16px', fontWeight: '600' }}
                             />
+                        </div>
+                        <div style={{ marginTop: '8px', fontSize: '11px', color: '#64748B', fontWeight: '700', paddingLeft: '8px' }}>
+                            अनिवार्य: कम से कम 1 बड़ा अक्षर (Caps), 1 स्पेशल चिन्ह (@, #, $), और 1 अंक
                         </div>
                     </div>
                 </PremiumModal>
@@ -389,7 +416,7 @@ export default function UsersPage() {
 }
 
 function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdateStatus, onUpdateRole, onAssignAssembly, onEditName, onDelete, isAssemblyGroup, onChangePassword }: any) {
-    if (users.length === 0 && id !== 'pending') return null;
+    if (users.length === 0) return null;
     return (
         <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
             <button
@@ -437,8 +464,11 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                                         >
                                             <option value="SUPERADMIN">Super Admin</option>
                                             <option value="ADMIN">Admin</option>
-                                            <option value="MANAGER">Candidate</option>
-                                            <option value="SOCIAL_MEDIA">Social Media</option>
+                                            <option value="CANDIDATE">Candidate</option>
+                                            <option value="SOCIAL_MEDIA">Social Sena (General)</option>
+                                            <option value="SM_MANAGER">Social Sena Manager</option>
+                                            <option value="DESIGNER">Graphics Designer</option>
+                                            <option value="EDITOR">Video Editor</option>
                                             <option value="WORKER">Worker</option>
                                         </select>
                                     </td>
@@ -475,7 +505,7 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
 }
 
 function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
-    const [formData, setFormData] = useState({ name: '', mobile: '', password: '', role: 'MANAGER', assemblyId: '', campaignId: '' });
+    const [formData, setFormData] = useState({ name: '', mobile: '', password: '', role: 'CANDIDATE', assemblyId: '', campaignId: '' });
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px', backdropFilter: 'blur(8px)' }}>
@@ -497,14 +527,20 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>रोल (Role)</label>
                         <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>
-                            <option value="MANAGER">Candidate (कैंडिडेट)</option>
-                            <option value="SOCIAL_MEDIA">Creative Social Media Team</option>
+                            <option value="CANDIDATE">Candidate (कैंडिडेट)</option>
+                            <option value="SOCIAL_MEDIA">Social Sena (General)</option>
+                            <option value="SM_MANAGER">Social Sena Manager</option>
+                            <option value="DESIGNER">Graphics Designer</option>
+                            <option value="EDITOR">Video Editor</option>
                             <option value="ADMIN">Admin</option>
                         </select>
                     </div>
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>पासवर्ड</label>
                         <input type="password" placeholder="पासवर्ड बनाएं" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px' }} />
+                        <div style={{ marginTop: '6px', fontSize: '11px', color: '#64748B', fontWeight: '700' }}>
+                            जरूरी: 1 बड़ा अक्षर (Caps), 1 स्पेशल चिन्ह (@, #, $), 1 अंक
+                        </div>
                     </div>
                     {(formData.role === 'WORKER') && (
                         <div>

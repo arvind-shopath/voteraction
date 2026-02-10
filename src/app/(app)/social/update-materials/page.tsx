@@ -73,7 +73,7 @@ export default function UpdateMaterialsPage() {
             for (const file of files) {
                 const fd = new FormData();
                 fd.append('file', file);
-                const res = await fetch('/api/upload', { method: 'POST', body: fd });
+                const res = await fetch('/api/cloud/upload', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.success) fileUrls.push(data.url);
             }
@@ -104,6 +104,11 @@ export default function UpdateMaterialsPage() {
             <h1 style={{ fontSize: '32px', fontWeight: '800', marginBottom: '8px', background: 'linear-gradient(to right, #2563EB, #9333EA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Update Campaign Materials
             </h1>
+            <div style={{ textAlign: 'center', marginBottom: '32px', padding: '16px', background: '#FEF2F2', borderRadius: '16px', border: '1px solid #FECACA' }}>
+                <p style={{ color: '#DC2626', fontSize: '13px', fontWeight: '800' }}>
+                    📢 ये जगह फाइल स्टोर करने के लिए नहीं हैं.. यहां से आप फोटो और वीडियो सिर्फ भेज सकते हैं.. ये फाइलें 7 दिन में डिलीट हो जाएंगी.. प्लीज अपने पास बैकअप रखे..
+                </p>
+            </div>
             <p style={{ color: '#6B7280', fontSize: '16px', marginBottom: '40px' }}>Upload content for the ground team.</p>
 
             <div style={{ display: 'grid', gap: '32px' }}>

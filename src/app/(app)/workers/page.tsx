@@ -9,7 +9,8 @@ import {
     bulkTransferVoters,
     updateWorker,
     updateWorkerPassword,
-    autoAssignVotersByCount
+    autoAssignVotersByCount,
+    checkCreativeTeamStatus
 } from '@/app/actions/worker';
 import { getBoothsWithAssignment, getBoothCoverageStats } from '@/app/actions/booth';
 import { getUnassignedVoters, updateVoterFeedback } from '@/app/actions/voters';
@@ -28,6 +29,7 @@ export default function WorkersPage() {
     const [booths, setBooths] = useState<any[]>([]);
     const [coverage, setCoverage] = useState<any>(null);
     const [assembly, setAssembly] = useState<any>(null);
+    const [hasCreativeTeam, setHasCreativeTeam] = useState(false);
 
     const [viewMode, setViewMode] = useState<'grid' | 'hierarchy'>('grid');
     const [showAdd, setShowAdd] = useState(false);
@@ -62,15 +64,16 @@ export default function WorkersPage() {
 
     const [newPassword, setNewPassword] = useState('');
     const [filterType, setFilterType] = useState('ALL');
+    const [sortBy, setSortBy] = useState('NAME');
     const [loading, setLoading] = useState(true);
     const { data: session }: any = useSession();
     const { effectiveRole, effectiveWorkerType } = useView();
     const role = effectiveRole || session?.user?.role;
     const isAdmin = ['ADMIN', 'SUPERADMIN'].includes(role);
-    const isCandidate = role === 'MANAGER';
+    const isCandidate = role === 'CANDIDATE';
     const isBoothManager = role === 'WORKER' && effectiveWorkerType === 'BOOTH_MANAGER';
     const isPannaPramukh = role === 'WORKER' && effectiveWorkerType === 'PANNA_PRAMUKH';
-    const canEditWorkers = isAdmin || isCandidate || isBoothManager;
+    const canEditWorkers = isAdmin || isCandidate;
 
     const assemblyId = session?.user?.assemblyId || 1;
 
@@ -93,16 +96,18 @@ export default function WorkersPage() {
                 setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
             }
         } else {
-            const [wData, bData, cData, aData] = await Promise.all([
+            const [wData, bData, cData, aData, teamStatus] = await Promise.all([
                 getWorkersInAssembly(assemblyId),
                 getBoothsWithAssignment(assemblyId),
                 getBoothCoverageStats(assemblyId),
-                getAssemblyInfo(assemblyId)
+                getAssemblyInfo(assemblyId),
+                checkCreativeTeamStatus(assemblyId)
             ]);
             setWorkers(wData);
             setBooths(bData);
             setCoverage(cData);
             setAssembly(aData);
+            setHasCreativeTeam(teamStatus);
             if (aData?.electionDate) {
                 setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
             }
@@ -111,6 +116,7 @@ export default function WorkersPage() {
     }
 
     const validatePassword = (pwd: string) => {
+        if (pwd.length < 6) return false;
         const hasUpperCase = /[A-Z]/.test(pwd);
         const hasNumber = /\d/.test(pwd);
         const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(pwd);
@@ -235,7 +241,13 @@ export default function WorkersPage() {
         fetchData();
     };
 
-    const filteredWorkers = workers.filter(w => filterType === 'ALL' || w.type === filterType);
+    const filteredWorkers = workers
+        .filter(w => filterType === 'ALL' || w.type === filterType)
+        .sort((a, b) => {
+            if (sortBy === 'POINTS_HIGH') return (b.totalPoints || 0) - (a.totalPoints || 0);
+            if (sortBy === 'POINTS_LOW') return (a.totalPoints || 0) - (b.totalPoints || 0);
+            return 0; // Default order from API
+        });
     const availableBoothsForForm = booths.filter(b => formData.type === 'BOOTH_MANAGER' ? b.workers.length === 0 : true);
     const availableBoothsForEdit = booths.filter(b => {
         if (editData.type === 'BOOTH_MANAGER') {
@@ -269,19 +281,42 @@ export default function WorkersPage() {
             <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
                 <div>
                     <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#1E293B' }}>कार्यकर्ता एवं टीम मैनेजमेंट</h1>
-                    <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                        <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Calendar size={16} /> वोटिंग तिथि:
-                            <span
-                                onClick={() => setShowDatePanel(true)}
-                                style={{ fontWeight: '800', color: '#2563EB', cursor: 'pointer', borderBottom: '1px dashed #2563EB' }}
-                            >
-                                {assembly?.electionDate ? new Date(assembly.electionDate).toLocaleDateString('hi-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'सेट नहीं है'}
-                            </span>
+                    {!isBoothManager && (
+                        <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                            <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Calendar size={16} /> वोटिंग तिथि:
+                                <span
+                                    onClick={() => (isAdmin || isCandidate) && setShowDatePanel(true)}
+                                    style={{ fontWeight: '800', color: '#2563EB', cursor: (isAdmin || isCandidate) ? 'pointer' : 'default', borderBottom: (isAdmin || isCandidate) ? '1px dashed #2563EB' : 'none' }}
+                                >
+                                    {assembly?.electionDate ? new Date(assembly.electionDate).toLocaleDateString('hi-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'सेट नहीं है'}
+                                </span>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
                 <div className="mobile-full-width" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Points Sort Filter */}
+                    <div style={{ position: 'relative' }}>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            style={{
+                                padding: '10px 12px', paddingRight: '32px',
+                                background: sortBy.includes('POINTS') ? '#FFFBEB' : 'white',
+                                border: sortBy.includes('POINTS') ? '1px solid #F59E0B' : '1px solid #E2E8F0',
+                                borderRadius: '12px', fontWeight: '700', fontSize: '13px',
+                                color: sortBy.includes('POINTS') ? '#B45309' : '#64748B',
+                                appearance: 'none', cursor: 'pointer'
+                            }}
+                        >
+                            <option value="NAME">Sort: Normal</option>
+                            <option value="POINTS_HIGH">Points: High to Low</option>
+                            <option value="POINTS_LOW">Points: Low to High</option>
+                        </select>
+                        <TrendingUp size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: sortBy.includes('POINTS') ? '#B45309' : '#64748B', pointerEvents: 'none' }} />
+                    </div>
+
                     <div className="mobile-full-width" style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }}>
                         <button className="mobile-full-width" onClick={() => setViewMode('grid')} style={{ flex: 1, padding: '8px 12px', background: viewMode === 'grid' ? 'white' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: viewMode === 'grid' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             <LayoutList size={16} /> <span style={{ fontSize: '13px', fontWeight: '700' }}>Grid</span>
@@ -298,17 +333,23 @@ export default function WorkersPage() {
                                 style={{ width: '100%', padding: '12px 16px', paddingRight: '40px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', fontWeight: '700', appearance: 'none', cursor: 'pointer' }}
                             >
                                 <option value="ALL">सभी कार्यकर्ता</option>
-                                <option value="FIELD">ग्राउंड कार्यकर्ता</option>
-                                <option value="SOCIAL_MEDIA">सोशल मीडिया</option>
-                                <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
+                                {!isBoothManager && (
+                                    <>
+                                        <option value="FIELD">ग्राउंड कार्यकर्ता</option>
+                                        {!hasCreativeTeam && <option value="SOCIAL_MEDIA">सोशल मीडिया</option>}
+                                        <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
+                                    </>
+                                )}
                                 <option value="PANNA_PRAMUKH">पन्ना प्रमुख</option>
                             </select>
                             <Filter size={16} style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', color: '#64748B', pointerEvents: 'none' }} />
                         </div>
                     )}
-                    <button className="mobile-full-width" onClick={() => setShowAdd(true)} style={{ padding: '12px 24px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                        <UserPlus size={18} /> नया सदस्य
-                    </button>
+                    {!isBoothManager && (
+                        <button className="mobile-full-width" onClick={() => setShowAdd(true)} style={{ padding: '12px 24px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                            <UserPlus size={18} /> नया सदस्य
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -324,7 +365,7 @@ export default function WorkersPage() {
                                     </div>
                                     <div>
                                         <h3 style={{ fontWeight: '800', color: '#1E293B' }}>बूथ कवरेज रिपोर्ट (Deployment)</h3>
-                                        <p style={{ fontSize: '13px', color: '#64748B' }}>कुल {coverage.total} बूथों में से {coverage.assigned} पर मैनेजर तैनात</p>
+                                        <p style={{ fontSize: '13px', color: '#64748B' }}>कुल {coverage.total} बूथों में से {coverage.assigned} पर कैंडिडेट तैनात</p>
                                     </div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
@@ -350,6 +391,10 @@ export default function WorkersPage() {
                                     </button>
                                 )}
 
+                                <div style={{ position: 'absolute', top: 12, right: 12, padding: '6px 12px', background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', color: 'white', borderRadius: '12px', fontSize: '16px', fontWeight: '900', boxShadow: '0 4px 6px rgba(124, 58, 237, 0.4)', zIndex: 5, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    {worker.totalPoints || 0} <span style={{ fontSize: '12px' }}>✨</span>
+                                </div>
+
                                 <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', marginTop: '10px' }}>
                                     <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #E2E8F0' }}>
                                         <span style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary-bg)' }}>{worker.name[0]}</span>
@@ -358,7 +403,7 @@ export default function WorkersPage() {
                                         <div style={{ fontWeight: '800', fontSize: '18px' }}>{worker.name}</div>
                                         <div style={{ fontSize: '13px', color: '#64748B' }}>{worker.mobile}</div>
                                         <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: '800', color: '#2563EB', background: '#EFF6FF', padding: '2px 8px', borderRadius: '6px', display: 'inline-block' }}>
-                                            {worker.type.split('_').join(' ')}
+                                            {worker.type === 'SOCIAL_MEDIA' ? 'सोशल मीडिया' : worker.type.split('_').join(' ')}
                                         </div>
                                     </div>
                                 </div>
@@ -398,31 +443,38 @@ export default function WorkersPage() {
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
                     {/* Level 1: Candidate (Implicit Header) */}
-                    <div style={{ textAlign: 'center', position: 'relative' }}>
-                        <div style={{ background: '#1E3A8A', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '12px 32px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(30,58,138,0.3)', border: '2px solid white' }}>
-                            <ShieldCheck size={20} />
-                            <span style={{ fontWeight: '900', fontSize: '18px' }}>कैंडिडेट (Candidate / Admin)</span>
-                        </div>
-                        <div style={{ width: '2px', height: '20px', background: '#E2E8F0', margin: '0 auto' }}></div>
-                    </div>
-
-                    {/* Level 2: Ground Workers & Social Media */}
-                    <div>
-                        <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#64748B', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Users size={18} /> जमीनी कार्यकर्ता एवं सोशल मीडिया टीम
-                        </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-                            {hierarchyData.generalWorkers.map((w: any) => (
-                                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: w.type === 'SOCIAL_MEDIA' ? '#FDF2F8' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: w.type === 'SOCIAL_MEDIA' ? '#DB2777' : '#2563EB', fontWeight: '800' }}>{w.name[0]}</div>
-                                    <div>
-                                        <div style={{ fontWeight: '800', fontSize: '14px' }}>{w.name}</div>
-                                        <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8' }}>{w.type === 'SOCIAL_MEDIA' ? 'डिजिटल प्रचार' : 'ग्राउंड सपोर्ट'}</div>
-                                    </div>
+                    {!isBoothManager && (
+                        <>
+                            <div style={{ textAlign: 'center', position: 'relative' }}>
+                                <div style={{ background: '#1E3A8A', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '12px 32px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(30,58,138,0.3)', border: '2px solid white' }}>
+                                    <ShieldCheck size={20} />
+                                    <span style={{ fontWeight: '900', fontSize: '18px' }}>कैंडिडेट (Candidate / Admin)</span>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                                <div style={{ width: '2px', height: '20px', background: '#E2E8F0', margin: '0 auto' }}></div>
+                            </div>
+
+                            {/* Level 2: Ground Workers & Social Media */}
+                            <div>
+                                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#64748B', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Users size={18} /> जमीनी कार्यकर्ता एवं सोशल मीडिया टीम
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                                    {hierarchyData.generalWorkers.map((w: any) => (
+                                        <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: w.type === 'SOCIAL_MEDIA' ? '#FDF2F8' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: w.type === 'SOCIAL_MEDIA' ? '#DB2777' : '#2563EB', fontWeight: '800' }}>{w.name[0]}</div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: '800', fontSize: '14px' }}>{w.name}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8' }}>{w.type === 'SOCIAL_MEDIA' ? 'सोशल मीडिया' : 'ग्राउंड सपोर्ट'}</div>
+                                            </div>
+                                            <div style={{ padding: '4px 10px', background: '#7C3AED', color: 'white', borderRadius: '8px', fontSize: '12px', fontWeight: '900' }}>
+                                                {w.totalPoints || 0} ✨
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     {/* Level 2 -> 3: Booth Manager -> Panna Pramukhs */}
                     <div>
@@ -442,8 +494,11 @@ export default function WorkersPage() {
                                         <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                                             <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#FFF7ED', border: '1px solid #FFEDD5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706' }}><UserCheck size={20} /></div>
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{group.manager?.name || 'मैनेजर नियुक्त नहीं'}</div>
+                                                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{group.manager?.name || 'कैंडिडेट नियुक्त नहीं'}</div>
                                                 <div style={{ fontSize: '11px', fontWeight: '700', color: '#D97706' }}>बूथ इंचार्ज</div>
+                                            </div>
+                                            <div style={{ padding: '6px 14px', background: '#7C3AED', color: 'white', borderRadius: '10px', fontSize: '14px', fontWeight: '900' }}>
+                                                {group.manager?.totalPoints || 0} ✨
                                             </div>
                                             {canEditWorkers && group.manager && (
                                                 <button onClick={() => openEditModal(group.manager)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
@@ -462,6 +517,9 @@ export default function WorkersPage() {
                                                     <div style={{ flex: 1 }}>
                                                         <div style={{ fontSize: '13px', fontWeight: '800' }}>{p.name}</div>
                                                         <div style={{ fontSize: '10px', color: '#64748B' }}>पन्ना प्रमुख | {p.stats?.totalVoters} वोटर</div>
+                                                    </div>
+                                                    <div style={{ padding: '4px 10px', background: '#F5F3FF', border: '1px solid #7C3AED', color: '#7C3AED', borderRadius: '8px', fontSize: '12px', fontWeight: '900' }}>
+                                                        {p.totalPoints || 0} ✨
                                                     </div>
                                                 </div>
                                             ))}
@@ -496,13 +554,16 @@ export default function WorkersPage() {
                             </div>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>पासवर्ड (Login)</label>
-                                <input required type="text" placeholder="Strong Password (e.g. Abc@1234)" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
+                                <input required type="text" placeholder="Abc@1234" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
+                                <div style={{ marginTop: '6px', fontSize: '11px', color: '#64748B', fontWeight: '700' }}>
+                                    अनिवार्य: कम से कम 6 अक्षर, 1 बड़ा अक्षर (Caps), 1 स्पेशल चिन्ह, 1 अंक
+                                </div>
                             </div>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>प्रकार</label>
                                 <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value, boothId: '' })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
                                     <option value="FIELD">ग्राउंड कार्यकर्ता</option>
-                                    <option value="SOCIAL_MEDIA">सोशल मीडिया</option>
+                                    {!hasCreativeTeam && <option value="SOCIAL_MEDIA">सोशल मीडिया</option>}
                                     <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
                                     <option value="PANNA_PRAMUKH">पन्ना प्रमुख</option>
                                 </select>
@@ -549,7 +610,7 @@ export default function WorkersPage() {
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>कार्यकर्ता टाइप</label>
                                 <select value={editData.type} onChange={e => setEditData({ ...editData, type: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
                                     <option value="FIELD">ग्राउंड कार्यकर्ता</option>
-                                    <option value="SOCIAL_MEDIA">सोशल मीडिया</option>
+                                    {!hasCreativeTeam && <option value="SOCIAL_MEDIA">सोशल मीडिया</option>}
                                     <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
                                     <option value="PANNA_PRAMUKH">पन्ना प्रमुख</option>
                                 </select>
@@ -653,6 +714,42 @@ export default function WorkersPage() {
                             <button onClick={() => setShowAssignVoters(null)} style={{ flex: 1, padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }}>कैंसिल</button>
                             <button onClick={handleAssignSubmit} disabled={selectedVoterIds.length === 0} style={{ flex: 1, padding: '14px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '900', opacity: selectedVoterIds.length === 0 ? 0.5 : 1 }}>चयनित सेव करें</button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Reset Modal */}
+            {showPasswordReset && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '20px' }}>
+                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '450px', padding: '32px', borderRadius: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <h2 style={{ fontSize: '20px', fontWeight: '900' }}>पासवर्ड रीसेट करें</h2>
+                            <button onClick={() => { setShowPasswordReset(null); setNewPassword(''); }} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px' }}><X size={20} /></button>
+                        </div>
+                        <p style={{ marginBottom: '16px', fontSize: '14px', color: '#64748B' }}>कार्यकर्ता: <span style={{ fontWeight: '800', color: '#1E293B' }}>{showPasswordReset.name}</span></p>
+                        <form onSubmit={handlePasswordUpdate}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>नया पासवर्ड</label>
+                                <div style={{ position: 'relative' }}>
+                                    <Key size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                                    <input
+                                        required
+                                        type="text"
+                                        placeholder="नया पासवर्ड लिखें"
+                                        value={newPassword}
+                                        onChange={e => setNewPassword(e.target.value)}
+                                        style={{ width: '100%', padding: '14px 14px 14px 44px', border: '1px solid #E2E8F0', borderRadius: '12px', fontSize: '15px' }}
+                                    />
+                                </div>
+                                <div style={{ marginTop: '8px', fontSize: '11px', color: '#64748B', fontWeight: '700' }}>
+                                    नियम: कम से कम 6 अक्षर, 1 बड़ा अक्षर, 1 चिन्ह, 1 अंक
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button type="button" onClick={() => { setShowPasswordReset(null); setNewPassword(''); }} style={{ flex: 1, padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', fontWeight: '700' }}>कैंसिल</button>
+                                <button type="submit" style={{ flex: 1, padding: '14px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '900' }}>अपडेट करें</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

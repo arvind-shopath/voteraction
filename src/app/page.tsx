@@ -80,22 +80,44 @@ export default function LandingPage() {
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <img src="/logo.png" alt="Voteraction Logo" style={{ height: '32px', width: 'auto' }} />
         </div>
-        <button
-          onClick={handleLoginRedirect}
-          style={{
-            background: '#2563EB',
-            color: 'white',
-            padding: '10px 24px',
-            borderRadius: '12px',
-            fontWeight: '800',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '14px',
-            boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)'
-          }}
-        >
-          लॉगिन
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <a
+            href="/downloads/voteraction.apk"
+            download
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#F1F5F9',
+              color: '#334155',
+              padding: '10px 16px',
+              borderRadius: '12px',
+              fontWeight: '800',
+              textDecoration: 'none',
+              fontSize: '13px',
+              border: '1px solid #E2E8F0',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Smartphone size={16} color="#2563EB" /> एप्प डाउनलोड
+          </a>
+          <button
+            onClick={handleLoginRedirect}
+            style={{
+              background: '#2563EB',
+              color: 'white',
+              padding: '10px 24px',
+              borderRadius: '12px',
+              fontWeight: '800',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)'
+            }}
+          >
+            लॉगिन
+          </button>
+        </div>
       </nav>
 
       {/* Hero Section */}

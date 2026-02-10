@@ -30,6 +30,8 @@ export default function AssembliesPage() {
         themeColor: PARTY_CONFIG[PARTIES[0]].color,
         candidateName: '',
         candidateImageUrl: null,
+        lastElectionDate: null,
+        nextElectionDate: null,
         historicalResults: '[]',
         casteEquation: [],
         electionHistory: []
@@ -76,6 +78,8 @@ export default function AssembliesPage() {
             themeColor: assembly.themeColor || PARTY_CONFIG[assembly.party || PARTIES[0]]?.color || '#1E3A8A',
             candidateName: assembly.candidateName || '',
             candidateImageUrl: assembly.candidateImageUrl || null,
+            lastElectionDate: assembly.lastElectionDate || null,
+            nextElectionDate: assembly.nextElectionDate || null,
             historicalResults: assembly.historicalResults || '[]',
             casteEquation: JSON.parse(assembly.casteEquation || '[]'),
             electionHistory: assembly.electionHistory || []
@@ -101,6 +105,8 @@ export default function AssembliesPage() {
                 themeColor: formData.themeColor,
                 candidateName: formData.candidateName,
                 candidateImageUrl: formData.candidateImageUrl,
+                lastElectionDate: formData.lastElectionDate,
+                nextElectionDate: formData.nextElectionDate,
                 historicalResults: formData.historicalResults,
                 casteEquation: JSON.stringify(formData.casteEquation),
                 electionHistory: formData.electionHistory
@@ -120,6 +126,8 @@ export default function AssembliesPage() {
                 themeColor: PARTY_CONFIG[PARTIES[0]].color,
                 candidateName: '',
                 candidateImageUrl: null,
+                lastElectionDate: null,
+                nextElectionDate: null,
                 historicalResults: '[]', casteEquation: [], electionHistory: []
             });
             fetchAssemblies();
@@ -140,6 +148,8 @@ export default function AssembliesPage() {
             themeColor: PARTY_CONFIG[PARTIES[0]].color,
             candidateName: '',
             candidateImageUrl: null,
+            lastElectionDate: null,
+            nextElectionDate: null,
             historicalResults: '[]', casteEquation: [], electionHistory: []
         });
         setActiveTab('basic');
@@ -295,6 +305,42 @@ export default function AssembliesPage() {
                                             style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }} />
                                     </div>
 
+                                    {/* Election Dates */}
+                                    <div style={{ background: '#FEF3C7', padding: '20px', borderRadius: '12px', marginBottom: '24px', border: '2px solid #F59E0B' }}>
+                                        <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#92400E', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            🗳️ चुनाव की तारीखें (Election Dates)
+                                        </h4>
+
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#78350F' }}>पिछला चुनाव (Last Election Date)</label>
+                                            <input
+                                                type="date"
+                                                value={formData.lastElectionDate ? new Date(formData.lastElectionDate).toISOString().slice(0, 10) : ''}
+                                                onChange={e => setFormData({ ...formData, lastElectionDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                                                style={{ width: '100%', padding: '12px', border: '2px solid #F59E0B', borderRadius: '8px', background: 'white', fontWeight: '600' }}
+                                            />
+                                            <div style={{ marginTop: '4px', fontSize: '11px', color: '#92400E', fontWeight: '600' }}>
+                                                📅 Format: DD/MM/YYYY (जैसे: 15/02/2022)
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#78350F' }}>आने वाला चुनाव (Next Election Date)</label>
+                                            <input
+                                                type="date"
+                                                value={formData.nextElectionDate ? new Date(formData.nextElectionDate).toISOString().slice(0, 10) : ''}
+                                                onChange={e => setFormData({ ...formData, nextElectionDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                                                style={{ width: '100%', padding: '12px', border: '2px solid #F59E0B', borderRadius: '8px', background: 'white', fontWeight: '600' }}
+                                            />
+                                            <div style={{ marginTop: '4px', fontSize: '11px', color: '#92400E', fontWeight: '600' }}>
+                                                📅 Format: DD/MM/YYYY (जैसे: 07/03/2027)
+                                            </div>
+                                            <div style={{ marginTop: '8px', fontSize: '11px', color: '#78350F', fontWeight: '600' }}>
+                                                ⚠️ यह तारीख सेट करने पर मतदान वार रूम एक्टिव हो जाएगा
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* Party, Color, Candidate info removed from Admin view as requested */}
                                     <div style={{ display: 'none' }}>
                                         <select value={formData.party} onChange={e => setFormData({ ...formData, party: e.target.value })}>
@@ -448,12 +494,12 @@ export default function AssembliesPage() {
                                 <span style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B' }}>साझा कैंडिडेट्स:</span>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {assembly.users?.filter((u: any) => u.role === 'MANAGER').map((u: any) => (
+                                {assembly.users?.filter((u: any) => u.role === 'CANDIDATE').map((u: any) => (
                                     <div key={u.id} style={{ padding: '4px 10px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '11px', fontWeight: '700', color: '#475569' }}>
                                         {u.name}
                                     </div>
                                 ))}
-                                {assembly.users?.filter((u: any) => u.role === 'MANAGER').length === 0 && (
+                                {assembly.users?.filter((u: any) => u.role === 'CANDIDATE').length === 0 && (
                                     <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>कोई कैंडिडेट नहीं</div>
                                 )}
                             </div>
@@ -470,7 +516,7 @@ export default function AssembliesPage() {
                             </div>
                             <div style={{ textAlign: 'center', borderLeft: '1px solid #F1F5F9' }}>
                                 <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>कैंडिडेट्स</div>
-                                <div style={{ fontWeight: '800', fontSize: '15px', color: '#059669' }}>{assembly.users?.filter((u: any) => u.role === 'MANAGER').length || 0}</div>
+                                <div style={{ fontWeight: '800', fontSize: '15px', color: '#059669' }}>{assembly.users?.filter((u: any) => u.role === 'CANDIDATE').length || 0}</div>
                             </div>
                         </div>
 

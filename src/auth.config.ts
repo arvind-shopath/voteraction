@@ -64,7 +64,9 @@ export const authConfig = {
         async session({ session, token }: any) {
             if (token && session.user) {
                 session.user.id = token.id as string;
-                session.user.role = token.role as string;
+                // Normalize legacy role for transition
+                const rawRole = token.role as string;
+                session.user.role = rawRole === 'MANAGER' ? 'CANDIDATE' : rawRole;
                 session.user.status = token.status as string;
                 session.user.assemblyId = token.assemblyId as number | null;
                 session.user.campaignId = token.campaignId as number | null;

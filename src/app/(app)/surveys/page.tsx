@@ -27,7 +27,7 @@ export default function SurveysPage() {
         <div>
             <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px' }}>सर्वेक्षण एवं जनभावना</h1>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div className="grid-2">
                 {/* Mood Chart */}
                 <div className="card" style={{ background: 'white' }}>
                     <h3 style={{ fontSize: '18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>

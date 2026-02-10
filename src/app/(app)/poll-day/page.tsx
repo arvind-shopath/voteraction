@@ -1,147 +1,158 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Activity, AlertOctagon, Clock, Users, ArrowRight } from 'lucide-react';
+import { useView } from '@/context/ViewContext';
+import { useSession } from 'next-auth/react';
+import { Clock, Activity, Lock, Calendar } from 'lucide-react';
+import CandidateWarRoom from './CandidateWarRoom';
+import WorkerWarRoom from './WorkerWarRoom';
+import CandidateSelector from './CandidateSelector';
+import { ArrowLeft } from 'lucide-react';
 
-const pollData = Array.from({ length: 40 }, (_, i) => ({
-    id: i + 1,
-    number: 100 + i + 1,
-    turnout: Math.floor(Math.random() * 40) + 20,
-    voted: Math.floor(Math.random() * 500) + 200,
-    total: 1000,
-    status: Math.random() > 0.8 ? 'Alert' : 'Normal',
-    lastUpdate: '10 मि. पहले'
-}));
-
+/**
+ * 🛡️ WAR ROOM PAGE ROUTER
+ * This page checks:
+ * 1. Election Date (48h countdown lock)
+ * 2. User Role (Candidate vs Worker)
+ */
 export default function PollDayPage() {
-    const [currentTime, setCurrentTime] = useState('');
+    const { effectiveRole, effectiveWorkerType } = useView();
+    const { data: session }: any = useSession();
+    const [electionDate, setElectionDate] = useState<Date | null>(null);
+    const [currentTime, setCurrentTime] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [candidateName, setCandidateName] = useState('');
+    const [selectedAssemblyId, setSelectedAssemblyId] = useState<number | null>(null);
+
+    // Use user's assemblyId if available, otherwise fallback to Assembly ID 13 (सिकटा)
+    // Safety check: If session has stale ID 1 (which doesn't exist), force it to 13
+    const userAssemblyId = session?.user?.assemblyId || 13;
+    const finalAssemblyId = selectedAssemblyId || (userAssemblyId === 1 ? 13 : userAssemblyId);
+
+    const [mounted, setMounted] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
-        setCurrentTime(new Date().toLocaleTimeString('hi-IN'));
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    useEffect(() => {
+        setMounted(true);
+        // Fetch Election Date from Assembly Settings
+        const fetchElectionDate = async () => {
+            try {
+                const res = await fetch(`/api/assembly/${finalAssemblyId}`);
+                const data = await res.json();
+
+                // Check nextElectionDate first (for upcoming elections), then electionDate
+                if (data.nextElectionDate) {
+                    const eDate = new Date(data.nextElectionDate);
+                    setElectionDate(eDate);
+                } else if (data.electionDate) {
+                    const eDate = new Date(data.electionDate);
+                    setElectionDate(eDate);
+                }
+                if (data.candidateName) {
+                    setCandidateName(data.candidateName);
+                }
+            } catch (error) {
+                console.error("Failed to fetch election date", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchElectionDate();
+    }, [finalAssemblyId]);
+
+
+    useEffect(() => {
         const timer = setInterval(() => {
-            setCurrentTime(new Date().toLocaleTimeString('hi-IN'));
+            const now = new Date();
+            setCurrentTime(now.toLocaleTimeString('hi-IN'));
         }, 1000);
+
         return () => clearInterval(timer);
     }, []);
 
+    // Prevent Hydration Mismatch
+    if (!mounted) return null;
+
+    // Show loader while fetching valid election date to prevent flickering
+    if (loading) {
+        return (
+            <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #F1F5F9', borderTopColor: '#2563EB', borderRadius: '50%' }}></div>
+            </div>
+        );
+    }
+
+    // War Room is LIVE - Route based on role
+    const isAdmin = effectiveRole === 'ADMIN' || effectiveRole === 'SUPERADMIN';
+
+    if (isAdmin && !selectedAssemblyId) {
+        return <CandidateSelector onSelect={setSelectedAssemblyId} lang="hi" />;
+    }
+
     return (
-        <div style={{ padding: '0px' }}>
+        <div style={{ paddingBottom: '80px' }}>
+            {/* Live Header */}
             <div style={{
-                background: '#111827',
+                background: 'linear-gradient(135deg, #0F172A, #1E293B)',
                 color: 'white',
-                padding: '16px 24px',
-                borderRadius: '8px',
-                marginBottom: '24px',
+                padding: isMobile ? '20px' : '32px',
+                borderRadius: isMobile ? '20px' : '32px',
+                marginBottom: isMobile ? '20px' : '32px',
                 display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
                 justifyContent: 'space-between',
-                alignItems: 'center',
-                borderLeft: '8px solid var(--danger)'
+                alignItems: isMobile ? 'flex-start' : 'center',
+                borderLeft: isMobile ? '6px solid #EF4444' : '10px solid #EF4444',
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
+                gap: isMobile ? '16px' : '0'
             }}>
                 <div>
-                    <h1 style={{ fontSize: '24px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Activity className="status-red" /> मतदान वार रूम (War Room) - LIVE
+                    <h1 style={{ fontSize: isMobile ? '24px' : '32px', fontWeight: '950', display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-1px' }}>
+                        {isAdmin && selectedAssemblyId && (
+                            <button
+                                onClick={() => setSelectedAssemblyId(null)}
+                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '8px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                                <ArrowLeft size={isMobile ? 20 : 24} />
+                            </button>
+                        )}
+                        <Activity size={isMobile ? 24 : 36} className="status-red" />
+                        <span style={{ whiteSpace: isMobile ? 'normal' : 'nowrap' }}>मतदान वार रूम - LIVE</span>
                     </h1>
-                    <p style={{ color: '#9CA3AF', fontSize: '14px', marginTop: '4px' }}>विधानसभा क्षेत्र: 123-उत्तर, चरण: 02</p>
+                    <p style={{ color: '#9CA3AF', fontSize: isMobile ? '13px' : '16px', marginTop: '4px', fontWeight: '700' }}>
+                        मुख्य नियंत्रण कक्ष ({candidateName || 'प्रत्याशी'})
+                    </p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '24px', fontWeight: '700', fontVariantNumeric: 'tabular-nums' }}>{currentTime}</div>
-                    <div style={{ fontSize: '13px', color: 'var(--success)', fontWeight: '600' }}>सिस्टम ऑनलाइन • डेटा अपडेट हो रहा है</div>
-                </div>
-            </div>
-
-            <div className="kpi-grid">
-                <div className="kpi-card" style={{ background: '#1F2937', color: 'white', border: 'none' }}>
-                    <div className="kpi-label" style={{ color: '#9CA3AF' }}>कुल मतदान प्रतिशत</div>
-                    <div className="kpi-value" style={{ fontSize: '36px' }}>42.5%</div>
-                    <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>समय: 12:00 PM तक</div>
-                </div>
-                <div className="kpi-card" style={{ background: '#1F2937', color: 'white', border: 'none' }}>
-                    <div className="kpi-label" style={{ color: '#9CA3AF' }}>अनुमानित वोट</div>
-                    <div className="kpi-value" style={{ fontSize: '36px' }}>45,230</div>
-                    <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>लक्ष्य: 85,000</div>
-                </div>
-                <div className="kpi-card" style={{ background: '#1F2937', color: 'white', border: 'none' }}>
-                    <div className="kpi-label" style={{ color: '#9CA3AF' }}>अलर्ट (Booth Issues)</div>
-                    <div className="kpi-value status-red" style={{ fontSize: '36px' }}>08</div>
-                    <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>त्वरित कार्यवाही आवश्यक</div>
-                </div>
-                <div className="kpi-card" style={{ background: '#1F2937', color: 'white', border: 'none' }}>
-                    <div className="kpi-label" style={{ color: '#9CA3AF' }}>सक्रिय इंचार्ज</div>
-                    <div className="kpi-value status-green" style={{ fontSize: '36px' }}>242/245</div>
-                    <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>3 बूथ पर संपर्क टूटा</div>
+                <div style={{ textAlign: isMobile ? 'left' : 'right', width: isMobile ? '100%' : 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: isMobile ? '24px' : '32px', fontWeight: '900', fontVariantNumeric: 'tabular-nums' }}>{currentTime || '--:--:--'}</div>
+                    <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#10B981', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                        <div style={{ width: '8px', height: '8px', background: '#10B981', borderRadius: '50%', animation: 'pulse-live 2s infinite' }}></div>
+                        सिस्टम LIVE
+                    </div>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                {pollData.map((booth) => (
-                    <div key={booth.id} style={{
-                        background: booth.status === 'Alert' ? '#450a0a' : 'white',
-                        color: booth.status === 'Alert' ? '#fecaca' : 'var(--text-primary)',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border)',
-                        position: 'relative',
-                        animation: booth.status === 'Alert' ? 'pulse 2s infinite' : 'none'
-                    }}>
-                        <style jsx>{`
-              @keyframes pulse {
-                0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
-                70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
-                100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-              }
+            {/* Route to appropriate War Room */}
+            {effectiveRole === 'WORKER' ? (
+                <WorkerWarRoom boothNumber={session?.user?.boothNumber || 1} assemblyId={finalAssemblyId} />
+            ) : (
+                <CandidateWarRoom assemblyId={finalAssemblyId} />
+            )}
+
+            <style jsx global>{`
+                @keyframes pulse-live {
+                    0% { transform: scale(1); opacity: 1; }
+                    50% { transform: scale(1.2); opacity: 0.7; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
             `}</style>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ fontWeight: '800', fontSize: '18px' }}>#{booth.number}</span>
-                            {booth.status === 'Alert' && <AlertOctagon size={18} />}
-                        </div>
-
-                        <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>मतदान प्रतिशत</div>
-                        <div style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px' }}>{booth.turnout}%</div>
-
-                        <div style={{ height: '4px', width: '100%', background: booth.status === 'Alert' ? 'rgba(255,255,255,0.2)' : '#F3F4F6', borderRadius: '2px', overflow: 'hidden' }}>
-                            <div style={{
-                                width: `${booth.turnout}%`,
-                                height: '100%',
-                                background: booth.turnout < 25 ? 'var(--danger)' : 'var(--success)'
-                            }} />
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', opacity: 0.7 }}>
-                            <span>{booth.voted}/{booth.total}</span>
-                            <span>{booth.lastUpdate}</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Incident Pop-up Strip */}
-            <div style={{
-                position: 'fixed',
-                bottom: '24px',
-                right: '24px',
-                width: '350px',
-                background: 'white',
-                borderRadius: '12px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                overflow: 'hidden',
-                border: '1px solid var(--border)',
-                zIndex: 1000
-            }}>
-                <div style={{ padding: '12px 16px', background: 'var(--danger)', color: 'white', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <AlertOctagon size={18} /> नई घटना दर्ज
-                </div>
-                <div style={{ padding: '16px' }}>
-                    <div style={{ fontWeight: '700', marginBottom: '4px' }}>बूथ नं. 114 - विवाद</div>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>EV मशीन में तकनीकी खराबी के कारण मतदान रुका हुआ है।</p>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        <button style={{ padding: '6px 12px', background: '#F3F4F6', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>इग्नोर</button>
-                        <button style={{ padding: '6px 12px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            जांच करें <ArrowRight size={14} />
-                        </button>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

@@ -14,12 +14,12 @@ export default function SocialRedirect() {
     useEffect(() => {
         if (status === 'authenticated' && session?.user && !redirecting) {
             setRedirecting(true);
-            const role = (session.user as any).role || 'MANAGER'; // Default to candidate if no role
+            const role = (session.user as any).role || 'CANDIDATE'; // Default to candidate if no role
 
             // Use window.location for hard redirect to clear any client state issues
             if (role === 'SOCIAL_MEDIA') {
                 window.location.href = '/social/content';
-            } else if (role === 'MANAGER' || role === 'ADMIN' || role === 'SUPERADMIN') {
+            } else if (role === 'CANDIDATE' || role === 'ADMIN' || role === 'SUPERADMIN') {
                 window.location.href = '/social/candidate';
             } else {
                 window.location.href = '/social/worker';

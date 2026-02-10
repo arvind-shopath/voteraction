@@ -12,7 +12,8 @@ function createWindow() {
             contextIsolation: false,
             partition: 'persist:main'
         },
-        title: 'Voteraction'
+        title: 'Voteraction',
+        icon: path.join(__dirname, 'icon.png')
     });
 
     // Remove Default Menu Bar
@@ -29,6 +30,22 @@ function createWindow() {
             await session.defaultSession.cookies.set(cookie);
         }
         return true;
+    });
+
+    ipcMain.handle('apply-session', async (event, { candidateId, cookiesJSON }) => {
+        try {
+            const cookies = JSON.parse(cookiesJSON);
+            const ses = session.fromPartition(`persist:candidate_${candidateId}`);
+            for (const cookie of cookies) {
+                // Ensure the cookie doesn't have conflicting properties
+                const { hostOnly, session: isSession, ...cleanCookie } = cookie;
+                await ses.cookies.set(cleanCookie);
+            }
+            return true;
+        } catch (e) {
+            console.error('Failed to apply session:', e);
+            return false;
+        }
     });
 
     // FIX: Only use localhost if explicitly running in development via environment variable

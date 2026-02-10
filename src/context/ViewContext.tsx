@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 
-type Role = 'SUPERADMIN' | 'ADMIN' | 'MANAGER' | 'WORKER' | 'SOCIAL_MEDIA';
+type Role = 'SUPERADMIN' | 'ADMIN' | 'CANDIDATE' | 'WORKER' | 'SOCIAL_MEDIA';
 type WorkerType = 'BOOTH_MANAGER' | 'PANNA_PRAMUKH' | 'FIELD' | 'SOCIAL_CENTRAL' | 'CENTRAL_MANAGER' | 'CENTRAL_DESIGNER' | 'CENTRAL_EDITOR' | 'CENTRAL_MONITOR' | null;
 
 interface ViewContextType {
@@ -21,7 +21,7 @@ export function ViewProvider({ children }: { children: React.ReactNode }) {
     const realRole = (session?.user as any)?.role as Role;
     const realWorkerType = (session?.user as any)?.workerType as WorkerType;
 
-    const [effectiveRole, setEffectiveRoleState] = useState<Role>('MANAGER');
+    const [effectiveRole, setEffectiveRoleState] = useState<Role>('CANDIDATE');
     const [effectiveWorkerType, setEffectiveWorkerTypeState] = useState<WorkerType>(null);
     const [simulationPersona, setSimulationPersona] = useState<{ name: string; image: string | null } | undefined>(undefined);
     const [isSimulating, setIsSimulating] = useState(false);
@@ -102,7 +102,7 @@ export function useView() {
     const context = useContext(ViewContext);
     if (context === undefined) {
         return {
-            effectiveRole: 'MANAGER' as Role,
+            effectiveRole: 'CANDIDATE' as Role,
             effectiveWorkerType: null as WorkerType,
             setEffectiveRole: () => { },
             isSimulating: false

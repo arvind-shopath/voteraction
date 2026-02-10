@@ -90,7 +90,7 @@ export default function LocalTeamDashboard() {
             for (const file of approvalForm.files) {
                 const formData = new FormData();
                 formData.append('file', file);
-                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const res = await fetch('/api/cloud/upload', { method: 'POST', body: formData });
                 const data = await res.json();
                 if (data.success) uploadedUrls.push(data.url);
                 else throw new Error('Upload failed');
@@ -132,6 +132,11 @@ export default function LocalTeamDashboard() {
 
     return (
         <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', paddingBottom: '100px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '32px', padding: '16px', background: '#FEF2F2', borderRadius: '16px', border: '1px solid #FECACA' }}>
+                <p style={{ color: '#DC2626', fontSize: '13px', fontWeight: '800' }}>
+                    📢 ये जगह फाइल स्टोर करने के लिए नहीं हैं.. यहां से आप फोटो और वीडियो सिर्फ भेज सकते हैं.. ये फाइलें 7 दिन में डिलीट हो जाएंगी.. प्लीज अपने पास बैकअप रखे..
+                </p>
+            </div>
             {/* Header */}
             <div style={{ marginBottom: '40px' }}>
                 <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#0F172A' }}>सोशल मीडिया <span style={{ color: '#2563EB' }}>टीम डैशबोर्ड</span></h1>

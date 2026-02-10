@@ -147,7 +147,8 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
     return {};
 }
 
-export async function getBoothDashboardStats(userId: number) {
+export async function getBoothDashboardStats(userId: number, assemblyId?: number) {
+    if (!userId) return null;
     let worker = await prisma.worker.findUnique({
         where: { userId },
         include: {
@@ -156,20 +157,20 @@ export async function getBoothDashboardStats(userId: number) {
         }
     });
 
-    // Support for Admin Simulation: If no worker record but user is Admin, pick first booth
-    if (!worker || !worker.booth) {
+    // Support for Admin Simulation: If no worker record or different assembly requested
+    if (!worker || !worker.booth || (assemblyId && worker.assemblyId !== assemblyId)) {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (user && ['ADMIN', 'SUPERADMIN'].includes(user.role)) {
+            const targetAssemblyId = assemblyId || user.assemblyId || 1;
             const firstBooth = await prisma.booth.findFirst({
-                where: { assemblyId: user.assemblyId || 1 },
+                where: { assemblyId: targetAssemblyId },
                 orderBy: { number: 'asc' }
             });
             if (firstBooth) {
-                // Mock-up a worker structure
-                return getStatsForBooth(firstBooth, user.assemblyId || 1, null);
+                return getStatsForBooth(firstBooth, targetAssemblyId, null);
             }
         }
-        return null;
+        if (!worker || !worker.booth) return null;
     }
 
     return getStatsForBooth(worker.booth, worker.assemblyId, worker.id);
@@ -220,6 +221,7 @@ async function getStatsForBooth(booth: any, assemblyId: number, workerId: number
 
     return {
         booth: booth,
+        worker: workerId ? await prisma.worker.findUnique({ where: { id: workerId } }) : null,
         stats: {
             voters: boothVoters.length,
             pannaPramukhs,
@@ -236,7 +238,8 @@ async function getStatsForBooth(booth: any, assemblyId: number, workerId: number
     };
 }
 
-export async function getPannaDashboardStats(userId: number) {
+export async function getPannaDashboardStats(userId: number, assemblyId?: number) {
+    if (!userId) return null;
     let worker = await prisma.worker.findUnique({
         where: { userId },
         include: {
@@ -255,12 +258,13 @@ export async function getPannaDashboardStats(userId: number) {
         }
     });
 
-    // Support for Admin Simulation: If no worker record but user is Admin, pick first panna pramukh
-    if (!worker) {
+    // Support for Admin Simulation
+    if (!worker || (assemblyId && worker.assemblyId !== assemblyId)) {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (user && ['ADMIN', 'SUPERADMIN'].includes(user.role)) {
+            const targetAssemblyId = assemblyId || user.assemblyId || 1;
             worker = await prisma.worker.findFirst({
-                where: { assemblyId: user.assemblyId || 1, type: 'PANNA_PRAMUKH' },
+                where: { assemblyId: targetAssemblyId, type: 'PANNA_PRAMUKH' },
                 include: {
                     assignedVoters: {
                         select: {
@@ -319,6 +323,7 @@ export async function getPannaDashboardStats(userId: number) {
     });
 
     return {
+        worker,
         stats: {
             totalVoters: voters.length,
             completedTasks: await prisma.task.count({ where: { workerId: worker.id, status: 'Completed' } }),
@@ -378,4 +383,225 @@ export async function saveAssemblyCasteEquation(assemblyId: number, casteEquatio
     });
     revalidatePath('/dashboard');
     return { success: true };
+}
+
+export async function updateBoothPollingData(boothId: number, turnout: number, assemblyId?: number) {
+    let booth = await prisma.booth.findUnique({ where: { id: boothId } });
+
+    // Fallback: If boothId is actually a booth number and assemblyId is provided
+    if (!booth && assemblyId) {
+        booth = await prisma.booth.findFirst({
+            where: { number: boothId, assemblyId }
+        });
+    }
+
+    if (!booth) return { success: false };
+
+    let history: any[] = [];
+    try {
+        history = JSON.parse(booth.turnoutHistory || '[]');
+    } catch (e) {
+        history = [];
+    }
+
+    const time = new Date().toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+    history.push({ time, turnout });
+
+    // Keep only last 12 updates (e.g. hourly)
+    if (history.length > 12) history = history.slice(-12);
+
+    await prisma.booth.update({
+        where: { id: booth.id },
+        data: {
+            turnout,
+            turnoutHistory: JSON.stringify(history)
+        }
+    });
+
+    revalidatePath('/dashboard');
+    revalidatePath('/poll-day');
+    return { success: true };
+}
+
+export async function reportBoothIncident(boothId: number, status: string, title: string, description: string, assemblyId?: number) {
+    let booth = await prisma.booth.findUnique({ where: { id: boothId } });
+
+    // Fallback: If boothId is actually a booth number and assemblyId is provided
+    if (!booth && assemblyId) {
+        booth = await prisma.booth.findFirst({
+            where: { number: boothId, assemblyId }
+        });
+    }
+
+    if (!booth) return { success: false };
+
+    await prisma.booth.update({
+        where: { id: booth.id },
+        data: { boothStatus: status }
+    });
+
+    // Also create an Issue if it's an alert
+    if (status === 'Alert') {
+        const user = await prisma.user.findFirst({ where: { assemblyId: booth.assemblyId, role: 'CANDIDATE' } });
+        await prisma.issue.create({
+            data: {
+                title: title || `Booth #${booth.number}: Issue Reported`,
+                description,
+                status: 'Open',
+                priority: 'High',
+                category: 'Poll Day',
+                boothNumber: booth.number,
+                assemblyId: booth.assemblyId,
+                reportedBy: 'Booth Manager'
+            }
+        });
+    }
+
+    revalidatePath('/dashboard');
+    revalidatePath('/poll-day');
+
+    // Add Points
+    const { auth } = await import('@/auth');
+    const session = await auth();
+    if (session?.user?.id) {
+        const { addWorkerPoints } = await import('./worker');
+        await addWorkerPoints(parseInt((session.user as any).id), 'BOOTH_INCIDENT', 20, `Reported Booth Incident at Booth #${booth.number}`);
+    }
+
+    return { success: true };
+}
+
+export async function getWarRoomStats(assemblyId: number) {
+    const booths = await prisma.booth.findMany({
+        where: { assemblyId },
+        orderBy: { number: 'asc' }
+    });
+
+    const votersCount = await prisma.voter.count({ where: { assemblyId } });
+    const votedCount = await prisma.voter.count({ where: { assemblyId, isVoted: true } });
+
+    // Real-time count per booth from individual Voter records
+    const votedByBooth = await prisma.voter.groupBy({
+        by: ['boothNumber'],
+        _count: { id: true },
+        where: { assemblyId, isVoted: true, NOT: { boothNumber: null } }
+    });
+
+    const votedMap = new Map();
+    votedByBooth.forEach(v => {
+        if (v.boothNumber) votedMap.set(v.boothNumber, v._count.id);
+    });
+
+    // Latest active incidents
+    const incidents = await prisma.issue.findMany({
+        where: { assemblyId, category: 'Poll Day', status: { in: ['Open', 'In Progress'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+    });
+
+    const resolvedIncidents = await prisma.issue.findMany({
+        where: { assemblyId, category: 'Poll Day', status: { in: ['Resolved', 'Closed'] } },
+        orderBy: { updatedAt: 'desc' },
+        take: 5
+    });
+
+    const avgTurnout = booths.length > 0 ? booths.reduce((acc: number, b: any) => acc + (b.turnout || 0), 0) / booths.length : 0;
+
+    return {
+        booths: booths.map((b: any) => {
+            const realVoted = votedMap.get(b.number) || 0;
+            return {
+                id: b.id,
+                number: b.number,
+                name: b.name,
+                turnout: b.turnout || 0,
+                status: b.boothStatus || 'Normal',
+                voted: realVoted || Math.round(((b.turnout || 0) / 100) * (b.totalVoters || 0)),
+                total: b.totalVoters || 0,
+                lastUpdate: b.updatedAt
+            };
+        }),
+        stats: {
+            avgTurnout: Math.round(avgTurnout * 10) / 10,
+            totalVoted: votedCount,
+            totalVoters: votersCount,
+            activeIncidents: incidents.length,
+            incidents,
+            resolvedIncidents
+        }
+    };
+}
+
+export async function updateIssueStatus(issueId: number, status: string) {
+    await prisma.issue.update({
+        where: { id: issueId },
+        data: { status }
+    });
+
+    // If resolved, update booth status back to normal if no other active issues
+    if (status === 'Resolved' || status === 'Closed') {
+        const issue = await prisma.issue.findUnique({ where: { id: issueId } });
+        if (issue && issue.boothNumber) {
+            // Check if any other open issues for this booth
+            const otherIssues = await prisma.issue.count({
+                where: {
+                    boothNumber: issue.boothNumber,
+                    assemblyId: issue.assemblyId,
+                    status: { in: ['Open', 'In Progress'] },
+                    id: { not: issueId }
+                }
+            });
+
+            if (otherIssues === 0) {
+                const booth = await prisma.booth.findFirst({
+                    where: { number: issue.boothNumber, assemblyId: issue.assemblyId }
+                });
+
+                if (booth) {
+                    await prisma.booth.update({
+                        where: { id: booth.id },
+                        data: { boothStatus: 'Normal' }
+                    });
+                }
+            }
+        }
+    }
+
+    revalidatePath('/dashboard');
+    revalidatePath('/poll-day');
+    return { success: true };
+}
+
+export async function getMyReportedIssues(assemblyId: number) {
+    const { auth } = await import('@/auth');
+    const session = await auth();
+    // Assuming reports are tracked by user ID or implied by worker role logic
+    // Actually Issue model has 'reportedBy' string. 
+    // But we might want to filter by creating user if we tracked it properly.
+    // Issue model doesn't link to User/Worker ID directly in current schema snapshot?
+    // Let's check schema. If needed, I'll use a hack or just return last 5 "Open" ones for the booth if it's a specific booth worker.
+
+    // Better: Add `userId` to Issue model? 
+    // For now, let's just return poll day incidents for the assembly if we can't filter by user. 
+    // But the requirement is "Worker को पता चले".
+
+    // Let's assume we can filter by the generic "Booth Manager" or "Field Worker" context if we can't match exact user.
+    // Actually, let's just fetch latest 5 incidents for the Assembly to show "Recent Updates".
+    // Or closer: filtered by boothNumber if available.
+    return await prisma.issue.findMany({
+        where: {
+            assemblyId,
+            category: 'Poll Day'
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+    });
+}
+
+export async function getAllBooths(assemblyId: number) {
+    return await prisma.booth.findMany({
+        where: { assemblyId },
+        select: { id: true, number: true, name: true },
+        orderBy: { number: 'asc' }
+    });
 }

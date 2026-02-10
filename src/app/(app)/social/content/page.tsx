@@ -32,6 +32,7 @@ export default function SocialContentPage() {
     const [jansamparkHistory, setJansamparkHistory] = useState<any[]>([]);
     const [jansamparkTab, setJansamparkTab] = useState<'upcoming' | 'history'>('upcoming');
     const [viewingApproval, setViewingApproval] = useState<any>(null);
+    const [candidateName, setCandidateName] = useState('Candidate');
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
 
@@ -39,7 +40,7 @@ export default function SocialContentPage() {
     const [approvalForm, setApprovalForm] = useState({ title: '', contentType: 'Poster', files: [] as File[] });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const assemblyId = (simulationPersona as any)?.assemblyId || (session?.user as any)?.assemblyId || 1;
+    const assemblyId = (simulationPersona as any)?.assemblyId || (session?.user as any)?.assemblyId || 13;
     const role = effectiveRole || session?.user?.role;
     const isSocialMediaTeam = role === 'SOCIAL_MEDIA' || ['ADMIN', 'SUPERADMIN'].includes(role);
 
@@ -50,16 +51,19 @@ export default function SocialContentPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [reqRes, appRes, routesRes, historyRes] = await Promise.all([
+            const { getAssemblySocialLinks } = await import('@/app/actions/social');
+            const [reqRes, appRes, routesRes, historyRes, linksRes] = await Promise.all([
                 getCandidatePostRequests(assemblyId),
                 getSocialMediaApprovals(assemblyId),
                 getJansamparkRoutes(assemblyId, true),  // Only unmarked (poster not made)
-                getJansamparkRoutes(assemblyId, false)  // Only marked (poster made)
+                getJansamparkRoutes(assemblyId, false), // Only marked (poster made)
+                getAssemblySocialLinks(assemblyId)
             ]);
             setRequests(reqRes || []);
             setApprovals(appRes || []);
             setJansamparkRoutes(routesRes || []);
             setJansamparkHistory(historyRes || []);
+            if (linksRes?.candidateName) setCandidateName(linksRes.candidateName);
         } catch (error) { console.error(error); } finally { setLoading(false); }
     };
 
@@ -91,8 +95,9 @@ export default function SocialContentPage() {
             for (const file of approvalForm.files) {
                 const formData = new FormData();
                 formData.append('file', file);
+                formData.append('candidateName', candidateName);
 
-                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const res = await fetch('/api/cloud/upload', { method: 'POST', body: formData });
                 const data = await res.json();
 
                 if (data.success) uploadedUrls.push(data.url);
@@ -142,6 +147,11 @@ export default function SocialContentPage() {
 
     return (
         <div style={{ padding: '40px', maxWidth: '1400px', margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '32px', padding: '16px', background: '#FEF2F2', borderRadius: '16px', border: '1px solid #FECACA' }}>
+                <p style={{ color: '#DC2626', fontSize: '13px', fontWeight: '800' }}>
+                    📢 ये जगह फाइल स्टोर करने के लिए नहीं हैं.. यहां से आप फोटो और वीडियो सिर्फ भेज सकते हैं.. ये फाइलें 7 दिन में डिलीट हो जाएंगी.. प्लीज अपने पास बैकअप रखे..
+                </p>
+            </div>
             <h1 style={{ fontSize: '28px', fontWeight: '900', marginBottom: '40px' }}>कंटेंट मैनेजमेंट (Content Management)</h1>
 
             <div style={{ display: 'grid', gap: '60px' }}>
@@ -162,7 +172,12 @@ export default function SocialContentPage() {
                             return (
                                 <div key={req.id} className="card" style={{ padding: '24px', position: 'relative' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                        <div style={{ fontWeight: '800', fontSize: '17px' }}>{req.subject}</div>
+                                        <div>
+                                            <div style={{ fontSize: '12px', fontWeight: '900', color: '#2563EB', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                                👤 {req.creator?.name || 'Unknown Candidate'}
+                                            </div>
+                                            <div style={{ fontWeight: '800', fontSize: '17px' }}>{req.subject}</div>
+                                        </div>
                                         <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>{new Date(req.createdAt).toLocaleDateString()}</div>
                                     </div>
                                     <p style={{ fontSize: '14px', color: '#475569', marginBottom: '20px', lineHeight: '1.6' }}>{req.description}</p>
@@ -204,9 +219,13 @@ export default function SocialContentPage() {
                             <div key={req.id} className="card" style={{ padding: '24px', borderLeft: '4px solid #2563EB' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 3fr 1fr', gap: '32px', alignItems: 'center' }}>
                                     <div>
+                                        <div style={{ fontSize: '11px', fontWeight: '900', color: '#2563EB', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                            👤 {req.creator?.name || 'Candidate'}
+                                        </div>
                                         <div style={{ fontWeight: '800', fontSize: '15px' }}>{req.subject}</div>
                                         <div style={{ fontSize: '12px', color: '#64748B' }}>स्वीकृत: {new Date(req.acceptedAt).toLocaleDateString()}</div>
                                     </div>
+
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
                                         <button onClick={() => handlePublish(req.id)} style={{ padding: '12px 24px', background: '#059669', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.4)' }}>
                                             <Check size={18} strokeWidth={3} /> Posted (हो गया)

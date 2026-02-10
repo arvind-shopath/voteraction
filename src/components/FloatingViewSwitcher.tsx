@@ -20,14 +20,14 @@ export default function FloatingViewSwitcher() {
     const options = [
         { label: 'Super Admin View', role: 'SUPERADMIN', worker: null, path: '/admin' },
         { label: 'Admin View', role: 'ADMIN', worker: null, path: '/admin' },
-        { label: 'Candidate View', role: 'MANAGER', worker: null, path: '/dashboard' },
+        { label: 'Candidate View', role: 'CANDIDATE', worker: null, path: '/dashboard' },
         { label: 'Booth Manager View', role: 'WORKER', worker: 'BOOTH_MANAGER', path: '/dashboard' },
         { label: 'Panna Pramukh View', role: 'WORKER', worker: 'PANNA_PRAMUKH', path: '/dashboard' },
         { label: 'Ground Worker View', role: 'WORKER', worker: 'FIELD', path: '/dashboard' },
         { label: 'Candidate Social Team', role: 'SOCIAL_MEDIA', worker: null, path: '/social/local-team' },
-        { label: 'Central Team: Manager', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_MANAGER', path: '/social-team' },
-        { label: 'Central Team: Designer', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_DESIGNER', path: '/social-team' },
-        { label: 'Central Team: Video Editor', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_EDITOR', path: '/social-team' },
+        { label: 'Central Team: Manager', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_MANAGER', path: '/social-sena' },
+        { label: 'Central Team: Designer', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_DESIGNER', path: '/social-sena/designer' },
+        { label: 'Central Team: Video Editor', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_EDITOR', path: '/social-sena/video-editor' },
     ];
 
     const handleSwitch = (opt: any) => {
@@ -44,8 +44,9 @@ export default function FloatingViewSwitcher() {
                 onClick={() => setIsOpen(!isOpen)}
                 style={{
                     position: 'fixed',
-                    bottom: '24px',
+                    top: '50%',
                     right: '24px',
+                    transform: isOpen ? 'translateY(-50%) rotate(90deg) scale(0.9)' : 'translateY(-50%) rotate(0) scale(1)',
                     width: '64px',
                     height: '64px',
                     borderRadius: '50%',
@@ -59,7 +60,6 @@ export default function FloatingViewSwitcher() {
                     cursor: 'pointer',
                     zIndex: 99999,
                     transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                    transform: isOpen ? 'rotate(90deg) scale(0.9)' : 'rotate(0) scale(1)',
                 }}
             >
                 {isOpen ? <X size={28} /> : <Eye size={28} />}

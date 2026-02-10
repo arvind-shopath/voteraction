@@ -4,6 +4,7 @@ import { prisma as prismaClient } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { auth } from '@/auth';
+import { validatePasswordStrength } from '@/lib/validation';
 
 const prisma = prismaClient as any;
 
@@ -23,7 +24,9 @@ export async function getAssemblies() {
                     id: true,
                     role: true,
                     status: true,
-                    name: true
+                    name: true,
+                    image: true,
+                    mobile: true
                 }
             },
             sharedAssignments: {
@@ -33,7 +36,9 @@ export async function getAssemblies() {
                             id: true,
                             role: true,
                             status: true,
-                            name: true
+                            name: true,
+                            image: true,
+                            mobile: true
                         }
                     }
                 }
@@ -75,7 +80,7 @@ export async function createAssembly(data: {
     return assembly;
 }
 
-export async function updateAssembly(id: number, data: {
+export async function updateAssembly(idRaw: any, data: {
     number?: number,
     name?: string,
     district?: string,
@@ -88,14 +93,20 @@ export async function updateAssembly(id: number, data: {
     candidateName?: string,
     candidateImageUrl?: string,
     enabledFeatures?: string,
+    lastElectionDate?: string | null,
+    nextElectionDate?: string | null,
     // Campaign Info
     importantAreas?: string,
     importantNewspapers?: string,
     campaignTags?: string,
     candidateBusiness?: string,
     importantIssues?: string,
-    importantCastes?: string
+    importantCastes?: string,
+    facebookUrl?: string,
+    instagramUrl?: string,
+    twitterUrl?: string
 }) {
+    const id = parseInt(idRaw.toString());
     try {
         const { electionHistory, ...rest } = data;
 
@@ -111,13 +122,18 @@ export async function updateAssembly(id: number, data: {
             candidateName: rest.candidateName,
             candidateImageUrl: rest.candidateImageUrl,
             enabledFeatures: rest.enabledFeatures,
+            lastElectionDate: rest.lastElectionDate,
+            nextElectionDate: rest.nextElectionDate,
             // Campaign Info
             importantAreas: rest.importantAreas,
             importantNewspapers: rest.importantNewspapers,
             campaignTags: rest.campaignTags,
             candidateBusiness: rest.candidateBusiness,
             importantIssues: rest.importantIssues,
-            importantCastes: rest.importantCastes
+            importantCastes: rest.importantCastes,
+            facebookUrl: rest.facebookUrl,
+            instagramUrl: rest.instagramUrl,
+            twitterUrl: rest.twitterUrl
         };
 
         // Remove undefined fields to avoid overriding existing data with undefined
@@ -231,7 +247,7 @@ export async function toggleCandidateStatus(assemblyId: number) {
     }
 
     const managers = await prisma.user.findMany({
-        where: { assemblyId, role: 'MANAGER' }
+        where: { assemblyId, role: 'CANDIDATE' }
     });
 
     if (managers.length === 0) return { success: false, message: 'No manager found for this assembly' };
@@ -241,7 +257,7 @@ export async function toggleCandidateStatus(assemblyId: number) {
     const newStatus = currentStatus === 'Active' ? 'Blocked' : 'Active';
 
     await prisma.user.updateMany({
-        where: { assemblyId, role: 'MANAGER' },
+        where: { assemblyId, role: 'CANDIDATE' },
         data: { status: newStatus }
     });
 
@@ -261,8 +277,44 @@ export async function toggleCandidateStatus(assemblyId: number) {
 // User Actions
 export async function getUsers() {
     return await prisma.user.findMany({
-        include: { assembly: true, campaign: true, worker: true }
+        include: { assembly: true, campaign: true, worker: true, sharedAssignments: true }
     });
+}
+
+export async function clearAppCache() {
+    const session = await auth();
+    const role = (session?.user as any)?.role;
+
+    if (role !== 'SUPERADMIN') {
+        throw new Error("Only Super Admin can clear cache.");
+    }
+
+    // 1. Revalidate all paths
+    revalidatePath('/', 'layout');
+    revalidatePath('/admin', 'layout');
+    revalidatePath('/admin/candidates', 'page');
+    revalidatePath('/workers', 'page');
+    revalidatePath('/voters', 'page');
+    revalidatePath('/social', 'page');
+    revalidatePath('/dashboard', 'page');
+
+    // 2. Force Clean "Ghost" Data
+    // Remove campaignId from Super Admins/Admins
+    await prisma.user.updateMany({
+        where: { role: { in: ['SUPERADMIN', 'ADMIN'] }, campaignId: { not: null } },
+        data: { campaignId: null, assemblyId: null }
+    });
+
+    // Remove any mapping assignments for Super Admins/Admins
+    const admins = await prisma.user.findMany({ where: { role: { in: ['SUPERADMIN', 'ADMIN'] } } });
+    const adminIds = admins.map((a: any) => a.id);
+    if (adminIds.length > 0) {
+        await prisma.userAssemblyAssignment.deleteMany({
+            where: { userId: { in: adminIds } }
+        });
+    }
+
+    return { success: true };
 }
 
 export async function createUserSecure(data: {
@@ -276,10 +328,17 @@ export async function createUserSecure(data: {
     const session = await auth();
     const currentUser = session?.user as any;
 
-    // Only SUPERADMIN can create ADMIN, SUPERADMIN, SOCIAL_MEDIA, MANAGER
-    if (['ADMIN', 'SUPERADMIN', 'SOCIAL_MEDIA', 'MANAGER'].includes(data.role)) {
+    // Only SUPERADMIN can create ADMIN, SUPERADMIN, SOCIAL_MEDIA, MANAGER, and new Social roles
+    if (['ADMIN', 'SUPERADMIN', 'SOCIAL_MEDIA', 'CANDIDATE', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(data.role)) {
         if (currentUser?.role !== 'SUPERADMIN') {
             throw new Error("You don't have permission to create this type of user.");
+        }
+    }
+
+    if (data.password) {
+        const validation = validatePasswordStrength(data.password);
+        if (!validation.isValid) {
+            throw new Error(validation.message);
         }
     }
 
@@ -304,10 +363,14 @@ export async function createUserSecure(data: {
 export async function secureUpdateUserPassword(userId: number, newPassword: string) {
     const session = await auth();
     const currentUser = session?.user as any;
-
     // Only SUPERADMIN can change passwords as per user request
     if (currentUser?.role !== 'SUPERADMIN') {
         throw new Error("Only Super Admin can change passwords.");
+    }
+
+    const validation = validatePasswordStrength(newPassword);
+    if (!validation.isValid) {
+        throw new Error(validation.message);
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -351,7 +414,7 @@ export async function toggleUserStatus(id: number, currentStatus: string) {
         data: { status: newStatus }
     });
 
-    if ((user.role === 'MANAGER' || user.role === 'ADMIN' || user.role === 'SUPERADMIN') && user.assemblyId) {
+    if ((user.role === 'CANDIDATE' || user.role === 'ADMIN' || user.role === 'SUPERADMIN') && user.assemblyId) {
         await prisma.user.updateMany({
             where: {
                 assemblyId: user.assemblyId,
@@ -397,12 +460,31 @@ export async function setUserStatus(id: number, status: string) {
     revalidatePath('/admin/users');
 }
 
-export async function updateUserName(id: number, name: string) {
+export async function updateUserName(id: number, name: string, mobile?: string) {
+    const data: any = { name };
+    if (mobile) {
+        data.mobile = mobile;
+        data.username = mobile; // syncing username with mobile
+    }
     await prisma.user.update({
         where: { id },
-        data: { name }
+        data
     });
     revalidatePath('/admin/users');
+}
+
+export async function updateCandidateProfile(idRaw: any, data: {
+    facebookUrl?: string,
+    instagramUrl?: string,
+    twitterUrl?: string
+}) {
+    const id = parseInt(idRaw.toString());
+    await prisma.user.update({
+        where: { id },
+        data
+    });
+    revalidatePath('/social-sena');
+    revalidatePath('/settings');
 }
 
 export async function assignUserToAssembly(userId: number, assemblyId: number | null) {
@@ -411,7 +493,7 @@ export async function assignUserToAssembly(userId: number, assemblyId: number | 
 
     let campaignId = null;
 
-    if (assemblyId && user.role === 'MANAGER') {
+    if (assemblyId && user.role === 'CANDIDATE') {
         const existingCampaign = await prisma.campaign.findFirst({
             where: {
                 assemblyId: assemblyId,
@@ -438,13 +520,21 @@ export async function assignUserToAssembly(userId: number, assemblyId: number | 
         data: { assemblyId, campaignId }
     });
 
+    // If unassigning from assembly, also clear all team assignments
+    if (assemblyId === null) {
+        await prisma.userAssemblyAssignment.deleteMany({
+            where: { userId }
+        });
+    }
+
     revalidatePath('/admin/users');
     revalidatePath('/admin/candidates');
 }
 
 // Assign entire team (e.g., all Social Media users) to an assembly
 // Uses UserAssemblyAssignment table for many-to-many relationships
-export async function assignTeamToAssembly(role: string, assemblyId: number) {
+export async function assignTeamToAssembly(role: string, assemblyIdRaw: any) {
+    const assemblyId = parseInt(assemblyIdRaw.toString());
     // Get all active users with this role
     const users = await prisma.user.findMany({
         where: {
@@ -494,6 +584,14 @@ export async function createCampaign(data: { name: string, assemblyId: number, c
 }
 
 export async function assignUserToCampaign(userId: number, campaignId: number | null) {
+    const userToAssign = await prisma.user.findUnique({ where: { id: userId } });
+    if (!userToAssign) throw new Error("User not found");
+
+    // Prevent assigning high-level admins to specific campaigns (but allow unassigning)
+    if (campaignId !== null && ['SUPERADMIN', 'ADMIN'].includes(userToAssign.role)) {
+        throw new Error("Super Admins and Admins cannot be assigned to specific campaigns.");
+    }
+
     let assemblyId = null;
     if (campaignId) {
         const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
@@ -504,6 +602,14 @@ export async function assignUserToCampaign(userId: number, campaignId: number | 
         where: { id: userId },
         data: { campaignId, assemblyId }
     });
+
+    // If unassigning from campaign, also clear shared assignments for this user in this assembly context
+    if (campaignId === null) {
+        await prisma.userAssemblyAssignment.deleteMany({
+            where: { userId }
+        });
+    }
+
     revalidatePath('/admin/users');
     revalidatePath('/admin/candidates');
 }
@@ -536,13 +642,46 @@ export async function setUserWorkerType(userId: number, workerType: string | nul
     revalidatePath('/admin/users');
 }
 
+export async function removeTeamMember(userId: number, assemblyId: number) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error("User not found");
+
+    // If removing Social Media, delete specific assignment
+    if (user.role === 'SOCIAL_MEDIA') {
+        await prisma.userAssemblyAssignment.deleteMany({
+            where: {
+                userId: userId,
+                assemblyId: assemblyId
+            }
+        });
+        // If this was their primary assembly, clear it too
+        if (user.assemblyId === assemblyId) {
+            await prisma.user.update({
+                where: { id: userId },
+                data: { assemblyId: null, campaignId: null }
+            });
+        }
+    } else {
+        // For workers/others, just clear campaign link if it matches this assembly
+        // We fetch the assembly to get the campaign link if needed, but usually workers have only one
+        await prisma.user.update({
+            where: { id: userId },
+            data: { campaignId: null, assemblyId: null }
+        });
+    }
+
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/candidates');
+}
 export async function getAdminStats() {
-    const [totalAssemblies, totalUsers, totalVoters, totalIssues, totalWorkers] = await Promise.all([
+    const [totalAssemblies, totalUsers, totalVoters, totalIssues, totalWorkers, totalBooths, totalCandidates] = await Promise.all([
         prisma.assembly.count(),
         prisma.user.count(),
         prisma.voter.count(),
         prisma.issue.count(),
-        prisma.worker.count()
+        prisma.worker.count(),
+        prisma.booth.count(),
+        prisma.user.count({ where: { role: 'CANDIDATE' } })
     ]);
 
     const pendingIssues = await prisma.issue.count({
@@ -555,7 +694,9 @@ export async function getAdminStats() {
         totalVoters,
         totalIssues,
         pendingIssues,
-        totalWorkers
+        totalWorkers,
+        totalBooths,
+        totalCandidates
     };
 }
 

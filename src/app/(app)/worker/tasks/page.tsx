@@ -85,7 +85,7 @@ export default function WorkerTasksPage() {
         formData.append('file', file);
 
         try {
-            const res = await fetch('/api/upload', {
+            const res = await fetch('/api/cloud/upload', {
                 method: 'POST',
                 body: formData
             });
@@ -113,6 +113,11 @@ export default function WorkerTasksPage() {
 
     return (
         <div style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '100px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '32px', padding: '16px', background: '#FEF2F2', borderRadius: '16px', border: '1px solid #FECACA' }}>
+                <p style={{ color: '#DC2626', fontSize: '13px', fontWeight: '800' }}>
+                    📢 ये जगह फाइल स्टोर करने के लिए नहीं हैं.. यहां से आप फोटो और वीडियो सिर्फ भेज सकते हैं.. ये फाइलें 7 दिन में डिलीट हो जाएंगी.. प्लीज अपने पास बैकअप रखे..
+                </p>
+            </div>
             <div style={{ marginBottom: '32px' }}>
                 <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>मेरे चुनावी कार्य (My Tasks)</h1>
                 <p style={{ color: '#6B7280', fontSize: '16px' }}>आपको सौंपे गए ग्राउंड और सोशल मीडिया कार्यों की प्रगति यहाँ अपडेट करें।</p>

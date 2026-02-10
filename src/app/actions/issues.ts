@@ -62,6 +62,13 @@ export async function createIssue(data: {
             updatedByName: userName
         }
     });
+
+    // Add Points
+    if (session?.user?.id) {
+        const { addWorkerPoints } = await import('./worker');
+        await addWorkerPoints(parseInt((session.user as any).id), 'REPORT_ISSUE', 20, `Reported Issue: ${data.title}`);
+    }
+
     revalidatePath('/issues');
 }
 

@@ -20,15 +20,26 @@ export async function getVoters(filters: {
     assemblyId?: number;
     pannaId?: number;
     pannaOnly?: boolean;
+    verificationStatus?: string;
+    eciStatus?: string;
+    isHead?: string;
+    isPwD?: string;
+    isImportant?: string;
+    isVoted?: string;
+    votedPartyId?: string;
     page?: number;
     pageSize?: number;
 }) {
-    const { search, booth, gender, status, village, caste, subCaste, surname, familySize, ageFilter, assemblyId, pannaId, pannaOnly, page = 1, pageSize = 25 } = filters;
+    const { search, booth, gender, status, village, caste, subCaste, surname, familySize, ageFilter, assemblyId, pannaId, pannaOnly, verificationStatus, eciStatus, page = 1, pageSize = 25 } = filters;
 
     const where: any = {};
 
     const session = await auth();
     const user = session?.user as any;
+
+    if (!user) {
+        return { voters: [], totalCount: 0, page: 1, totalPages: 0 };
+    }
 
     // Support for Simulation: Check cookies for effective role
     const { cookies } = await import('next/headers');
@@ -107,11 +118,11 @@ export async function getVoters(filters: {
             case '18-24': // पहली बार के मतदाता
                 where.age = { gte: 18, lte: 24 };
                 break;
-            case '24-45': // युवा
-                where.age = { gte: 24, lte: 45 };
+            case '25-35': // युवा
+                where.age = { gte: 25, lte: 35 };
                 break;
-            case '45-60': // 45-60
-                where.age = { gte: 45, lte: 60 };
+            case '36-60': // मध्यम
+                where.age = { gte: 36, lte: 60 };
                 break;
             case '60+': // वरिष्ठ नागरिक
                 where.age = { gte: 60 };
@@ -119,7 +130,20 @@ export async function getVoters(filters: {
         }
     }
 
-    if (status && status !== 'समर्थन स्थिति') {
+    if (filters.isHead === 'true') where.isHead = true;
+    if (filters.isPwD === 'true') where.isPwD = true;
+    if (filters.isImportant === 'true') where.isImportant = true;
+
+    if (filters.isVoted) {
+        if (filters.isVoted === 'true' || filters.isVoted === 'Yes') where.isVoted = true;
+        else if (filters.isVoted === 'false' || filters.isVoted === 'No') where.isVoted = false;
+    }
+
+    if (filters.votedPartyId) {
+        where.votedPartyId = parseInt(filters.votedPartyId);
+    }
+
+    if (status && status !== 'समर्थन स्थिति' && status !== 'सभी स्थिति') {
         if (['Active', 'In-active', 'Dead', 'Shifted'].includes(status)) {
             where.status = status;
         } else {
@@ -127,8 +151,16 @@ export async function getVoters(filters: {
         }
     }
 
+    if (filters.verificationStatus && filters.verificationStatus !== 'सभी') {
+        where.verificationStatus = filters.verificationStatus;
+    }
+
+    if (filters.eciStatus && filters.eciStatus !== 'सभी') {
+        where.eciStatus = filters.eciStatus;
+    }
+
     if (village && village !== 'सभी गांव') {
-        where.village = { contains: village };
+        where.village = village;
     }
 
     if (caste && caste !== 'सभी जाति') {
@@ -148,11 +180,15 @@ export async function getVoters(filters: {
     const [voters, totalCount] = await Promise.all([
         (prisma.voter as any).findMany({
             where,
-            include: campaignId ? {
-                feedbacks: {
-                    where: { campaignId }
-                }
-            } : undefined,
+            include: {
+                votedParty: true,
+                ...(campaignId ? {
+                    feedbacks: {
+                        where: { campaignId },
+                        include: { votedParty: true }
+                    }
+                } : {})
+            },
             orderBy: { id: 'asc' },
             skip: (page - 1) * pageSize,
             take: pageSize
@@ -168,9 +204,13 @@ export async function getVoters(filters: {
             supportStatus: feedback?.supportStatus ?? v.supportStatus,
             notes: feedback?.notes ?? v.notes,
             isVoted: feedback?.isVoted ?? v.isVoted,
+            votedPartyId: feedback?.votedPartyId ?? v.votedPartyId,
+            votedParty: feedback?.votedParty ?? v.votedParty,
             status: feedback?.status ?? v.status,
             mobile: feedback?.mobile ?? v.mobile,
             updatedByName: feedback?.updatedByName ?? v.updatedByName,
+            verificationStatus: feedback?.verificationStatus ?? v.verificationStatus,
+            eciStatus: feedback?.eciStatus ?? v.eciStatus,
             boothName: v.boothNumber ? `Booth ${v.boothNumber}` : null
         };
     });
@@ -245,6 +285,7 @@ export async function updateVoter(voterId: number, data: any) {
     // 1. Separate shared data from isolated feedback
     const sharedFields = {
         name: data.name,
+        epic: data.epic,
         age: data.age ? parseInt(data.age.toString()) : undefined,
         gender: data.gender,
         relativeName: data.relativeName,
@@ -256,6 +297,9 @@ export async function updateVoter(voterId: number, data: any) {
         caste: data.caste,
         subCaste: data.subCaste,
         surname: data.surname,
+        isHead: data.isHead,
+        isPwD: data.isPwD,
+        isImportant: data.isImportant
     };
 
     const feedbackFields = {
@@ -264,7 +308,35 @@ export async function updateVoter(voterId: number, data: any) {
         isVoted: data.isVoted,
         status: data.status,
         mobile: data.mobile,
+        votedSentiment: data.votedSentiment,
+        votedPartyId: data.votedPartyId ? parseInt(data.votedPartyId.toString()) : undefined,
+        verificationStatus: data.verificationStatus,
+        eciStatus: data.eciStatus
     };
+
+    // CRITICAL: Poll Day Check for isVoted
+    if (data.isVoted !== undefined) {
+        const assembly = await prisma.assembly.findUnique({
+            where: { id: (user as any).assemblyId || 1 },
+            select: { electionDate: true }
+        });
+
+        if (assembly?.electionDate) {
+            const today = new Date();
+            const election = new Date(assembly.electionDate);
+            const isSameDay = today.getFullYear() === election.getFullYear() &&
+                today.getMonth() === election.getMonth() &&
+                today.getDate() === election.getDate();
+
+            if (!isSameDay) {
+                // Allow Admin/Superadmin to bypass for testing/correction
+                const userRole = (user as any).role;
+                if (!['ADMIN', 'SUPERADMIN'].includes(userRole)) {
+                    throw new Error("मतदान की स्थिति (Voted Status) केवल मतदान के दिन ही बदली जा सकती है।");
+                }
+            }
+        }
+    }
 
     // Filter out undefined values to avoid overwriting with null
     const cleanShared = Object.fromEntries(Object.entries(sharedFields).filter(([_, v]) => v !== undefined));
@@ -278,16 +350,47 @@ export async function updateVoter(voterId: number, data: any) {
     }
 
     // 2. Update Shared Voter Table (Universal sync)
-    // Even in campaign mode, physical details change for everyone
+    // CRITICAL: ECI Confirmation Flow
     if (Object.keys(cleanShared).length > 0) {
-        await prisma.voter.update({
-            where: { id: voterId },
-            data: cleanShared
-        });
+        const userRole = (user as any).role;
+
+        // If Admin/Candidate, update directly
+        if (['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(userRole)) {
+            await prisma.voter.update({
+                where: { id: voterId },
+                data: cleanShared
+            });
+        } else {
+            // Worker: Create Request instead of direct update
+            let realWorkerId = (user as any).workerId;
+            if (!realWorkerId) {
+                const w = await prisma.worker.findUnique({ where: { userId: parseInt((user as any).id) } });
+                realWorkerId = w?.id;
+            }
+
+            if (realWorkerId) {
+                const assemblyId = (user as any).assemblyId;
+                if (assemblyId) {
+                    await (prisma as any).voterEditRequest.create({
+                        data: {
+                            voterId,
+                            workerId: realWorkerId,
+                            assemblyId,
+                            changes: JSON.stringify(cleanShared),
+                            status: 'PENDING'
+                        }
+                    });
+                }
+            }
+            // We do NOT update the Voter table here.
+        }
     }
 
     // 3. Update Isolated Feedback
     if (campaignId) {
+        // If in a campaign, we update the feedback table.
+        // The user mentioned "isolation" - so we should avoid syncing supportStatus back to the global Voter record
+        // if they want separate data. However, physical details (sharedFields) should still sync.
         await (prisma as any).voterFeedback.upsert({
             where: {
                 voterId_campaignId: { voterId, campaignId }
@@ -305,31 +408,131 @@ export async function updateVoter(voterId: number, data: any) {
         });
     } else {
         // Admin Mode: Update global voter record for feedback too if not in campaign
-        await prisma.voter.update({
+        await (prisma.voter as any).update({
             where: { id: voterId },
             data: { ...cleanFeedback, updatedByName }
         });
     }
     revalidatePath('/voters');
+
+    // 4. Sync Family Size for manual updates
+    if (cleanShared.village !== undefined || cleanShared.houseNumber !== undefined) {
+        const voter = await prisma.voter.findUnique({ where: { id: voterId } });
+        if (voter && voter.houseNumber) {
+            const count = await prisma.voter.count({
+                where: {
+                    village: voter.village || '',
+                    houseNumber: voter.houseNumber,
+                    assemblyId: voter.assemblyId
+                }
+            });
+            await prisma.voter.updateMany({
+                where: {
+                    village: voter.village || '',
+                    houseNumber: voter.houseNumber,
+                    assemblyId: voter.assemblyId
+                },
+                data: { familySize: count }
+            });
+        }
+    }
+
+    // 5. Add Points
+    if (user && (user as any).id) {
+        const { addWorkerPoints } = await import('./worker');
+        await addWorkerPoints(parseInt((user as any).id), 'VOTER_UPDATE', 20, `Updated Voter: ${voterId}`);
+    }
 }
 
 export async function createVoter(data: any) {
     const session = await auth();
-    const assemblyId = (session?.user as any)?.assemblyId;
+    const userRole = (session?.user as any)?.role;
+
+    // Prioritize assemblyId from data (for simulation) then terminal session
+    const assemblyId = data.assemblyId || (session?.user as any)?.assemblyId;
 
     if (!assemblyId) throw new Error("Assembly mapping required");
 
+    // Check for existing EPIC
+    if (data.epic) {
+        const existing = await prisma.voter.findUnique({
+            where: { epic: data.epic }
+        });
+        if (existing) {
+            throw new Error(`EPIC ${data.epic} already exists for voter: ${existing.name}`);
+        }
+    }
+
+    // Capture who created it
+    const userName = session?.user?.name || 'Unknown';
+    const effectiveWorkerType = (session?.user as any)?.workerType;
+    const isBoothManager = effectiveWorkerType === 'BOOTH_MANAGER';
+
+    // Validation: Name is required
+    if (!data.name) {
+        throw new Error("Voter name is required.");
+    }
+
+    // Process Booth Number
+    let processedBoothNumber: number | null = null;
+    if (data.boothNumber) {
+        processedBoothNumber = parseInt(data.boothNumber.toString());
+        if (isNaN(processedBoothNumber)) processedBoothNumber = null;
+    }
+
+    // Process Age
+    let processedAge: number | null = null;
+    if (data.age) {
+        processedAge = parseInt(data.age.toString());
+        if (isNaN(processedAge)) processedAge = null;
+    }
+
     const voter = await prisma.voter.create({
         data: {
-            ...data,
-            assemblyId,
-            age: data.age ? parseInt(data.age.toString()) : null,
-            boothNumber: data.boothNumber ? parseInt(data.boothNumber.toString()) : null,
+            name: data.name,
+            age: processedAge,
+            gender: data.gender || 'M',
+            relativeName: data.relativeName,
+            relationType: data.relationType, // Corrected from relationshipType
+            houseNumber: data.houseNumber,
+            mobile: data.mobile,
+            epic: data.epic || null,
+            village: data.village,
+            area: data.area, // Corrected from address
+            supportStatus: data.supportStatus || 'Neutral',
+            boothNumber: processedBoothNumber,
+            assemblyId: parseInt(assemblyId.toString()),
+            verificationStatus: userRole === 'ADMIN' || userRole === 'CANDIDATE' ? 'VERIFIED' : 'PENDING', // Changed MANAGER to CANDIDATE based on original
+            eciStatus: data.eciStatus || 'IN_LIST',
+            updatedByName: userName,
         }
     });
 
     revalidatePath('/voters');
-    return voter;
+    return { success: true, voter };
+}
+
+export async function verifyVoter(voterId: number) {
+    const session = await auth();
+    const user = session?.user;
+    if (!user) throw new Error("Unauthorized");
+
+    await (prisma.voter as any).update({
+        where: { id: voterId },
+        data: { verificationStatus: 'VERIFIED' }
+    });
+
+    // Also update in feedback if exists
+    const campaignId = (user as any)?.campaignId;
+    if (campaignId) {
+        await (prisma as any).voterFeedback.updateMany({
+            where: { voterId, campaignId },
+            data: { verificationStatus: 'VERIFIED' }
+        });
+    }
+
+    revalidatePath('/voters');
+    return { success: true };
 }
 
 export async function deleteVoter(id: number) {
@@ -341,6 +544,20 @@ export async function moveVoterToFamily(voterId: number, houseNumber: string, vi
     await prisma.voter.update({
         where: { id: voterId },
         data: { houseNumber, village, area }
+    });
+    revalidatePath('/voters');
+}
+
+export async function addToFamily(voterId: number, houseNumber: string, village: string, area: string) {
+    return moveVoterToFamily(voterId, houseNumber, village, area);
+}
+
+export async function removeFromFamily(voterId: number) {
+    // Generates a unique "Standalone" house number to isolate the voter
+    const uniqueHouse = `STANDALONE-${Date.now()}`;
+    await prisma.voter.update({
+        where: { id: voterId },
+        data: { houseNumber: uniqueHouse }
     });
     revalidatePath('/voters');
 }
@@ -464,7 +681,7 @@ export async function getVoterWithFamily(voterId: number) {
 export async function getFilterOptions(assemblyId?: number) {
     const where = assemblyId ? { assemblyId } : {};
 
-    const [castes, subCastes, surnames, villages, registeredBooths, voterBooths] = await Promise.all([
+    const [castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties] = await Promise.all([
         prisma.voter.findMany({
             select: { caste: true },
             distinct: ['caste'],
@@ -494,6 +711,9 @@ export async function getFilterOptions(assemblyId?: number) {
             select: { boothNumber: true },
             distinct: ['boothNumber'],
             where: { ...where, boothNumber: { not: null } }
+        }),
+        prisma.party.findMany({
+            orderBy: { name: 'asc' }
         })
     ]);
 
@@ -512,14 +732,14 @@ export async function getFilterOptions(assemblyId?: number) {
     }));
 
     return {
-        castes: castes.map(c => c.caste as string),
+        castes: castes.map(c => c.caste as string).filter(Boolean),
         subCastes: subCastes.map(s => ({ value: s.subCaste as string, parent: s.caste as string })),
         surnames: surnames.map(s => ({ value: s.surname as string, parent: s.subCaste as string })),
-        villages: villages.map(v => v.village as string),
-        booths
+        villages: villages.map(v => v.village as string).filter(Boolean),
+        booths: booths || [],
+        parties: parties || []
     };
 }
-
 export async function getUnassignedVoters(assemblyId: number, boothNumber: number) {
     const where: any = {
         assemblyId,
@@ -568,4 +788,112 @@ export async function updateFamilySupport(data: {
 
     revalidatePath('/voters');
     return { success: true, count: results.length };
+}
+
+export async function updateVoterVotedStatus(voterId: number, isVoted: boolean, votedPartyId?: number, votedSentiment?: string) {
+    const session = await auth();
+    const user = session?.user;
+    if (!user) return { success: false };
+
+    const userRole = (user as any).role;
+    const userName = user.name;
+    const updatedBy = `${userName} (${userRole})`;
+
+    await updateVoter(voterId, {
+        isVoted,
+        votedPartyId,
+        votedSentiment,
+        updatedByName: updatedBy
+    });
+
+    if (isVoted) {
+        const { addWorkerPoints } = await import('./worker');
+        await addWorkerPoints(parseInt((user as any).id), 'POLL_DAY_VOTE', 20, `Voter Marked Voted: ${voterId}`);
+    }
+
+    return { success: true };
+}
+
+export async function getVoterEditRequests(assemblyId: number) {
+    const requests = await (prisma as any).voterEditRequest.findMany({
+        where: { assemblyId, status: 'PENDING' },
+        include: {
+            voter: true,
+            worker: true
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+    return requests;
+}
+
+export async function approveVoterEditRequest(requestId: number) {
+    const session = await auth();
+    const userRole = (session?.user as any)?.role;
+    if (!['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(userRole)) throw new Error("Unauthorized");
+
+    const req = await (prisma as any).voterEditRequest.findUnique({ where: { id: requestId } });
+    if (!req) throw new Error("Request not found");
+
+    const changes = JSON.parse(req.changes);
+
+    // Apply changes
+    await prisma.voter.update({
+        where: { id: req.voterId },
+        data: changes
+    });
+
+    // Mark Approved
+    await (prisma as any).voterEditRequest.update({
+        where: { id: requestId },
+        data: { status: 'APPROVED' }
+    });
+
+    revalidatePath('/voters');
+    return { success: true };
+}
+
+export async function rejectVoterEditRequest(requestId: number) {
+    const session = await auth();
+    const userRole = (session?.user as any)?.role;
+    if (!['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(userRole)) throw new Error("Unauthorized");
+
+    await (prisma as any).voterEditRequest.update({
+        where: { id: requestId },
+        data: { status: 'REJECTED' }
+    });
+
+    revalidatePath('/voters');
+    return { success: true };
+}
+
+export async function updateEciStatus(voterId: number, status: string) {
+    const session = await auth();
+    if (!session?.user) throw new Error("Unauthorized");
+
+    await prisma.voter.update({
+        where: { id: voterId },
+        data: {
+            eciStatus: status,
+            updatedByName: session.user.name + ` (ECI Update)`
+        }
+    });
+
+    revalidatePath('/voters');
+    revalidatePath('/eci-updates');
+    return { success: true };
+}
+export async function getAllVotersForExport(assemblyId: number) {
+    const session = await auth();
+    const user = session?.user as any;
+    if (!user || !['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(user.role)) {
+        throw new Error("Unauthorized");
+    }
+
+    const voters = await (prisma.voter as any).findMany({
+        where: { assemblyId },
+        include: { votedParty: true },
+        orderBy: { id: 'asc' }
+    });
+
+    return voters;
 }

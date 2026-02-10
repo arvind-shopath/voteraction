@@ -5,6 +5,9 @@ import { auth } from '@/auth';
 import { LayoutProvider } from '@/context/LayoutContext';
 import { cookies } from 'next/headers';
 import ClientLayout from '@/components/ClientLayout';
+import OfflineSyncManager from '@/components/OfflineSyncManager';
+import Link from 'next/link';
+import WorkerFAB from '@/components/WorkerFAB';
 
 export default async function AppLayout({
     children,
@@ -83,6 +86,8 @@ export default async function AppLayout({
                     <main className="content">
                         {children}
                     </main>
+                    <OfflineSyncManager />
+                    <WorkerFAB />
                 </div>
             </ClientLayout>
         </LayoutProvider>
