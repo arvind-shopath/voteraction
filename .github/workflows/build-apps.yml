@@ -65,6 +65,13 @@ jobs:
           rm -rf android
           npx cap add android
           npx cap sync
+          
+          # FORCE REMOVE ADAPTIVE ICONS (The root cause of generic logo persistence)
+          # On newer Androids, if anydpi-v26 exists, it prioritized vector/xml over our pngs.
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          rm -f android/app/src/main/res/drawable/ic_launcher_background.xml
+          rm -f android/app/src/main/res/drawable/ic_launcher_foreground.xml
+          rm -f android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
           # Create mipmap directories if they don't exist (just in case)
           mkdir -p android/app/src/main/res/mipmap-mdpi
           mkdir -p android/app/src/main/res/mipmap-hdpi
