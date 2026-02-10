@@ -5,9 +5,9 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev -p 3005",
-    "build": "NODE_OPTIONS='--max-old-space-size=2048' next build",
-    "build:fast": "NODE_OPTIONS='--max-old-space-size=2048' next build --no-lint",
-    "build:prod": "NODE_OPTIONS='--max-old-space-size=3072' SKIP_ENV_VALIDATION=true next build",
+    "build": "next build",
+    "build:fast": "next build --no-lint",
+    "build:prod": "next build",
     "start": "next start",
     "build:out": "next build && next export",
     "electron:dev": "concurrently \"npm run dev\" \"electron .\"",
