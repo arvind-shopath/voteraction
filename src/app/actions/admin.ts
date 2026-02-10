@@ -821,16 +821,36 @@ export async function syncGitHubApps() {
             fs.unlinkSync(tempZip);
 
             // Move/Rename file if needed (e.g., app-debug.apk -> voteraction.apk)
-            // Note: unzip puts the files in the directory. We might need to find the .apk/.exe specifically.
             const files = fs.readdirSync(appsDir);
-            const extractedFile = files.find(f =>
-                (artifact.name.includes('Android') && f.endsWith('.apk')) ||
-                (artifact.name.includes('Windows') && f.endsWith('.exe'))
-            );
+
+            // Filter to find the NEWLY extracted file, not the existing target (if meaningful)
+            // Strategy: Find any file that matches extension AND is NOT the target name.
+            // If the zip contained the target name itself, we are good (overwrite happened).
+            // If zip contained 'app-debug.apk', we want valid candidates.
+
+            let extractedFile = files.find(f => {
+                const isTarget = f === targetFileName;
+                const isAndroidSource = artifact.name.includes('Android') && f.endsWith('.apk') && !isTarget;
+                const isWindowsSource = artifact.name.includes('Windows') && f.endsWith('.exe') && !isTarget;
+                return isAndroidSource || isWindowsSource;
+            });
+
+            // If we didn't find a "new" file, maybe the zip DID contain the target name.
+            if (!extractedFile) {
+                if (fs.existsSync(path.join(appsDir, targetFileName))) {
+                    // It exists, assuming it was updated by unzip
+                    return true;
+                }
+                return false;
+            }
 
             if (extractedFile) {
                 const finalPath = path.join(appsDir, targetFileName);
-                // Ensure no permission issues
+                // Remove old target if exists to ensure clean rename
+                if (fs.existsSync(finalPath)) {
+                    fs.unlinkSync(finalPath);
+                }
+
                 fs.renameSync(path.join(appsDir, extractedFile), finalPath);
                 fs.chmodSync(finalPath, 0o644);
                 return true;
