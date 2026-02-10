@@ -143,6 +143,8 @@ body {
     0 16px 32px rgba(0, 0, 0, 0.02);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
+  /* Ensure KPIs don't overflow on small screens */
+  min-width: 0; 
 }
 
 .kpi-card::before {
@@ -272,16 +274,50 @@ body {
   color: white;
 }
 
+/* Improved Responsive Grid System */
 .responsive-grid {
   display: grid;
   grid-template-columns: 1.3fr 0.7fr;
-  gap: 40px;
+  gap: 24px;
 }
 
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+/* Tablet & Mobile Breakpoints */
+@media (max-width: 1024px) {
+  .responsive-grid, .grid-3 {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+    .responsive-grid, .grid-2, .grid-3 {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    
+    .card {
+        padding: 16px !important;
+    }
+
+    /* Prevent horizontal scroll on body but allow in tables */
+    .content {
+        padding: 16px;
+        width: 100vw;
+        max-width: 100%;
+        overflow-x: hidden; 
+    }
 }
 
 /* Responsive Design (Mobile) */
