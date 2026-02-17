@@ -47,12 +47,13 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
 
     const shouldShowCandidateBranding = !isGlobal || isSimulatingActive;
 
+    const realRole = (session?.user as any)?.role || 'CANDIDATE';
     const userName = isSimulatingActive
-        ? (simulationPersona?.name || candidateName || 'सिमुलेशन')
-        : (session?.user?.name || (isGlobal ? (userRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : 'यूजर'));
+        ? (simulationPersona?.name || (isGlobal ? (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : candidateName) || 'सिमुलेशन')
+        : (session?.user?.name || (isGlobal ? (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : 'यूजर'));
 
     const userImage = isSimulatingActive
-        ? (simulationPersona?.image || candidateImageUrl)
+        ? (simulationPersona?.image || (isGlobal ? null : candidateImageUrl))
         : (isGlobal ? null : (session?.user?.image || candidateImageUrl));
 
     const effectiveRoleToUse = effectiveRole || userRole;

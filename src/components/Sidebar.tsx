@@ -50,10 +50,10 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
 
     const userName = isSimulatingActive
         ? (simulationPersona?.name || (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य')))
-        : (session?.user?.name || (isGlobal ? (role === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : 'यूजर'));
+        : (session?.user?.name || (isGlobal ? (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : 'यूजर'));
 
     const userImage = isSimulatingActive
-        ? (simulationPersona?.image || candidateImageUrl)
+        ? (simulationPersona?.image || (isGlobal ? null : candidateImageUrl))
         : (isGlobal ? null : (session?.user?.image || candidateImageUrl));
 
     const getMenuItems = () => {

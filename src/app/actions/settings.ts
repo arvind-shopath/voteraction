@@ -122,31 +122,35 @@ export async function updateAssemblySettings(assemblyId: number, data: {
         data: updateData
     });
 
-    // Update the Manager(s) of this assembly with social info
-    // This ensures individual candidate profiles are updated
-    if (facebookUrl !== undefined || instagramUrl !== undefined || twitterUrl !== undefined) {
-        if (candidateUserId) {
+    // Update the Manager(s) of this assembly with candidate info
+    // This ensures individual candidate profiles (User table) are synced with Assembly settings
+    if (candidateUserId) {
+        const userData: any = {};
+        if (updateData.candidateName) userData.name = updateData.candidateName;
+        if (facebookUrl !== undefined) userData.facebookUrl = facebookUrl;
+        if (instagramUrl !== undefined) userData.instagramUrl = instagramUrl;
+        if (twitterUrl !== undefined) userData.twitterUrl = twitterUrl;
+
+        if (Object.keys(userData).length > 0) {
             await prisma.user.update({
                 where: { id: candidateUserId },
-                data: {
-                    name: updateData.candidateName,
-                    facebookUrl,
-                    instagramUrl,
-                    twitterUrl
-                }
+                data: userData
             });
-        } else {
-            // Fallback for bulk if no specific user ID is known
+        }
+    } else {
+        // Fallback for bulk if no specific user ID is known
+        const userData: any = {};
+        if (facebookUrl !== undefined) userData.facebookUrl = facebookUrl;
+        if (instagramUrl !== undefined) userData.instagramUrl = instagramUrl;
+        if (twitterUrl !== undefined) userData.twitterUrl = twitterUrl;
+
+        if (Object.keys(userData).length > 0) {
             await prisma.user.updateMany({
                 where: {
                     assemblyId: assemblyIdToUpdate,
                     role: 'CANDIDATE'
                 },
-                data: {
-                    facebookUrl,
-                    instagramUrl,
-                    twitterUrl
-                }
+                data: userData
             });
         }
     }
