@@ -38,23 +38,20 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
     }, []);
 
     const realRole = session?.user?.role || 'CANDIDATE';
+    const isActuallyGlobal = realRole === 'ADMIN' || realRole === 'SUPERADMIN';
     const role = effectiveRole || realRole;
     const workerType = effectiveWorkerType || session?.user?.workerType;
     const isSimulatingActive = (effectiveRole && effectiveRole !== realRole) || !!simulationPersona;
     const isGlobal = (role === 'ADMIN' || role === 'SUPERADMIN') && !isSimulatingActive;
 
-    // Branding Logic
+    // Profile Info (The person currently logged in - ALWAYS show real user details for Admin/SuperAdmin)
+    const userName = isActuallyGlobal
+        ? (session?.user?.name || (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन'))
+        : (simulationPersona?.name || session?.user?.name || (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य')));
 
-    // For SUPERADMIN/ADMIN, we should always show "Super Admin" branding unless they are specifically SIMULATING a candidate
-    const shouldShowCandidateBranding = !isGlobal || isSimulatingActive;
-
-    const userName = isSimulatingActive
-        ? (simulationPersona?.name || (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य')))
-        : (session?.user?.name || (isGlobal ? (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : 'यूजर'));
-
-    const userImage = isSimulatingActive
-        ? (simulationPersona?.image || (isGlobal ? null : candidateImageUrl))
-        : (isGlobal ? null : (session?.user?.image || candidateImageUrl));
+    const userImage = isActuallyGlobal
+        ? session?.user?.image
+        : (simulationPersona?.image || session?.user?.image);
 
     const getMenuItems = () => {
         // Core Admin View (Switching to other views via Header View Switcher)
@@ -255,7 +252,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                                 justifyContent: 'center',
                                 transition: 'all 0.3s'
                             }}>
-                                {isGlobal ? (
+                                {isActuallyGlobal ? (
                                     <Shield size={40} color="var(--primary-bg)" />
                                 ) : userImage ? (
                                     <img src={userImage} alt={userName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -280,7 +277,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                             )}
                             <div className="sidebar-brand-text" style={{ marginTop: (isGlobal || !partyLogoUrl) ? '0' : '12px' }}>
                                 <div style={{ fontSize: '18px', fontWeight: '900', lineHeight: 1.2 }}>
-                                    {role === 'SUPERADMIN' ? (lang === 'hi' ? 'सर्वेसर्वा' : 'Super Admin') : role === 'ADMIN' ? (lang === 'hi' ? 'एडमिन पोर्टल' : 'Admin Portal') : userName}
+                                    {userName}
                                 </div>
                                 <div style={{ fontSize: '11px', fontWeight: '700', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '1.5px', marginTop: '4px' }}>
                                     {role.replace('_', ' ')} {lang === 'hi' ? 'कंट्रोल' : 'CONTROL'}
@@ -401,7 +398,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                         {/* View Switching UI removed as it is now in a global floating button for Super Admins */}
                     </div>
                 )}
-            </div>
+            </div >
         </>
     );
 };

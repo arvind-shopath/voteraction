@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LogOut, User, Search, Bell, Menu, Smartphone } from 'lucide-react';
+import { LogOut, User, Search, Bell, Menu, Smartphone, Shield } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useView } from '@/context/ViewContext';
 import { getNotifications, markAllAsRead } from '@/app/actions/notifications';
@@ -42,23 +42,20 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
             workerType === 'CENTRAL_EDITOR' ? 'सोशल सेना वीडियो एडिटर' :
                 workerType === 'CENTRAL_MONITOR' ? 'सोशल सेना मॉनिटर' : 'सोशल सेना सदस्य';
 
-    const isGlobal = (effectiveRole || userRole) === 'ADMIN' || (effectiveRole || userRole) === 'SUPERADMIN';
+    const realRole = (session?.user as any)?.role || 'CANDIDATE';
+    const isActuallyGlobal = realRole === 'ADMIN' || realRole === 'SUPERADMIN';
     const isSimulatingActive = isSimulating || !!simulationPersona;
 
-    const shouldShowCandidateBranding = !isGlobal || isSimulatingActive;
+    // Profile Info (The person currently logged in - ALWAYS show real user for Admin)
+    const displayName = isActuallyGlobal
+        ? (session?.user?.name || (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन'))
+        : (simulationPersona?.name || session?.user?.name || 'यूजर');
 
-    const realRole = (session?.user as any)?.role || 'CANDIDATE';
-    const userName = isSimulatingActive
-        ? (simulationPersona?.name || (isGlobal ? (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : candidateName) || 'सिमुलेशन')
-        : (session?.user?.name || (isGlobal ? (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : 'यूजर'));
+    const userName = displayName;
+    const userImage = isActuallyGlobal ? session?.user?.image : (simulationPersona?.image || session?.user?.image);
 
-    const userImage = isSimulatingActive
-        ? (simulationPersona?.image || (isGlobal ? null : candidateImageUrl))
-        : (isGlobal ? null : (session?.user?.image || candidateImageUrl));
-
+    const isGlobal = isActuallyGlobal;
     const effectiveRoleToUse = effectiveRole || userRole;
-    // Display actual user name
-    const displayName = userName;
 
     // Display role/designation
     const displaySub = isCentralSocial ? centralRoleName : (isSimulatingActive
@@ -154,7 +151,7 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                         ) : (
-                            <User size={isMobile ? 16 : 20} color="#64748B" />
+                            isActuallyGlobal ? <Shield size={isMobile ? 16 : 20} color="#64748B" /> : <User size={isMobile ? 16 : 20} color="#64748B" />
                         )}
                     </div>
                     {!isMobile && (
