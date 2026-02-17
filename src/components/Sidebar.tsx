@@ -45,13 +45,14 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
     const isGlobal = (role === 'ADMIN' || role === 'SUPERADMIN') && !isSimulatingActive;
 
     // Profile Info (The person currently logged in - ALWAYS show real user details for Admin/SuperAdmin)
+    // For Candidates, we prioritize the candidateName prop which reflects the Assembly branding
     const userName = isActuallyGlobal
         ? (session?.user?.name || (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन'))
-        : (simulationPersona?.name || session?.user?.name || (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य')));
+        : (simulationPersona?.name || candidateName || session?.user?.name || (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य')));
 
     const userImage = isActuallyGlobal
         ? session?.user?.image
-        : (simulationPersona?.image || session?.user?.image);
+        : (simulationPersona?.image || candidateImageUrl || session?.user?.image);
 
     const getMenuItems = () => {
         // Core Admin View (Switching to other views via Header View Switcher)
@@ -69,6 +70,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 { name: lang === 'hi' ? 'सोशल सेना' : 'Social Sena', path: '/social-sena', icon: ShieldCheck },
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
                 { name: lang === 'hi' ? 'सिस्टम ऑडिट लॉग्स' : 'System Logs', path: '/admin/logs', icon: Activity },
+                { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
 
@@ -99,6 +101,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 { name: lang === 'hi' ? 'समस्या रिपोर्ट' : 'Report Issue', path: '/issues', icon: AlertTriangle },
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
                 { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
+                { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
 
@@ -113,6 +116,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
                 { name: lang === 'hi' ? 'मदद/समस्या' : 'Help/Issue', path: '/issues', icon: AlertTriangle },
+                { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
 
@@ -126,6 +130,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
                 { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
                 { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Report Issue', path: '/issues', icon: AlertTriangle },
+                { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
 
@@ -139,12 +144,14 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 return [
                     { name: lang === 'hi' ? 'सोशल सेना' : 'Social Sena', path: path, icon: ShieldCheck },
                     { name: lang === 'hi' ? 'एनालिटिक्स' : 'Analytics', path: '/social/analytics', icon: BarChart3 },
+                    { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
                 ];
             }
             return [
                 { name: lang === 'hi' ? 'कंटेंट डैशबोर्ड' : 'Content Dashboard', path: '/social/local-team', icon: LayoutDashboard },
                 { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
                 { name: lang === 'hi' ? 'एनालिटिक्स' : 'Analytics', path: '/social/analytics', icon: BarChart3 },
+                { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
 
@@ -157,6 +164,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 { name: lang === 'hi' ? 'मेरे टास्क (Tasks)' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
                 { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
                 { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Report Issue', path: '/issues', icon: AlertTriangle },
+                { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
 
@@ -234,7 +242,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 `}</style>
 
                 <div style={{ padding: '24px 24px 0', textAlign: 'center' }}>
-                    <img src="/logo.png" alt="Voteraction Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 4px 15px rgba(0,0,0,0.8))' }} />
+                    <img src="/logo.png?v=2" alt="Voteraction Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 4px 15px rgba(0,0,0,0.8))' }} />
                 </div>
                 {!isSidebarCollapsed && (
                     <div className="sidebar-brand" style={{ padding: '24px' }}>
@@ -252,10 +260,10 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                                 justifyContent: 'center',
                                 transition: 'all 0.3s'
                             }}>
-                                {isActuallyGlobal ? (
-                                    <Shield size={40} color="var(--primary-bg)" />
-                                ) : userImage ? (
+                                {userImage ? (
                                     <img src={userImage} alt={userName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : isActuallyGlobal ? (
+                                    <Shield size={40} color="var(--primary-bg)" />
                                 ) : (
                                     <Users size={40} color="var(--primary-bg)" />
                                 )}

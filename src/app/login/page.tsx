@@ -122,7 +122,7 @@ export default function LoginPage() {
                             <ArrowLeft size={16} /> वेबसाइट पर वापस जाएं
                         </Link>
 
-                        <img src="/logo.png" alt="VoterAction Logo" style={{ height: '40px', width: 'auto', marginBottom: '24px' }} />
+                        <img src="/logo.png?v=2" alt="VoterAction Logo" style={{ height: '40px', width: 'auto', marginBottom: '24px' }} />
 
                         <h2 style={{ fontSize: '32px', fontWeight: '900', color: '#0F172A', marginBottom: '8px', letterSpacing: '-0.02em' }}>वोटरएक्शन लॉगिन</h2>
                         <p style={{ color: '#64748B', fontSize: '16px', fontWeight: '500' }}>जारी रखने के लिए अपने फोन नंबर से लॉगिन करें</p>

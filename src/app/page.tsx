@@ -78,7 +78,7 @@ export default function LandingPage() {
         borderBottom: '1px solid rgba(226, 232, 240, 0.8)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/logo.png" alt="Voteraction Logo" style={{ height: '32px', width: 'auto' }} />
+          <img src="/logo.png?v=2" alt="Voteraction Logo" style={{ height: '32px', width: 'auto' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <a
@@ -260,7 +260,7 @@ export default function LandingPage() {
       <footer style={{ padding: '60px 5%', borderTop: '1px solid #E2E8F0', background: 'white' }}>
         <div className="footer-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto' }}>
           <div>
-            <img src="/logo.png" alt="Voteraction Logo" style={{ height: '32px', width: 'auto', marginBottom: '12px' }} />
+            <img src="/logo.png?v=2" alt="Voteraction Logo" style={{ height: '32px', width: 'auto', marginBottom: '12px' }} />
             <div style={{ color: '#94A3B8', fontSize: '14px' }}>© 2026 Voteraction.creatiav.com | सर्वाधिकार सुरक्षित</div>
           </div>
           <div style={{ display: 'flex', gap: '24px' }}>

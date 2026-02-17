@@ -24,7 +24,7 @@ export default function PendingAssemblyPage() {
                 boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
                 maxWidth: '500px'
             }}>
-                <img src="/logo.png" alt="Voteraction" style={{ height: '36px', marginBottom: '32px' }} />
+                <img src="/logo.png?v=2" alt="Voteraction" style={{ height: '36px', marginBottom: '32px' }} />
                 <div style={{
                     width: '80px',
                     height: '80px',
