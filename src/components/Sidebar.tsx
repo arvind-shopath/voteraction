@@ -239,7 +239,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 `}</style>
 
                 <div style={{ padding: '24px 24px 0', textAlign: 'center' }}>
-                    <img src="/logo.png" alt="Voteraction Logo" style={{ height: '48px', width: 'auto', filter: 'drop-shadow(0 4px 15px rgba(0,0,0,0.8))' }} />
+                    <img src="/logo.png" alt="Voteraction Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 4px 15px rgba(0,0,0,0.8))' }} />
                 </div>
                 {!isSidebarCollapsed && (
                     <div className="sidebar-brand" style={{ padding: '24px' }}>

@@ -56,10 +56,6 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
         : null;
 
     const effectiveRoleToUse = effectiveRole || userRole;
-    const isSimulatingActive = isSimulating;
-
-    const isGlobal = effectiveRoleToUse === 'ADMIN' || effectiveRoleToUse === 'SUPERADMIN';
-
     // Display actual user name
     const displayName = userName;
 
