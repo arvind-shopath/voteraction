@@ -44,10 +44,19 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
 
     // Branding Logic
     const isSimulatingActive = (effectiveRole && effectiveRole !== realRole) || !!simulationPersona;
-    const userName = simulationPersona?.name || (isSimulatingActive
-        ? (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य'))
-        : (candidateName || session?.user?.name || 'यूजर'));
-    const userImage = simulationPersona?.image || candidateImageUrl || session?.user?.image;
+
+    // For SUPERADMIN/ADMIN, we should always show "Super Admin" branding unless they are specifically SIMULATING a candidate
+    const shouldShowCandidateBranding = !isGlobal || isSimulatingActive;
+
+    const userName = shouldShowCandidateBranding
+        ? (simulationPersona?.name || (isSimulatingActive
+            ? (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य'))
+            : (candidateName || session?.user?.name || 'यूजर')))
+        : (role === 'SUPERADMIN' ? (lang === 'hi' ? 'सर्वेसर्वा' : 'Super Admin') : (lang === 'hi' ? 'एडमिन' : 'Admin'));
+
+    const userImage = shouldShowCandidateBranding
+        ? (simulationPersona?.image || candidateImageUrl || session?.user?.image)
+        : null;
 
     const getMenuItems = () => {
         // Core Admin View (Switching to other views via Header View Switcher)

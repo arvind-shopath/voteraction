@@ -214,7 +214,13 @@ export default function Dashboard() {
                         name: assm.candidateName || 'Candidate',
                         image: assm.candidateImageUrl
                       });
+                    } else {
+                      // Reset to neutral if assembly cleared
+                      setEffectiveRole(realRole);
                     }
+                  } else if (isGlobalDisplay) {
+                    // Ensure admin view is clean
+                    setEffectiveRole(realRole);
                   }
                 }}
                 style={{

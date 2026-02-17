@@ -42,8 +42,18 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
             workerType === 'CENTRAL_EDITOR' ? 'सोशल सेना वीडियो एडिटर' :
                 workerType === 'CENTRAL_MONITOR' ? 'सोशल सेना मॉनिटर' : 'सोशल सेना सदस्य';
 
-    const userName = simulationPersona?.name || candidateName || session?.user?.name || 'यूजर';
-    const userImage = simulationPersona?.image || candidateImageUrl || session?.user?.image;
+    const isGlobal = (effectiveRole || userRole) === 'ADMIN' || (effectiveRole || userRole) === 'SUPERADMIN';
+    const isSimulatingActive = isSimulating || !!simulationPersona;
+
+    const shouldShowCandidateBranding = !isGlobal || isSimulatingActive;
+
+    const userName = shouldShowCandidateBranding
+        ? (simulationPersona?.name || candidateName || session?.user?.name || 'यूजर')
+        : ((effectiveRole || userRole) === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन');
+
+    const userImage = shouldShowCandidateBranding
+        ? (simulationPersona?.image || candidateImageUrl || session?.user?.image)
+        : null;
 
     const effectiveRoleToUse = effectiveRole || userRole;
     const isSimulatingActive = isSimulating;
