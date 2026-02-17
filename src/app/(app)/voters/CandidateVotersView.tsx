@@ -103,6 +103,14 @@ const ToggleCheck = ({ label, checked, onChange, name, icon }: any) => (
     </label>
 );
 
+const CASTE_OPTIONS: any = {
+    'सामान्य (General)': ['ब्राह्मण', 'ठाकुर (राजपूत)', 'बनिया', 'लाला (कायस्थ)', 'त्यागी', 'भूमिहार', 'अन्य'],
+    'ओबीसी (OBC)': ['यादव', 'कुर्मी', 'कुशवाहा', 'मौर्य', 'लोध', 'जाट', 'गुज्जर', 'सैनी', 'विश्वकर्मा', 'प्रजापति', 'अन्य'],
+    'एससी (SC)': ['जाटव', 'पासी', 'धोबी', 'कोरी', 'वाल्मीकि', 'अन्य'],
+    'एसटी (ST)': ['गोंद', 'खरवार', 'सहारिया', 'अन्य'],
+    'मुस्लिम (Muslim)': ['अंसारी', 'कुरैशी', 'शेख', 'पठान', 'सैय्यद', 'मंसूरी', 'अन्य']
+};
+
 const InfoBox = ({ label, value }: any) => (
     <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
         <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{label}</div>
@@ -134,10 +142,10 @@ export default function CandidateVotersView() {
 
     // Add Voter State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [newVoter, setNewVoter] = useState({
+    const [newVoter, setNewVoter] = useState<any>({
         name: '', age: '', gender: 'M', relativeName: '', relationshipType: '',
         mobile: '', epic: '', village: '', boothNumber: '', houseNumber: '', address: '',
-        supportStatus: 'Neutral'
+        supportStatus: 'Neutral', caste: '', subCaste: ''
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -428,7 +436,7 @@ export default function CandidateVotersView() {
             setNewVoter({
                 name: '', age: '', gender: 'M', relativeName: '', relationshipType: '',
                 mobile: '', epic: '', village: '', boothNumber: '', houseNumber: '', address: '',
-                supportStatus: 'Neutral'
+                supportStatus: 'Neutral', caste: '', subCaste: ''
             });
             fetchVoters(); // Refresh list
         } catch (error) {
@@ -441,7 +449,7 @@ export default function CandidateVotersView() {
 
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
@@ -595,6 +603,13 @@ export default function CandidateVotersView() {
                                 {options.castes.map((c: any) => <option key={c} value={c}>{c}</option>)}
                             </StyledSelect>
 
+                            <StyledSelect name="familySize" value={filters.familySize} onChange={handleFilterChange}>
+                                <option value="सभी परिवार">सभी परिवार</option>
+                                <option value="1-3">छोटा (1-3 सदस्य)</option>
+                                <option value="4-6">मध्यम (4-6 सदस्य)</option>
+                                <option value="7+">बड़ा (7+ सदस्य)</option>
+                            </StyledSelect>
+
                             <StyledSelect name="ageFilter" value={filters.ageFilter} onChange={handleFilterChange}>
                                 <option value="सभी आयु">सभी आयु</option>
                                 <option value="18-24">पहली बार (18-24)</option>
@@ -718,9 +733,9 @@ export default function CandidateVotersView() {
                     </div>
                 ) : (
                     /* DESKTOP TABLE VIEW */
-                    <div className="voter-table-container" style={{ background: '#1E293B', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <div className="voter-table-container responsive-table-wrapper" style={{ background: '#1E293B', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                         <div style={{ overflowX: 'auto' }}>
-                            <table className="voter-table" style={{ width: '100%', borderCollapse: 'collapse', color: 'white' }}>
+                            <table className="voter-table" style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse', color: 'white' }}>
                                 <thead>
                                     <tr style={{ background: '#0F172A', borderBottom: '1px solid #334155', textAlign: 'left', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94A3B8' }}>
                                         <th style={{ padding: '16px' }}>नाम (NAME)</th>
@@ -930,6 +945,34 @@ export default function CandidateVotersView() {
                                     </div>
                                 </div>
 
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>वर्ग (Category)</label>
+                                        <select
+                                            style={inputStyle}
+                                            value={newVoter.caste}
+                                            onChange={(e) => setNewVoter({ ...newVoter, caste: e.target.value, subCaste: '' })}
+                                        >
+                                            <option value="">--चुनें--</option>
+                                            {Object.keys(CASTE_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
+                                        </select>
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>जाति (Caste)</label>
+                                        <select
+                                            style={inputStyle}
+                                            value={newVoter.subCaste}
+                                            disabled={!newVoter.caste}
+                                            onChange={(e) => setNewVoter({ ...newVoter, subCaste: e.target.value })}
+                                        >
+                                            <option value="">--चुनें--</option>
+                                            {newVoter.caste && CASTE_OPTIONS[newVoter.caste]?.map((c: string) => (
+                                                <option key={c} value={c}>{c}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '12px', display: 'block' }}>{lang === 'hi' ? 'वोटर का मूड (नजरिया)' : 'Voter Mood (Feedback)'}</label>
                                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -981,7 +1024,7 @@ export default function CandidateVotersView() {
                                             setNewVoter({
                                                 name: '', age: '', gender: 'M', relativeName: '', relationshipType: '',
                                                 mobile: '', epic: '', village: '', boothNumber: isBoothManager ? newVoter.boothNumber : '', houseNumber: '', address: '',
-                                                supportStatus: 'Neutral'
+                                                supportStatus: 'Neutral', caste: '', subCaste: ''
                                             });
                                         } catch (error: any) {
                                             console.error(error);
@@ -1041,7 +1084,7 @@ export default function CandidateVotersView() {
                                                     <InfoBox label="Mobile" value={viewVoter.mobile} />
                                                     <InfoBox label="House Number" value={viewVoter.houseNumber} />
                                                     <InfoBox label="Village / Ward" value={viewVoter.village} />
-                                                    <InfoBox label="Caste / Sub-Caste" value={`${viewVoter.caste || ''} / ${viewVoter.subCaste || ''}`} />
+                                                    <InfoBox label="वर्ग / जाति (Category / Caste)" value={`${viewVoter.caste || ''} / ${viewVoter.subCaste || ''}`} />
                                                 </>
                                             ) : (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -1089,6 +1132,31 @@ export default function CandidateVotersView() {
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>VILLAGE/WARD</label>
                                                         <input style={{ ...inputStyle, padding: '10px' }} value={editData.village} onChange={(e) => setEditData({ ...editData, village: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>वर्ग (CATEGORY)</label>
+                                                        <select
+                                                            style={{ ...inputStyle, padding: '10px' }}
+                                                            value={editData.caste}
+                                                            onChange={(e) => setEditData({ ...editData, caste: e.target.value, subCaste: '' })}
+                                                        >
+                                                            <option value="">--चुनें--</option>
+                                                            {Object.keys(CASTE_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>जाति (CASTE)</label>
+                                                        <select
+                                                            style={{ ...inputStyle, padding: '10px' }}
+                                                            value={editData.subCaste}
+                                                            disabled={!editData.caste}
+                                                            onChange={(e) => setEditData({ ...editData, subCaste: e.target.value })}
+                                                        >
+                                                            <option value="">--चुनें--</option>
+                                                            {editData.caste && CASTE_OPTIONS[editData.caste]?.map((c: string) => (
+                                                                <option key={c} value={c}>{c}</option>
+                                                            ))}
+                                                        </select>
                                                     </div>
                                                 </div>
                                             )}

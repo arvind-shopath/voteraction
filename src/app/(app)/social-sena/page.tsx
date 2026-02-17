@@ -48,7 +48,7 @@ import {
     Download
 } from 'lucide-react';
 import { useView } from '@/context/ViewContext';
-import { getAssemblies, logAction, getUsers, updateCandidateProfile } from '@/app/actions/admin';
+import { getAssemblies, logAction, getUsers, updateCandidateProfile, getCampaigns } from '@/app/actions/admin';
 import { getVapidPublicKey, savePushSubscription } from '@/app/actions/notifications';
 import { getCandidatePostRequests, getCampaignMaterials, getSocialMediaApprovals, createCandidatePostRequest, createSocialMediaApproval, acceptCandidatePostRequest, rejectCandidatePostRequest, publishCandidatePost } from '@/app/actions/social';
 import { getJansamparkRoutes, markPosterMade, markPosterNotNeeded } from '@/app/actions/jansampark';
@@ -1230,12 +1230,8 @@ function CandidateListView({ candidates, teamMembers, onSelect, onOpenCentralWor
 
     return (
         <div style={{ padding: '24px', width: '100%' }}>
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                    .sidebar { display: none !important; }
-                    .main-container { margin-left: 0 !important; width: 100% !important; }
-                `
-            }} />
+            {/* Removed sidebar hiding styles to allow navigation for Admins */}
+
 
             {isCentralTeam && (
                 <div
@@ -1426,12 +1422,12 @@ export default function SocialSenaPage() {
     }, [effectiveWorkerType, router]);
 
     useEffect(() => {
-        async function load() {
-            setLoading(true);
+        async function load(silent = false) {
+            if (!silent) setLoading(true);
             try {
-                const [asms, users] = await Promise.all([getAssemblies(), getUsers()]);
+                const [asms, users, campaigns] = await Promise.all([getAssemblies(), getUsers(), getCampaigns()]);
                 const currentUser = session?.user as any;
-                const isAdmin = currentUser?.role === 'SUPERADMIN';
+                const isAdmin = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN';
                 // Include Super Admin in managers list if they are acting as a candidate for testing
                 const managers = users.filter((u: any) => u.role === 'CANDIDATE');
                 const emptySeats = asms.filter((a: any) => !users.some((u: any) => u.role === 'CANDIDATE' && u.assemblyId === a.id));
@@ -1439,30 +1435,53 @@ export default function SocialSenaPage() {
                 const items = [
                     ...managers.map((m: any) => {
                         const a = asms.find((as: any) => as.id === m.assemblyId);
+                        const camp = campaigns.find((c: any) => c.id === m.campaignId);
+                        const hasSocialAccess = camp?.accessToSocialSena;
+
                         return {
                             id: `manager-${m.id}`, managerId: m.id, assemblyId: m.assemblyId,
+                            campaignId: m.campaignId,
                             name: m.name || 'Unnamed Candidate', image: m.image,
                             party: a?.party || m.party || 'Independent',
                             partyLogo: a?.partyLogoUrl,
                             assembly: a?.name || 'No Assembly', state: a?.state || 'N/A',
                             facebookUrl: m.facebookUrl, instagramUrl: m.instagramUrl, twitterUrl: m.twitterUrl,
                             socialCount: (m.facebookUrl ? 1 : 0) + (m.instagramUrl ? 1 : 0) + (m.twitterUrl ? 1 : 0),
-                            assignedUsers: users.filter((u: any) => ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && (u.assemblyId === m.assemblyId || u.sharedAssignments?.some((sa: any) => sa.assemblyId === m.assemblyId)))
+                            hasSocialAccess,
+                            assignedUsers: users.filter((u: any) =>
+                                ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && (
+                                    (u.campaignId && u.campaignId === m.campaignId) ||
+                                    (hasSocialAccess && !u.campaignId && u.assemblyId === m.assemblyId) ||
+                                    (hasSocialAccess && u.sharedAssignments?.some((sa: any) => sa.assemblyId === m.assemblyId))
+                                )
+                            )
                         };
                     }),
-                    ...emptySeats.map((a: any) => ({
-                        id: `assembly-${a.id}`, managerId: null, assemblyId: a.id,
-                        name: a.candidateName || 'Unnamed Candidate', image: a.candidateImageUrl,
-                        party: a.party, partyLogo: a.partyLogoUrl, assembly: a.name, state: a.state,
-                        facebookUrl: a.facebookUrl, instagramUrl: a.instagramUrl, twitterUrl: a.twitterUrl,
-                        socialCount: (a.facebookUrl ? 1 : 0) + (a.instagramUrl ? 1 : 0) + (a.twitterUrl ? 1 : 0),
-                        assignedUsers: users.filter((u: any) => ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && (u.assemblyId === a.id || u.sharedAssignments?.some((sa: any) => sa.assemblyId === a.id)))
-                    }))
+                    ...emptySeats.map((a: any) => {
+                        const camp = campaigns.find((c: any) => c.assemblyId === a.id && c.name.includes(a.candidateName || ''));
+                        const hasSocialAccess = camp?.accessToSocialSena;
+
+                        return {
+                            id: `assembly-${a.id}`, managerId: null, assemblyId: a.id,
+                            campaignId: camp?.id,
+                            name: a.candidateName || 'Unnamed Candidate', image: a.candidateImageUrl,
+                            party: a.party, partyLogo: a.partyLogoUrl, assembly: a.name, state: a.state,
+                            facebookUrl: a.facebookUrl, instagramUrl: a.instagramUrl, twitterUrl: a.twitterUrl,
+                            socialCount: (a.facebookUrl ? 1 : 0) + (a.instagramUrl ? 1 : 0) + (a.twitterUrl ? 1 : 0),
+                            hasSocialAccess,
+                            assignedUsers: users.filter((u: any) =>
+                                ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && (
+                                    (hasSocialAccess && !u.campaignId && u.assemblyId === a.id) ||
+                                    (hasSocialAccess && u.sharedAssignments?.some((sa: any) => sa.assemblyId === a.id))
+                                )
+                            )
+                        };
+                    })
                 ];
 
                 const currentId = currentUser?.id ? parseInt(currentUser.id.toString()) : NaN;
                 const finalItems = items.filter(item =>
-                    isAdmin ||
+                    (isAdmin && (item.hasSocialAccess || item.assignedUsers.length > 0)) ||
                     (item.managerId && item.managerId === currentId) ||
                     item.assignedUsers.some((u: any) => u.id === currentId)
                 );
@@ -1474,7 +1493,7 @@ export default function SocialSenaPage() {
                     if (myInfo) setSelectedCandidate(myInfo);
                 }
 
-                setTeamMembers(users.filter((u: any) => ['SOCIAL_TEAM', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role)).slice(0, 10));
+                setTeamMembers(users.filter((u: any) => ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role)).slice(0, 10));
             } catch (e: any) {
                 console.error("Load error", e);
                 alert("Error loading data: " + (e?.message || "Internal Error"));
@@ -1483,17 +1502,10 @@ export default function SocialSenaPage() {
             }
         }
 
-        if (status === 'unauthenticated') {
-            setLoading(false);
-            return;
-        }
-
         if (status === 'authenticated' && session) {
-            const timeout = setTimeout(() => setLoading(false), 5000); // Fail-safe
-            load().finally(() => {
-                setLoading(false);
-                clearTimeout(timeout);
-            });
+            load();
+            const timer = setInterval(() => load(true), 30000);
+            return () => clearInterval(timer);
         }
     }, [session, status]);
 

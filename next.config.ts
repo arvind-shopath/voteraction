@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: false, // Faster builds
   poweredByHeader: false,
   compress: true,
+  productionBrowserSourceMaps: false,
+  experimental: {
+    cpus: 1,
+    workerThreads: false
+  },
   async redirects() {
     return [
       {

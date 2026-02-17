@@ -51,3 +51,4 @@ next-env.d.ts
 node_modules
 .next
 node_modules
+public/apps/*.exe

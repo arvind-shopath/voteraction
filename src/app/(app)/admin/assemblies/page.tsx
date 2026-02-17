@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getAssemblies, createAssembly, updateAssembly, getCampaigns, createCampaign, deleteAssembly } from '@/app/actions/admin';
+import { getAssemblies, createAssembly, updateAssembly, getCampaigns, createCampaign, deleteAssembly, getParties } from '@/app/actions/admin';
 import { Tent, Plus, MapPin, Loader2, X, Filter, Users, UserPlus, Trash2, Palette } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PARTIES, PARTY_CONFIG } from '@/lib/constants';
@@ -19,6 +19,7 @@ export default function AssembliesPage() {
     const [loadingCampaigns, setLoadingCampaigns] = useState(false);
     const [campaignName, setCampaignName] = useState('');
     const [candidateName, setCandidateName] = useState('');
+    const [dbParties, setDbParties] = useState<any[]>([]);
     const router = useRouter();
 
     const [formData, setFormData] = useState<any>({
@@ -49,6 +50,10 @@ export default function AssembliesPage() {
         try {
             const data = await getAssemblies();
             setAssemblies(data);
+
+            // Also fetch initial parties
+            const pData = await getParties();
+            setDbParties(pData);
         } catch (e) {
             console.error(e);
         } finally {
@@ -56,14 +61,19 @@ export default function AssembliesPage() {
         }
     }
 
+    // Fetch parties when state changes
+    useEffect(() => {
+        if (formData.state) {
+            getParties(formData.state).then(setDbParties);
+        }
+    }, [formData.state]);
+
     const uniqueStates = Array.from(new Set(assemblies.map(a => a.state))).sort();
 
+    // Default to 'All State' if no filter is set
     useEffect(() => {
-        if (!filterState && uniqueStates.length > 0) {
-            if (uniqueStates.includes('Uttar Pradesh')) setFilterState('Uttar Pradesh');
-            else setFilterState(uniqueStates[0]);
-        }
-    }, [uniqueStates, filterState]);
+        // No longer forcing a state filter to allow 'All State' to work
+    }, [uniqueStates]);
 
     const filteredAssemblies = filterState ? assemblies.filter(a => a.state === filterState) : assemblies;
 
@@ -122,8 +132,8 @@ export default function AssembliesPage() {
             setFormData({
                 number: '', name: '', district: '',
                 state: filterState || 'Uttar Pradesh',
-                party: PARTIES[0],
-                themeColor: PARTY_CONFIG[PARTIES[0]].color,
+                party: dbParties[0]?.name || 'Independent',
+                themeColor: dbParties[0]?.color || '#1E3A8A',
                 candidateName: '',
                 candidateImageUrl: null,
                 lastElectionDate: null,
@@ -144,8 +154,8 @@ export default function AssembliesPage() {
         setFormData({
             number: '', name: '', district: '',
             state: filterState || 'Uttar Pradesh',
-            party: PARTIES[0],
-            themeColor: PARTY_CONFIG[PARTIES[0]].color,
+            party: dbParties[0]?.name || 'Independent',
+            themeColor: dbParties[0]?.color || '#1E3A8A',
             candidateName: '',
             candidateImageUrl: null,
             lastElectionDate: null,
@@ -163,7 +173,7 @@ export default function AssembliesPage() {
 
         const newEntry = {
             year: yearNum,
-            partyName: PARTIES[0],
+            partyName: dbParties[0]?.name || 'Independent',
             candidateName: '',
             votesReceived: 0,
             votePercentage: 0
@@ -174,7 +184,7 @@ export default function AssembliesPage() {
     const addCandidateToYear = (year: number) => {
         const newEntry = {
             year: year,
-            partyName: PARTIES[0],
+            partyName: dbParties[0]?.name || 'Independent',
             candidateName: '',
             votesReceived: 0,
             votePercentage: 0
@@ -299,11 +309,28 @@ export default function AssembliesPage() {
                                         <input required type="text" value={formData.district} onChange={e => setFormData({ ...formData, district: e.target.value })}
                                             style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }} placeholder="जैसे: सीतापुर" />
                                     </div>
-                                    <div style={{ marginBottom: '24px' }}>
+                                    <div style={{ marginBottom: '16px' }}>
                                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>राज्य</label>
-                                        <input required type="text" value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })}
-                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }} />
+                                        <input
+                                            list="states-list"
+                                            value={formData.state}
+                                            onChange={e => setFormData({ ...formData, state: e.target.value })}
+                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', background: 'white' }}
+                                            placeholder="राज्य चुनें या टाइप करें..."
+                                        />
+                                        <datalist id="states-list">
+                                            <option value="Uttar Pradesh" />
+                                            <option value="Bihar" />
+                                            <option value="Madhya Pradesh" />
+                                            <option value="Rajasthan" />
+                                            <option value="Haryana" />
+                                            <option value="Delhi" />
+                                            <option value="Uttarakhand" />
+                                            <option value="Jharkhand" />
+                                            <option value="Chhattisgarh" />
+                                        </datalist>
                                     </div>
+
 
                                     {/* Election Dates */}
                                     <div style={{ background: '#FEF3C7', padding: '20px', borderRadius: '12px', marginBottom: '24px', border: '2px solid #F59E0B' }}>
@@ -341,12 +368,7 @@ export default function AssembliesPage() {
                                         </div>
                                     </div>
 
-                                    {/* Party, Color, Candidate info removed from Admin view as requested */}
                                     <div style={{ display: 'none' }}>
-                                        <select value={formData.party} onChange={e => setFormData({ ...formData, party: e.target.value })}>
-                                            {PARTIES.map(p => <option key={p} value={p}>{p}</option>)}
-                                        </select>
-                                        <input type="text" value={formData.themeColor} onChange={e => setFormData({ ...formData, themeColor: e.target.value })} />
                                         <input type="text" value={formData.candidateName} onChange={e => setFormData({ ...formData, candidateName: e.target.value })} />
                                     </div>
                                 </>
@@ -380,10 +402,10 @@ export default function AssembliesPage() {
                                                             <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) 1.2fr 100px 40px', gap: '8px', alignItems: 'center' }}>
                                                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                                     <div style={{ position: 'absolute', left: '8px', width: '20px', height: '20px', borderRadius: '4px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                                                                        {PARTY_CONFIG[item.partyName]?.logo ? (
-                                                                            <img src={PARTY_CONFIG[item.partyName].logo} style={{ width: '14px', height: '14px', objectFit: 'contain' }} alt="" />
+                                                                        {dbParties.find(p => p.name === item.partyName)?.logo ? (
+                                                                            <img src={dbParties.find(p => p.name === item.partyName).logo} style={{ width: '14px', height: '14px', objectFit: 'contain' }} alt="" />
                                                                         ) : (
-                                                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: PARTY_CONFIG[item.partyName]?.color || '#94A3B8' }}></div>
+                                                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: dbParties.find(p => p.name === item.partyName)?.color || '#94A3B8' }}></div>
                                                                         )}
                                                                     </div>
                                                                     <select
@@ -391,8 +413,8 @@ export default function AssembliesPage() {
                                                                         onChange={e => updateHistoryItem(idx, 'partyName', e.target.value)}
                                                                         style={{ width: '100%', padding: '10px 10px 10px 36px', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '12px', background: 'white', fontWeight: '700' }}
                                                                     >
-                                                                        {PARTIES.map(p => (
-                                                                            <option key={p} value={p}>{p}</option>
+                                                                        {dbParties.map(p => (
+                                                                            <option key={p.id} value={p.name}>{p.name}</option>
                                                                         ))}
                                                                     </select>
                                                                 </div>

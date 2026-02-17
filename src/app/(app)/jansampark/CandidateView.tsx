@@ -117,81 +117,44 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
                 </div>
             </div>
 
-            {/* Village Stats Grid */}
+            {/* 🆕 MERGED VILLAGE COMMAND CENTER */}
             <div style={{ marginBottom: '50px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-                    <h3 style={{ fontSize: '22px', fontWeight: '950', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <TrendingUp size={24} color="#4F46E5" /> गांव-वार समर्थन बॉक्स (VILLAGE ANALYSIS)
-                    </h3>
-                    <div style={{ position: 'relative', width: '320px' }}>
-                        <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-                        <input
-                            placeholder="गांव के नाम से खोजें..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            style={{
-                                width: '100%', padding: '16px 16px 16px 52px', borderRadius: '22px', border: '1px solid #E2E8F0',
-                                fontSize: '16px', fontWeight: '700', outline: 'none', background: 'white',
-                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
-                            }}
-                        />
-                    </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-                    {villageList.map(v => (
-                        <div key={v} style={{
-                            background: 'white', padding: '28px', borderRadius: '32px', border: '1px solid #E2E8F0',
-                            transition: 'all 0.3s ease', boxShadow: '0 4px 15px -10px rgba(0,0,0,0.1)'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '18px' }}>
-                                <div style={{ fontWeight: '950', color: '#0F172A', fontSize: '20px' }}>{v}</div>
-                                <div style={{ background: '#F0F9FF', padding: '6px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: '800', color: '#0369A1' }}>Area Report</div>
-                            </div>
-                            <div style={{ display: 'flex', height: '14px', borderRadius: '7px', overflow: 'hidden', background: '#F1F5F9', marginBottom: '20px' }}>
-                                <div style={{ width: `${(stats[v].positive / (stats[v].positive + stats[v].neutral + stats[v].negative + 0.1)) * 100}%`, background: '#22C55E' }} />
-                                <div style={{ width: `${(stats[v].neutral / (stats[v].positive + stats[v].neutral + stats[v].negative + 0.1)) * 100}%`, background: '#94A3B8' }} />
-                                <div style={{ width: `${(stats[v].negative / (stats[v].positive + stats[v].neutral + stats[v].negative + 0.1)) * 100}%`, background: '#EF4444' }} />
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', textAlign: 'center' }}>
-                                <div><div style={{ fontSize: '12px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>पक्ष</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#15803D' }}>{stats[v].positive}</div></div>
-                                <div><div style={{ fontSize: '12px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>तटस्थ</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#475569' }}>{stats[v].neutral}</div></div>
-                                <div><div style={{ fontSize: '12px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>विरोध</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#B91C1C' }}>{stats[v].negative}</div></div>
-                            </div>
-                        </div>
-                    ))}
-                    {villageList.length === 0 && (
-                        <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', background: 'white', borderRadius: '32px', border: '1px dashed #E2E8F0', color: '#64748B', fontWeight: '700' }}>
-                            इस नाम का कोई गांव नहीं मिला।
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* 🆕 VILLAGE COVERAGE TRACKER */}
-            <div style={{ background: 'white', borderRadius: '40px', padding: '40px', marginTop: '40px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '20px' }}>
                     <div>
-                        <h3 style={{ fontSize: '22px', fontWeight: '950', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.5px' }}>
-                            <Target size={28} color="#7C3AED" /> गांव-वार जनसंपर्क ट्रैकर
+                        <h3 style={{ fontSize: '24px', fontWeight: '950', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.5px' }}>
+                            <TrendingUp size={28} color="#4F46E5" /> गांव-वार विश्लेषण (VILLAGE ANALYTICS)
                         </h3>
-                        <p style={{ color: '#64748B', fontSize: '14px', marginTop: '6px', fontWeight: '700' }}>सभी गांवों में जनसंपर्क की वर्तमान स्थिति</p>
+                        <p style={{ color: '#64748B', fontSize: '15px', marginTop: '4px', fontWeight: '700' }}>समर्थन, बूथ और जनसंपर्क की विस्तृत जानकारी</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ position: 'relative', width: '280px' }}>
+                            <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                            <input
+                                placeholder="गांव खोजें..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                style={{
+                                    width: '100%', padding: '12px 16px 12px 48px', borderRadius: '16px', border: '1px solid #E2E8F0',
+                                    fontSize: '15px', fontWeight: '700', outline: 'none', background: 'white'
+                                }}
+                            />
+                        </div>
                         <select
                             value={coverageFilter}
                             onChange={(e) => setCoverageFilter(e.target.value)}
-                            style={{ padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0', fontSize: '14px', fontWeight: '800', background: 'white', cursor: 'pointer', outline: 'none' }}
+                            style={{ padding: '12px 16px', borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '14px', fontWeight: '800', background: 'white', cursor: 'pointer', outline: 'none' }}
                         >
-                            <option value="All">सभी गांव</option>
-                            <option value="Done">जनसंपर्क किया</option>
-                            <option value="Pending">बाकी है</option>
+                            <option value="All">विजिट स्थिति</option>
+                            <option value="Done">विजिट पूर्ण</option>
+                            <option value="Pending">विजिट बाकी</option>
                         </select>
                         <select
                             value={supportFilter}
                             onChange={(e) => setSupportFilter(e.target.value)}
-                            style={{ padding: '10px 16px', borderRadius: '14px', border: '1px solid #E2E8F0', fontSize: '14px', fontWeight: '800', background: 'white', cursor: 'pointer', outline: 'none' }}
+                            style={{ padding: '12px 16px', borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '14px', fontWeight: '800', background: 'white', cursor: 'pointer', outline: 'none' }}
                         >
-                            <option value="All">सभी समर्थन</option>
+                            <option value="All">समर्थन टाइप</option>
                             <option value="Support">पक्ष में</option>
                             <option value="Neutral">तटस्थ</option>
                             <option value="Against">विरोध में</option>
@@ -199,12 +162,17 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
                     {villageCoverage
                         .filter(vc => {
+                            // Search Filter
+                            if (searchTerm && !vc.village.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+
+                            // Coverage Filter
                             if (coverageFilter === 'Done' && !vc.jansamparkDone) return false;
                             if (coverageFilter === 'Pending' && vc.jansamparkDone) return false;
 
+                            // Support Filter
                             if (supportFilter === 'Support' && vc.support.positive <= vc.support.neutral && vc.support.positive <= vc.support.negative) return false;
                             if (supportFilter === 'Neutral' && vc.support.neutral <= vc.support.positive && vc.support.neutral <= vc.support.negative) return false;
                             if (supportFilter === 'Against' && vc.support.negative <= vc.support.positive && vc.support.negative <= vc.support.neutral) return false;
@@ -212,86 +180,89 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
                             return true;
                         })
                         .map((vc: any) => {
-                            const supportTotal = vc.support.positive + vc.support.neutral + vc.support.negative;
-                            const supportPercent = supportTotal > 0 ? Math.round((vc.support.positive / supportTotal) * 100) : 0;
-                            const sentimentColor = supportPercent > 50 ? '#22C55E' : supportPercent > 30 ? '#F59E0B' : '#EF4444';
+                            const total = vc.support.positive + vc.support.neutral + vc.support.negative;
+                            const supportPercent = total > 0 ? Math.round((vc.support.positive / total) * 100) : 0;
+                            const negativePercent = total > 0 ? Math.round((vc.support.negative / total) * 100) : 0;
+
+                            // Dynamic Colors
+                            let bgColor = '#F8FAFC'; // Default Neutral Grey
+                            let borderColor = '#E2E8F0';
+                            let accentColor = '#64748B';
+
+                            if (supportPercent > 50 || (vc.support.positive > vc.support.neutral && vc.support.positive > vc.support.negative)) {
+                                bgColor = '#F0FDF4'; // Green
+                                borderColor = '#BBF7D0';
+                                accentColor = '#22C55E';
+                            } else if (negativePercent > 20 || (vc.support.negative > vc.support.positive && vc.support.negative > vc.support.neutral)) {
+                                bgColor = '#FEF2F2'; // Red
+                                borderColor = '#FECACA';
+                                accentColor = '#EF4444';
+                            }
 
                             return (
                                 <div key={vc.village} style={{
-                                    background: vc.jansamparkDone ? '#F0FDF4' : '#FEF9F3',
-                                    border: `2px solid ${vc.jansamparkDone ? '#BBF7D0' : '#FED7AA'}`,
-                                    borderRadius: '28px',
-                                    padding: '26px',
-                                    position: 'relative',
-                                    overflow: 'hidden'
+                                    background: bgColor, padding: '32px', borderRadius: '32px', border: `1px solid ${borderColor}`,
+                                    position: 'relative', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)',
+                                    transition: 'all 0.3s ease'
                                 }}>
-                                    {/* Status Badge */}
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '16px',
-                                        right: '16px',
-                                        padding: '6px 12px',
-                                        borderRadius: '10px',
-                                        fontSize: '11px',
-                                        fontWeight: '900',
-                                        background: vc.jansamparkDone ? '#16A34A' : '#EA580C',
-                                        color: 'white',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        {vc.jansamparkDone ? '✓ किया' : '⏳ बाकी'}
+                                    {/* Top Status */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                                        <div>
+                                            <div style={{ fontWeight: '950', color: '#0F172A', fontSize: '22px', marginBottom: '4px' }}>{vc.village}</div>
+                                            <div style={{ fontSize: '13px', color: '#64748B', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <MapPin size={14} color="#9333EA" />
+                                                बूथ: {vc.booths.length > 0 ? vc.booths.sort((a: any, b: any) => a - b).join(', ') : 'N/A'}
+                                            </div>
+                                        </div>
+                                        <div style={{
+                                            padding: '6px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: '900',
+                                            background: vc.jansamparkDone ? '#16A34A' : '#F1F5F9',
+                                            color: vc.jansamparkDone ? 'white' : '#64748B', display: 'flex', alignItems: 'center', gap: '4px'
+                                        }}>
+                                            {vc.jansamparkDone ? <><CheckCircle2 size={14} /> किया</> : '⏳ बाकी'}
+                                        </div>
                                     </div>
 
-                                    <div style={{ marginBottom: '18px' }}>
-                                        <div style={{ fontSize: '20px', fontWeight: '950', color: '#0F172A', marginBottom: '8px' }}>{vc.village}</div>
-                                        <div style={{ fontSize: '13px', color: '#64748B', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            <MapPin size={14} color="#9333EA" />
-                                            बूथ: {vc.booths.length > 0 ? vc.booths.sort((a: number, b: number) => a - b).join(', ') : 'N/A'}
+                                    {/* Support Level Bar */}
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '800', color: '#64748B', marginBottom: '8px', textTransform: 'uppercase' }}>
+                                            <span>समर्थन स्तर</span>
+                                            <span style={{ color: accentColor }}>{supportPercent}%</span>
                                         </div>
-                                        {vc.jansamparkDone && vc.lastVisit && (
-                                            <div style={{ fontSize: '12px', color: '#16A34A', fontWeight: '800', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <Calendar size={12} />
-                                                {new Date(vc.lastVisit).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short' })}
-                                                {vc.atmosphere && <span style={{ marginLeft: '8px', color: vc.atmosphere === 'Support' ? '#16A34A' : vc.atmosphere === 'Oppose' ? '#DC2626' : '#64748B' }}>
-                                                    • {vc.atmosphere === 'Support' ? '😊 पक्ष' : vc.atmosphere === 'Oppose' ? '😐 विरोध' : '😶 तटस्थ'}
-                                                </span>}
+                                        <div style={{ height: '10px', borderRadius: '5px', background: 'rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex' }}>
+                                            <div style={{ width: `${(vc.support.positive / (total || 1)) * 100}%`, background: '#22C55E' }} />
+                                            <div style={{ width: `${(vc.support.neutral / (total || 1)) * 100}%`, background: '#94A3B8' }} />
+                                            <div style={{ width: `${(vc.support.negative / (total || 1)) * 100}%`, background: '#EF4444' }} />
+                                        </div>
+                                    </div>
+
+                                    {/* Stats Grid */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', textAlign: 'center', marginBottom: '24px', background: 'rgba(255,255,255,0.4)', padding: '16px', borderRadius: '20px', border: '1px solid rgba(0,0,0,0.03)' }}>
+                                        <div><div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>पक्ष</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#15803D' }}>{vc.support.positive}</div></div>
+                                        <div><div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>तटस्थ</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#475569' }}>{vc.support.neutral}</div></div>
+                                        <div><div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>विरोध</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#B91C1C' }}>{vc.support.negative}</div></div>
+                                    </div>
+
+                                    {/* Footer Details */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ fontSize: '13px', color: '#64748B', fontWeight: '800' }}>
+                                            कुल मतदाता: <span style={{ color: '#0F172A' }}>{vc.totalVoters}</span>
+                                        </div>
+                                        {vc.lastVisit && (
+                                            <div style={{ fontSize: '12px', color: '#16A34A', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Calendar size={14} /> {new Date(vc.lastVisit).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short' })}
                                             </div>
                                         )}
-                                    </div>
-
-                                    {/* Support Bar */}
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '6px', textTransform: 'uppercase' }}>गांव का समर्थन स्तर</div>
-                                        <div style={{ height: '10px', borderRadius: '5px', background: '#F1F5F9', overflow: 'hidden', display: 'flex' }}>
-                                            <div style={{ width: `${supportPercent}%`, background: sentimentColor, transition: 'width 0.3s ease' }}></div>
-                                        </div>
-                                        <div style={{ fontSize: '14px', fontWeight: '900', color: sentimentColor, marginTop: '6px' }}>{supportPercent}% समर्थन</div>
-                                    </div>
-
-                                    {/* Voter Stats */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '800', color: '#64748B' }}>
-                                        <span>कुल मतदाता: {vc.totalVoters}</span>
-                                        <span style={{ color: '#16A34A' }}>+{vc.support.positive}</span>
                                     </div>
                                 </div>
                             );
                         })}
-                </div>
-
-                {villageCoverage.filter(vc => {
-                    if (coverageFilter === 'Done' && !vc.jansamparkDone) return false;
-                    if (coverageFilter === 'Pending' && vc.jansamparkDone) return false;
-                    const supportTotal = vc.support.positive + vc.support.neutral + vc.support.negative;
-                    const supportPercent = supportTotal > 0 ? Math.round((vc.support.positive / supportTotal) * 100) : 0;
-                    if (supportFilter === 'Support' && supportPercent <= 50) return false;
-                    if (supportFilter === 'Neutral' && (supportPercent > 50 || supportPercent < 20)) return false;
-                    if (supportFilter === 'Against' && supportPercent > 40) return false;
-                    return true;
-                }).length === 0 && (
-                        <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', color: '#94A3B8', fontWeight: '800' }}>
-                            फिल्टर के अनुसार कोई गांव नहीं मिला।
+                    {villageCoverage.length === 0 && (
+                        <div style={{ gridColumn: '1 / -1', padding: '80px', textAlign: 'center', background: 'white', borderRadius: '32px', border: '1px dashed #E2E8F0', color: '#64748B', fontWeight: '700' }}>
+                            कोई डेटा उपलब्ध नहीं है।
                         </div>
                     )}
+                </div>
             </div>
 
             {/* Routes Section */}
@@ -396,7 +367,7 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
                 </div>
             </div>
 
-            {showCreate && <CreateRouteModal onClose={() => setShowCreate(false)} assemblyId={assemblyId} onSuccess={load} />}
+            {showCreate && <CreateRouteModal onClose={() => setShowCreate(false)} assemblyId={assemblyId} onSuccess={load} villageCoverage={villageCoverage} />}
             {editingVisit && <StatusEditModal visit={editingVisit} onClose={() => setEditingVisit(null)} onSave={handleUpdateVisit} />}
 
             <style jsx global>{`
@@ -412,11 +383,19 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
 }
 
 // Internal Modals
-function CreateRouteModal({ onClose, assemblyId, onSuccess }: any) {
+function CreateRouteModal({ onClose, assemblyId, onSuccess, villageCoverage }: any) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const [date, setDate] = useState(tomorrow.toISOString().split('T')[0]);
     const [visits, setVisits] = useState([{ village: '', time: '10:00', atmosphere: 'Neutral' }]);
+
+    const getVillageStats = (name: string) => {
+        const vc = villageCoverage.find((v: any) => v.village === name);
+        if (!vc) return null;
+        const total = vc.support.positive + vc.support.neutral + vc.support.negative;
+        const percent = total > 0 ? Math.round((vc.support.positive / total) * 100) : 0;
+        return { percent, totalVoters: vc.totalVoters, jansamparkDone: vc.jansamparkDone };
+    };
 
     const handleSave = async () => {
         if (visits.some(v => !v.village)) {
@@ -448,19 +427,50 @@ function CreateRouteModal({ onClose, assemblyId, onSuccess }: any) {
 
                 <div style={{ marginBottom: '28px', maxHeight: '380px', overflowY: 'auto', paddingRight: '15px' }}>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: '900', color: '#64748B', marginBottom: '18px', textTransform: 'uppercase', letterSpacing: '1px' }}>विजिट पड़ाव (Add Villages)</label>
-                    {visits.map((v, i) => (
-                        <div key={i} style={{ display: 'flex', gap: '18px', marginBottom: '18px', animation: 'fadeIn 0.3s ease-out' }}>
-                            <div style={{ flex: 1, position: 'relative' }}>
-                                <MapPin size={22} style={{ position: 'absolute', left: '18px', top: '22px', color: '#94A3B8', zIndex: 5 }} />
-                                <input placeholder="गांव का नाम लिखें..." value={v.village} onChange={e => { const n = [...visits]; n[i].village = e.target.value; setVisits(n); }} style={{ width: '100%', padding: '20px 20px 20px 54px', borderRadius: '22px', border: '2px solid #F1F5F9', fontSize: '17px', fontWeight: '900', outline: 'none', background: 'white' }} />
-                                {i > 0 && <button onClick={() => setVisits(visits.filter((_, idx) => idx !== i))} style={{ position: 'absolute', right: '-8px', top: '-8px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '50%', padding: '4px', cursor: 'pointer', zIndex: 10 }}><X size={14} /></button>}
+                    {visits.map((v, i) => {
+                        const stats = getVillageStats(v.village);
+                        return (
+                            <div key={i} style={{ marginBottom: '24px', animation: 'fadeIn 0.3s ease-out' }}>
+                                <div style={{ display: 'flex', gap: '18px', marginBottom: '8px' }}>
+                                    <div style={{ flex: 1, position: 'relative' }}>
+                                        <MapPin size={22} style={{ position: 'absolute', left: '18px', top: '22px', color: '#94A3B8', zIndex: 5 }} />
+                                        <input
+                                            list={`villages-list-${i}`}
+                                            placeholder="गांव का नाम लिखें..."
+                                            value={v.village}
+                                            onChange={e => { const n = [...visits]; n[i].village = e.target.value; setVisits(n); }}
+                                            style={{ width: '100%', padding: '20px 20px 20px 54px', borderRadius: '22px', border: '2px solid #F1F5F9', fontSize: '17px', fontWeight: '900', outline: 'none', background: 'white' }}
+                                        />
+                                        <datalist id={`villages-list-${i}`}>
+                                            {villageCoverage.map((vc: any) => (
+                                                <option key={vc.village} value={vc.village} />
+                                            ))}
+                                        </datalist>
+                                        {i > 0 && <button onClick={() => setVisits(visits.filter((_, idx) => idx !== i))} style={{ position: 'absolute', right: '-8px', top: '-8px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '50%', padding: '4px', cursor: 'pointer', zIndex: 10 }}><X size={14} /></button>}
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                        <Clock size={22} style={{ position: 'absolute', left: '16px', top: '22px', color: '#94A3B8', zIndex: 5 }} />
+                                        <input type="time" value={v.time} onChange={e => { const n = [...visits]; n[i].time = e.target.value; setVisits(n); }} style={{ width: '160px', padding: '20px 20px 20px 48px', borderRadius: '22px', border: '2px solid #F1F5F9', fontSize: '17px', fontWeight: '900', outline: 'none', background: 'white' }} />
+                                    </div>
+                                </div>
+                                {stats && (
+                                    <div style={{ paddingLeft: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                        <div style={{ fontSize: '12px', fontWeight: '800', color: stats.percent > 50 ? '#10B981' : stats.percent > 30 ? '#F59E0B' : '#EF4444', background: stats.percent > 50 ? '#DCFCE7' : stats.percent > 30 ? '#FEF3C7' : '#FEE2E2', padding: '4px 12px', borderRadius: '10px' }}>
+                                            समर्थन: {stats.percent}%
+                                        </div>
+                                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#64748B' }}>
+                                            कुल मतदाता: {stats.totalVoters}
+                                        </div>
+                                        {stats.jansamparkDone && (
+                                            <div style={{ fontSize: '11px', fontWeight: '900', color: '#2563EB', background: '#EFF6FF', padding: '4px 10px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <CheckCircle2 size={12} /> विजिट पूर्ण
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <div style={{ position: 'relative' }}>
-                                <Clock size={22} style={{ position: 'absolute', left: '16px', top: '22px', color: '#94A3B8', zIndex: 5 }} />
-                                <input type="time" value={v.time} onChange={e => { const n = [...visits]; n[i].time = e.target.value; setVisits(n); }} style={{ width: '160px', padding: '20px 20px 20px 48px', borderRadius: '22px', border: '2px solid #F1F5F9', fontSize: '17px', fontWeight: '900', outline: 'none', background: 'white' }} />
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                     <button onClick={() => setVisits([...visits, { village: '', time: '11:00', atmosphere: 'Neutral' }])} style={{ width: '100%', padding: '20px', border: '2.5px dashed #CBD5E1', borderRadius: '24px', fontWeight: '900', color: '#64748B', cursor: 'pointer', background: 'transparent', transition: 'all 0.2s', fontSize: '16px' }}>
                         + एक और गांव जोड़ें
                     </button>

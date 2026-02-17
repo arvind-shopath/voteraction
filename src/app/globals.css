@@ -431,7 +431,18 @@ body {
   }
 
   .data-table {
-    min-width: 1000px;
+    min-width: 800px;
+  }
+
+  .grid-2, .grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Fix for squeezed action buttons */
+  .action-buttons {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
   }
 
   .hidden-mobile {
@@ -441,6 +452,15 @@ body {
   .visible-mobile {
     display: block !important;
   }
+}
+
+.responsive-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+  background: white;
+  margin-bottom: 24px;
 }
 
 /* Admin and Settings Responsive Grids */

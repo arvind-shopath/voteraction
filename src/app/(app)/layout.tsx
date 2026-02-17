@@ -38,11 +38,22 @@ export default async function AppLayout({
             : await prisma.assembly.findFirst();
 
         if (assembly) {
+            let logoUrl = assembly.logoUrl;
+
+            // If assembly.logoUrl is missing, try fetching from Party table
+            if (!logoUrl && assembly.party) {
+                const party = await prisma.party.findUnique({
+                    where: { name: assembly.party },
+                    select: { logo: true }
+                });
+                if (party?.logo) logoUrl = party.logo;
+            }
+
             branding = {
                 themeColor: assembly.themeColor || '#1E3A8A',
                 candidateName: assembly.candidateName || 'उम्मीदवार',
                 candidateImageUrl: assembly.candidateImageUrl,
-                logoUrl: assembly.logoUrl
+                logoUrl: logoUrl
             };
         }
     } catch (error) {

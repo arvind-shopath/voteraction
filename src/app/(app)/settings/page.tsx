@@ -52,24 +52,19 @@ export default function SettingsPage() {
     ]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const hasInitialized = useRef<number | null>(null);
 
     useEffect(() => {
-        const role = localStorage.getItem('userRole') || 'CANDIDATE';
+        if (!session) return;
+
+        const role = (session.user as any)?.role || 'CANDIDATE';
         setUserRole(role);
 
         const savedLang = localStorage.getItem('app_lang') as 'hi' | 'en' || 'hi';
         setLang(savedLang);
 
         async function init() {
-            setLoading(true);
-            let targetId = 1;
-
-            try {
-                const partyList = await getParties();
-                setDbParties(partyList);
-            } catch (e) {
-                console.error('Failed to load parties', e);
-            }
+            let targetId = (session?.user as any)?.assemblyId || 1;
 
             if (role === 'ADMIN' || role === 'SUPERADMIN') {
                 try {
@@ -86,19 +81,36 @@ export default function SettingsPage() {
                 } catch (e) {
                     console.error('Failed to load assemblies', e);
                 }
+            } else {
+                setSelectedAssemblyId(targetId);
             }
 
+            // Prevent re-initialization if already loaded for this assembly
+            if (hasInitialized.current === targetId) return;
+
+            setLoading(true);
             await loadSettings(targetId);
+            hasInitialized.current = targetId;
         }
         init();
-    }, []);
+    }, [session]);
 
     const loadSettings = async (id: number) => {
         setLoading(true);
         try {
             const data = await getAssemblySettings(id);
             if (data) {
-                setSettings(data);
+                // Important: Synced date fields
+                const displayDate = data.electionDate || data.nextElectionDate;
+                setSettings({ ...data, electionDate: displayDate });
+
+                // Fetch parties for this assembly's state
+                try {
+                    const partyList = await getParties(data.state);
+                    setDbParties(partyList);
+                } catch (e) {
+                    console.error('Failed to load parties for state:', data.state);
+                }
 
                 // Load Campaign Info
                 try {

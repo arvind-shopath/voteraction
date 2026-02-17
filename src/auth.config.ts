@@ -1,64 +1,30 @@
-import Credentials from "next-auth/providers/credentials";
 import type { NextAuthConfig } from "next-auth";
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
 
 export const authConfig = {
-    providers: [
-        Credentials({
-            name: "Credentials",
-            credentials: {
-                mobile: { label: "Mobile", type: "text" },
-                password: { label: "Password", type: "password" }
-            },
-            async authorize(credentials) {
-                if (!credentials?.mobile || !credentials?.password) return null;
-
-                const user = await prisma.user.findFirst({
-                    where: {
-                        OR: [
-                            { mobile: credentials.mobile as string },
-                            { username: credentials.mobile as string }
-                        ]
-                    }
-                });
-
-                if (!user || !user.password) return null;
-
-                const isValid = await bcrypt.compare(credentials.password as string, user.password);
-
-                if (isValid) {
-                    return { ...user, id: user.id.toString() };
-                }
-                return null;
-            }
-        })
-    ],
+    providers: [], // Defined in auth.ts to avoid Edge issues
     pages: {
         signIn: "/",
         error: "/",
     },
     callbacks: {
-        async jwt({ token, user }: any) {
+        async jwt({ token, user, trigger, session }: any) {
+            // Initial sign in
             if (user) {
                 token.id = user.id;
-                token.role = (user as any).role;
-                token.status = (user as any).status;
-                token.assemblyId = (user as any).assemblyId;
-                token.campaignId = (user as any).campaignId;
-
-                // Get worker details if user is a WORKER
-                if ((user as any).role === 'WORKER') {
-                    const worker = await prisma.worker.findUnique({
-                        where: { userId: parseInt(user.id) },
-                        select: { id: true, type: true }
-                    });
-                    if (worker) {
-                        token.workerId = worker.id;
-                        token.workerType = worker.type; // BOOTH_MANAGER, PANNA_PRAMUKH, FIELD
-                    }
-                }
+                token.role = user.role;
+                token.status = user.status;
+                token.assemblyId = user.assemblyId;
+                token.campaignId = user.campaignId;
             }
+
+            // If trigger is 'update', update the token (provided by client-side session update)
+            if (trigger === "update" && session) {
+                token.role = session.user?.role || token.role;
+                token.status = session.user?.status || token.status;
+                token.assemblyId = session.user?.assemblyId || token.assemblyId;
+                token.campaignId = session.user?.campaignId || token.campaignId;
+            }
+
             return token;
         },
         async session({ session, token }: any) {

@@ -299,7 +299,11 @@ export async function updateVoter(voterId: number, data: any) {
         surname: data.surname,
         isHead: data.isHead,
         isPwD: data.isPwD,
-        isImportant: data.isImportant
+        isImportant: data.isImportant,
+        // SYNC POLL DAY DATA TO GLOBAL TABLE
+        isVoted: data.isVoted,
+        votedPartyId: data.votedPartyId ? parseInt(data.votedPartyId.toString()) : undefined,
+        votedSentiment: data.votedSentiment
     };
 
     const feedbackFields = {
@@ -321,19 +325,22 @@ export async function updateVoter(voterId: number, data: any) {
             select: { electionDate: true }
         });
 
-        if (assembly?.electionDate) {
+        const userRole = (user as any).role;
+        const isAdmin = ['ADMIN', 'SUPERADMIN'].includes(userRole);
+
+        if (!assembly?.electionDate) {
+            if (!isAdmin) {
+                throw new Error("मतदान की तारीख (Election Date) अभी तय नहीं की गई है। कृपया एडमिन से संपर्क करें।");
+            }
+        } else {
             const today = new Date();
             const election = new Date(assembly.electionDate);
             const isSameDay = today.getFullYear() === election.getFullYear() &&
                 today.getMonth() === election.getMonth() &&
                 today.getDate() === election.getDate();
 
-            if (!isSameDay) {
-                // Allow Admin/Superadmin to bypass for testing/correction
-                const userRole = (user as any).role;
-                if (!['ADMIN', 'SUPERADMIN'].includes(userRole)) {
-                    throw new Error("मतदान की स्थिति (Voted Status) केवल मतदान के दिन ही बदली जा सकती है।");
-                }
+            if (!isSameDay && !isAdmin) {
+                throw new Error("मतदान की स्थिति (Voted Status) केवल मतदान के दिन ही बदली जा सकती है।");
             }
         }
     }
@@ -504,6 +511,8 @@ export async function createVoter(data: any) {
             assemblyId: parseInt(assemblyId.toString()),
             verificationStatus: userRole === 'ADMIN' || userRole === 'CANDIDATE' ? 'VERIFIED' : 'PENDING', // Changed MANAGER to CANDIDATE based on original
             eciStatus: data.eciStatus || 'IN_LIST',
+            caste: data.caste,
+            subCaste: data.subCaste,
             updatedByName: userName,
         }
     });
@@ -681,6 +690,12 @@ export async function getVoterWithFamily(voterId: number) {
 export async function getFilterOptions(assemblyId?: number) {
     const where = assemblyId ? { assemblyId } : {};
 
+    let assemblyState = 'National';
+    if (assemblyId) {
+        const assembly = await prisma.assembly.findUnique({ where: { id: assemblyId }, select: { state: true } });
+        if (assembly) assemblyState = assembly.state;
+    }
+
     const [castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties] = await Promise.all([
         prisma.voter.findMany({
             select: { caste: true },
@@ -713,7 +728,16 @@ export async function getFilterOptions(assemblyId?: number) {
             where: { ...where, boothNumber: { not: null } }
         }),
         prisma.party.findMany({
-            orderBy: { name: 'asc' }
+            where: {
+                OR: [
+                    { state: assemblyState },
+                    { state: 'National' }
+                ]
+            },
+            orderBy: [
+                { sortOrder: 'asc' },
+                { name: 'asc' }
+            ]
         })
     ]);
 

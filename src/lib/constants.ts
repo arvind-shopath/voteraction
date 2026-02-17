@@ -6,8 +6,8 @@ const BASE_PARTY_CONFIG = {
     'रालोद (RLD)': { color: '#006400', logo: '/logos/rld.png', nameEn: 'RLD' },
     'आप (AAP)': { color: '#00ADEF', logo: '/logos/aap.png', nameEn: 'AAP' },
     'सुभासपा (SBSP)': { color: '#FFFF00', logo: '/logos/sbsp.png', nameEn: 'SBSP' },
-    'निर्दलीय (IND)': { color: '#666666', logo: '/logos/ind.png', nameEn: 'IND' },
-    'अन्य (Others)': { color: '#94A3B8', logo: '/logos/other.png', nameEn: 'Others' }
+    'निर्दलीय (IND)': { color: '#666666', logo: '', nameEn: 'IND' },
+    'अन्य (Others)': { color: '#94A3B8', logo: '', nameEn: 'Others' }
 };
 
 export const PARTY_CONFIG: Record<string, { color: string; logo: string; nameEn: string }> = {

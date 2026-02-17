@@ -46,8 +46,8 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
     const isSimulatingActive = (effectiveRole && effectiveRole !== realRole) || !!simulationPersona;
     const userName = simulationPersona?.name || (isSimulatingActive
         ? (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य'))
-        : (session?.user?.name || candidateName || 'यूजर'));
-    const userImage = simulationPersona?.image || session?.user?.image || candidateImageUrl;
+        : (candidateName || session?.user?.name || 'यूजर'));
+    const userImage = simulationPersona?.image || candidateImageUrl || session?.user?.image;
 
     const getMenuItems = () => {
         // Core Admin View (Switching to other views via Header View Switcher)
@@ -125,7 +125,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
             ];
         }
 
-        if (['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role)) {
+        if (['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role) || (role === 'WORKER' && workerType === 'SOCIAL_MEDIA')) {
             const isCentral = workerType === 'SOCIAL_CENTRAL' || workerType?.startsWith('CENTRAL_') || ['SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role);
             if (isCentral) {
                 let path = '/social-sena';
@@ -173,8 +173,9 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
     }, []);
 
     const isSidebarCollapsed = !isMobile && layoutCollapsed;
+    const isSocialCentral = (workerType === 'SOCIAL_CENTRAL' || workerType?.startsWith('CENTRAL_'));
 
-    if (pathname.startsWith('/social-sena') && role === 'SOCIAL_MEDIA' && (workerType === 'SOCIAL_CENTRAL' || workerType?.startsWith('CENTRAL_'))) {
+    if (pathname.startsWith('/social-sena') && role === 'SOCIAL_MEDIA' && isSocialCentral) {
         return null;
     }
 

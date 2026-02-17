@@ -21,6 +21,7 @@ export default function UsersPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState('ALL');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     // Premium Modals State
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -42,6 +43,11 @@ export default function UsersPage() {
             setExpandedGroups(prev => ({ ...prev, [`assembly-${assemblyId}`]: true }));
         }
         fetchData();
+
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     async function fetchData() {
@@ -64,8 +70,12 @@ export default function UsersPage() {
     };
 
     const handleUpdateRole = async (id: number, role: string) => {
-        await setUserRole(id, role);
-        fetchData();
+        try {
+            await setUserRole(id, role);
+            fetchData();
+        } catch (error: any) {
+            showFeedback('त्रुटि', error.message, 'error');
+        }
     };
 
     const handleAssignAssembly = async (userId: number, assemblyId: string) => {
@@ -190,20 +200,34 @@ export default function UsersPage() {
 
     return (
         <div style={{ paddingBottom: '80px' }}>
-            <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ marginBottom: '32px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '20px' }}>
                 <div>
-                    <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#1E293B' }}>यूजर मास्टर</h1>
+                    <h1 style={{ fontSize: isMobile ? '28px' : '32px', fontWeight: '900', color: '#1E293B' }}>यूजर मास्टर</h1>
                     <p style={{ color: '#64748B', fontSize: '15px', fontWeight: '600' }}>सिस्टम के सभी मुख्य यूजर्स और एडमिन्स का प्रबंधन</p>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    style={{ padding: '14px 28px', background: 'linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)', color: 'white', border: 'none', borderRadius: '16px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    style={{
+                        width: isMobile ? '100%' : 'auto',
+                        padding: '14px 28px',
+                        background: 'linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '16px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                    }}
                 >
                     <UsersIcon size={20} /> नया यूजर बनाएं
                 </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px', marginBottom: '32px' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
                     <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
                     <input
@@ -217,15 +241,27 @@ export default function UsersPage() {
                 <select
                     value={roleFilter}
                     onChange={(e) => setRoleFilter(e.target.value)}
-                    style={{ padding: '16px 24px', borderRadius: '20px', border: '1px solid #E2E8F0', background: 'white', outline: 'none', fontWeight: '700', color: '#475569', cursor: 'pointer' }}
+                    style={{
+                        width: isMobile ? '100%' : 'auto',
+                        padding: '16px 24px',
+                        borderRadius: '20px',
+                        border: '1px solid #E2E8F0',
+                        background: 'white',
+                        outline: 'none',
+                        fontWeight: '700',
+                        color: '#475569',
+                        cursor: 'pointer'
+                    }}
                 >
                     <option value="ALL">सभी रोल्स</option>
                     <option value="ADMIN">एडमिन</option>
                     <option value="CANDIDATE">कैंडिडेट</option>
-                    <option value="SOCIAL_MEDIA">सोशल सेना (General)</option>
-                    <option value="SM_MANAGER">सोशल सेना मैनेजर</option>
-                    <option value="DESIGNER">डिजाइनर</option>
-                    <option value="EDITOR">वीडियो एडिटर</option>
+                    <optgroup label="सोशल सेना">
+                        <option value="SOCIAL_MEDIA">सोशल सेना (General)</option>
+                        <option value="SM_MANAGER">सोशल सेना मैनेजर</option>
+                        <option value="DESIGNER">डिजाइनर</option>
+                        <option value="EDITOR">वीडियो एडिटर</option>
+                    </optgroup>
                 </select>
             </div>
 
@@ -252,6 +288,7 @@ export default function UsersPage() {
                     onUpdateRole={handleUpdateRole}
                     onAssignAssembly={handleAssignAssembly}
                     onEditName={triggerUpdateUserName}
+                    onChangePassword={triggerChangePassword}
                     onDelete={triggerDelete}
                 />
                 <UserGroupSection
@@ -265,6 +302,7 @@ export default function UsersPage() {
                     onUpdateRole={handleUpdateRole}
                     onAssignAssembly={handleAssignAssembly}
                     onEditName={triggerUpdateUserName}
+                    onChangePassword={triggerChangePassword}
                     onDelete={triggerDelete}
                 />
                 <UserGroupSection
@@ -292,6 +330,7 @@ export default function UsersPage() {
                     onUpdateRole={handleUpdateRole}
                     onAssignAssembly={handleAssignAssembly}
                     onEditName={triggerUpdateUserName}
+                    onChangePassword={triggerChangePassword}
                     onDelete={triggerDelete}
                 />
 
@@ -434,8 +473,8 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
             </button>
 
             {expanded && (
-                <div style={{ borderTop: '1px solid #F1F5F9', overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <div className="responsive-table-wrapper" style={{ borderTop: '1px solid #F1F5F9', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                                 <th style={{ padding: '16px 24px', fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase' }}>यूजर / मोबाइल</th>
@@ -460,15 +499,18 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                                         <select
                                             value={u.role}
                                             onChange={(e) => onUpdateRole(u.id, e.target.value)}
-                                            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '13px', fontWeight: '700', color: '#475569', cursor: 'pointer', background: 'white' }}
+                                            disabled={u.mobile === '9723338321'} // Protect Arvind
+                                            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '13px', fontWeight: '700', color: '#475569', cursor: u.mobile === '9723338321' ? 'default' : 'pointer', background: u.mobile === '9723338321' ? '#F8FAFC' : 'white' }}
                                         >
-                                            <option value="SUPERADMIN">Super Admin</option>
+                                            {u.role === 'SUPERADMIN' && <option value="SUPERADMIN">Super Admin</option>}
                                             <option value="ADMIN">Admin</option>
                                             <option value="CANDIDATE">Candidate</option>
-                                            <option value="SOCIAL_MEDIA">Social Sena (General)</option>
-                                            <option value="SM_MANAGER">Social Sena Manager</option>
-                                            <option value="DESIGNER">Graphics Designer</option>
-                                            <option value="EDITOR">Video Editor</option>
+                                            <optgroup label="Social Sena">
+                                                <option value="SOCIAL_MEDIA">Social Sena (General)</option>
+                                                <option value="SM_MANAGER">Social Sena Manager</option>
+                                                <option value="DESIGNER">Graphics Designer</option>
+                                                <option value="EDITOR">Video Editor</option>
+                                            </optgroup>
                                             <option value="WORKER">Worker</option>
                                         </select>
                                     </td>
@@ -479,14 +521,18 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                                         </div>
                                     </td>
                                     <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                                             {u.status === 'Pending' && (
                                                 <button onClick={() => onUpdateStatus(u.id, 'Active')} style={{ padding: '8px 16px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>अप्रूव करें</button>
                                             )}
-                                            {onEditName && <button onClick={() => onEditName(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', cursor: 'pointer' }} title="नाम सुधारें"><Edit size={14} /></button>}
-                                            {onChangePassword && <button onClick={() => onChangePassword(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', cursor: 'pointer' }} title="पासवर्ड बदलें"><Key size={14} /></button>}
-                                            <button onClick={() => onUpdateStatus(u.id, u.status === 'Active' ? 'Blocked' : 'Active')} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: u.status === 'Active' ? '#DC2626' : '#16A34A', cursor: 'pointer' }} title={u.status === 'Active' ? 'ब्लॉक करें' : 'अनब्लॉक करें'}>{u.status === 'Active' ? <Ban size={14} /> : <CheckCircle size={14} />}</button>
-                                            {onDelete && <button onClick={() => onDelete(u)} style={{ width: '32px', height: '32px', border: '1px solid #FECACA', background: '#FEF2F2', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', cursor: 'pointer' }} title="हटाएं"><Trash2 size={14} /></button>}
+                                            {u.mobile !== '9723338321' && (
+                                                <>
+                                                    {onEditName && <button onClick={() => onEditName(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', cursor: 'pointer' }} title="नाम सुधारें"><Edit size={14} /></button>}
+                                                    {onChangePassword && <button onClick={() => onChangePassword(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', cursor: 'pointer' }} title="पासवर्ड बदलें"><Key size={14} /></button>}
+                                                    <button onClick={() => onUpdateStatus(u.id, u.status === 'Active' ? 'Blocked' : 'Active')} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: u.status === 'Active' ? '#DC2626' : '#16A34A', cursor: 'pointer' }} title={u.status === 'Active' ? 'ब्लॉक करें' : 'अनब्लॉक करें'}>{u.status === 'Active' ? <Ban size={14} /> : <CheckCircle size={14} />}</button>
+                                                    {onDelete && <button onClick={() => onDelete(u)} style={{ width: '32px', height: '32px', border: '1px solid #FECACA', background: '#FEF2F2', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', cursor: 'pointer' }} title="हटाएं"><Trash2 size={14} /></button>}
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -528,10 +574,12 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>रोल (Role)</label>
                         <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>
                             <option value="CANDIDATE">Candidate (कैंडिडेट)</option>
-                            <option value="SOCIAL_MEDIA">Social Sena (General)</option>
-                            <option value="SM_MANAGER">Social Sena Manager</option>
-                            <option value="DESIGNER">Graphics Designer</option>
-                            <option value="EDITOR">Video Editor</option>
+                            <optgroup label="सोशल सेना">
+                                <option value="SOCIAL_MEDIA">Social Sena (General)</option>
+                                <option value="SM_MANAGER">Social Sena Manager</option>
+                                <option value="DESIGNER">Graphics Designer</option>
+                                <option value="EDITOR">Video Editor</option>
+                            </optgroup>
                             <option value="ADMIN">Admin</option>
                         </select>
                     </div>

@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, LogOut } from 'lucide-react';
+import { signOut } from 'next-auth/react';
 
 export default function PendingAssemblyPage() {
     return (
@@ -38,17 +41,37 @@ export default function PendingAssemblyPage() {
                 <p style={{ color: '#64748B', lineHeight: '1.6', fontSize: '16px', marginBottom: '32px' }}>
                     आपका अकाउंट सक्रिय है, लेकिन अभी तक आपको कोई विधानसभा असाइन नहीं की गई है। कृपया एडमिन से संपर्क करें ताकि वे आपको आपकी संबंधित विधानसभा का डैशबोर्ड प्रदान कर सकें।
                 </p>
-                <Link href="/" style={{
-                    display: 'inline-block',
-                    padding: '14px 32px',
-                    background: '#2563EB',
-                    color: 'white',
-                    textDecoration: 'none',
-                    borderRadius: '12px',
-                    fontWeight: '800'
-                }}>
-                    वापस होम पर जाएँ
-                </Link>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <Link href="/" style={{
+                        display: 'block',
+                        padding: '14px 32px',
+                        background: '#2563EB',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: '12px',
+                        fontWeight: '800'
+                    }}>
+                        वापस होम पर जाएँ
+                    </Link>
+                    <button
+                        onClick={() => signOut({ callbackUrl: '/' })}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            padding: '14px 32px',
+                            background: '#F1F5F9',
+                            color: '#64748B',
+                            border: 'none',
+                            borderRadius: '12px',
+                            fontWeight: '800',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <LogOut size={18} /> लॉगआउट करें
+                    </button>
+                </div>
             </div>
         </div>
     );

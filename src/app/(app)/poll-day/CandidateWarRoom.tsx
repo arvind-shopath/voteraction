@@ -146,6 +146,31 @@ export default function CandidateWarRoom({ assemblyId }: { assemblyId: number })
                     </div>
                 </div>
 
+                {/* Party Breakdown Section */}
+                {stats.partyStats && stats.partyStats.length > 0 && (
+                    <div style={{ marginTop: '32px', position: 'relative', zIndex: 10 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#94A3B8', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '16px' }}>पार्टी-वार मतदान रुझान</div>
+                        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none' }}>
+                            {stats.partyStats.map((ps: any) => (
+                                <div key={ps.id} style={{
+                                    background: 'rgba(255,255,255,0.05)',
+                                    minWidth: '160px',
+                                    padding: '16px 20px',
+                                    borderRadius: '20px',
+                                    border: `1px solid ${ps.color}44`,
+                                    borderLeft: `4px solid ${ps.color}`
+                                }}>
+                                    <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '700', marginBottom: '4px' }}>{ps.name}</div>
+                                    <div style={{ fontSize: '24px', fontWeight: '900', color: ps.color }}>{ps.count.toLocaleString()}</div>
+                                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: '800', marginTop: '2px' }}>
+                                        {Math.round((ps.count / (stats.totalVoted || 1)) * 100)}% Share
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* DECORATIVE ELEMENTS */}
                 <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, rgba(0,0,0,0) 70%)', pointerEvents: 'none' }}></div>
             </div>

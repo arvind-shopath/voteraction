@@ -9,10 +9,10 @@ export default function PartiesPage() {
     const [parties, setParties] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
-    const [formData, setFormData] = useState({ name: '', color: '#1E3A8A', logo: '' });
+    const [formData, setFormData] = useState({ name: '', color: '#1E3A8A', logo: '', state: 'National', sortOrder: 0 });
     const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [editData, setEditData] = useState<any>({});
+    const [editData, setEditData] = useState<any>({ name: '', color: '#1E3A8A', logo: '', state: 'National', sortOrder: 0 });
     const [uploadingLogo, setUploadingLogo] = useState(false);
 
     useEffect(() => {
@@ -48,8 +48,15 @@ export default function PartiesPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
-        await createParty(formData);
-        setFormData({ name: '', color: '#1E3A8A', logo: '' });
+        const payload: any = {
+            name: formData.name,
+            color: formData.color,
+            logo: formData.logo,
+            state: formData.state,
+            sortOrder: parseInt(formData.sortOrder.toString()) || 0
+        };
+        await createParty(payload);
+        setFormData({ name: '', color: '#1E3A8A', logo: '', state: 'National', sortOrder: 0 });
         setShowAdd(false);
         fetchParties();
         setSaving(false);
@@ -82,7 +89,13 @@ export default function PartiesPage() {
 
     const handleEdit = (party: any) => {
         setEditingId(party.id);
-        setEditData({ name: party.name, color: party.color, logo: party.logo });
+        setEditData({
+            name: party.name,
+            color: party.color,
+            logo: party.logo,
+            state: party.state || 'National',
+            sortOrder: party.sortOrder || 0
+        });
     };
 
     const handleSaveEdit = async (id: number) => {
@@ -105,30 +118,27 @@ export default function PartiesPage() {
         }
     };
 
-    if (loading) return <div style={{ padding: '100px', textAlign: 'center' }}>लोड हो रहा है...</div>;
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+            <Loader2 className="animate-spin" size={40} color="#2563EB" />
+        </div>
+    );
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
                 <div>
-                    <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827' }}>पार्टी मैनेजमेंट</h1>
-                    <p style={{ color: '#6B7280' }}>एप्लीकेशन में उपलब्ध राजनीतिक दल</p>
+                    <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#111827', letterSpacing: '-0.5px' }}>पार्टी मैनेजमेंट</h1>
+                    <p style={{ color: '#64748B', marginTop: '4px', fontSize: '16px' }}>एप्लीकेशन में उपलब्ध राजनीतिक दल और उनका क्रम</p>
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    {parties.length === 0 && (
-                        <button
-                            onClick={handleSeed}
-                            disabled={saving}
-                            style={{ padding: '10px 20px', background: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
-                        >
-                            डिफ़ॉल्ट पार्टियाँ जोड़ें
-                        </button>
-                    )}
+                <div style={{ display: 'flex', gap: '16px' }}>
                     <button
                         onClick={() => setShowAdd(true)}
-                        style={{ padding: '10px 20px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        style={{ padding: '12px 24px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'transform 0.2s' }}
+                        onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                        <Plus size={18} /> नई पार्टी जोड़ें
+                        <Plus size={20} /> नई पार्टी जोड़ें
                     </button>
                 </div>
             </div>
@@ -147,6 +157,23 @@ export default function PartiesPage() {
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>थीम कलर</label>
                                 <input type="color" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })}
                                     style={{ width: '100%', height: '45px', padding: '2px', border: '1px solid #D1D5DB', borderRadius: '8px', cursor: 'pointer' }} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>राज्य/स्कोप (State/Scope)</label>
+                                <select
+                                    value={formData.state}
+                                    onChange={e => setFormData({ ...formData, state: e.target.value })}
+                                    style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', background: 'white' }}
+                                >
+                                    <option value="National">National (सभी जगह दिखेगी)</option>
+                                    <option value="Uttar Pradesh">Uttar Pradesh (सिर्फ UP)</option>
+                                    <option value="Bihar">Bihar (सिर्फ बिहार)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>क्रम (Sort Order)</label>
+                                <input type="number" value={formData.sortOrder} onChange={e => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
+                                    style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }} placeholder="उदा. 12" />
                             </div>
                         </div>
                         <div style={{ marginBottom: '20px' }}>
@@ -175,23 +202,45 @@ export default function PartiesPage() {
                 </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
                 {parties.map((party) => (
-                    <div key={party.id} className="card" style={{ padding: '20px', borderLeft: `6px solid ${editingId === party.id ? editData.color : party.color}` }}>
+                    <div key={party.id} className="card" style={{
+                        padding: '24px',
+                        borderLeft: `6px solid ${editingId === party.id ? editData.color : party.color}`,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: editingId === party.id ? '400px' : 'auto',
+                        justifyContent: 'center'
+                    }}>
                         {editingId === party.id ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#64748B' }}>नाम</label>
-                                    <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })}
-                                        style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '14px' }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#64748B' }}>नाम</label>
+                                        <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })}
+                                            style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '14px' }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#64748B' }}>कलर</label>
+                                        <input type="color" value={editData.color} onChange={e => setEditData({ ...editData, color: e.target.value })}
+                                            style={{ width: '100%', height: '40px', padding: '2px', border: '1px solid #D1D5DB', borderRadius: '6px', cursor: 'pointer' }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#64748B' }}>राज्य</label>
+                                        <select value={editData.state} onChange={e => setEditData({ ...editData, state: e.target.value })} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '14px' }}>
+                                            <option value="National">National</option>
+                                            <option value="Uttar Pradesh">Uttar Pradesh</option>
+                                            <option value="Bihar">Bihar</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#64748B' }}>क्रम</label>
+                                        <input type="number" value={editData.sortOrder} onChange={e => setEditData({ ...editData, sortOrder: parseInt(e.target.value) || 0 })}
+                                            style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '14px' }} />
+                                    </div>
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#64748B' }}>कलर</label>
-                                    <input type="color" value={editData.color} onChange={e => setEditData({ ...editData, color: e.target.value })}
-                                        style={{ width: '100%', height: '40px', padding: '2px', border: '1px solid #D1D5DB', borderRadius: '6px', cursor: 'pointer' }} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#64748B' }}>लोगो</label>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#64748B' }}>लोगो (URL/Upload)</label>
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         <input type="text" value={editData.logo} onChange={e => setEditData({ ...editData, logo: e.target.value })}
                                             style={{ flex: 1, padding: '10px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '13px' }} placeholder="URL" />
@@ -200,39 +249,43 @@ export default function PartiesPage() {
                                             <input type="file" accept="image/*" onChange={(e) => handleLogoUpload(e, true)} style={{ display: 'none' }} />
                                         </label>
                                     </div>
-                                    {editData.logo && (
-                                        <div style={{ marginTop: '8px', width: '50px', height: '50px', borderRadius: '8px', background: '#F1F5F9', padding: '6px' }}>
-                                            <img src={editData.logo} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                        </div>
-                                    )}
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button onClick={() => setEditingId(null)} style={{ flex: 1, padding: '10px', background: '#F3F4F6', color: '#374151', border: 'none', borderRadius: '6px', fontWeight: '700', cursor: 'pointer' }}>कैंसिल</button>
-                                    <button onClick={() => handleSaveEdit(party.id)} disabled={saving} style={{ flex: 1, padding: '10px', background: '#10B981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '700', cursor: 'pointer' }}>सेव</button>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button onClick={() => setEditingId(null)} style={{ flex: 1, padding: '12px', background: '#F3F4F6', color: '#374151', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>कैंसिल</button>
+                                    <button onClick={() => handleSaveEdit(party.id)} disabled={saving} style={{ flex: 1, padding: '12px', background: '#10B981', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>सेव</button>
                                 </div>
                             </div>
                         ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#F1F5F9', border: '2px solid #E2E8F0', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {party.logo ? (
-                                        <img src={party.logo} alt={party.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                    ) : (
-                                        <Flag size={20} color={party.color} />
-                                    )}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: '800', fontSize: '15px' }}>{party.name}</div>
-                                    <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: party.color }}></div>
-                                        {party.color}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                <div style={{ position: 'relative' }}>
+                                    <div style={{ width: '60px', height: '60px', borderRadius: '16px', background: 'white', border: '2px solid #F1F5F9', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
+                                        {party.logo ? (
+                                            <img src={party.logo} alt={party.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }} />
+                                        ) : (
+                                            <Flag size={26} color={party.color} />
+                                        )}
                                     </div>
                                 </div>
-                                <button onClick={() => handleEdit(party)} style={{ color: '#2563EB', padding: '8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '6px' }}>
-                                    <Edit2 size={18} />
-                                </button>
-                                <button onClick={() => handleDelete(party.id)} style={{ color: '#EF4444', padding: '8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '6px' }}>
-                                    <Trash2 size={18} />
-                                </button>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: '800', fontSize: '16px', color: '#1E293B' }}>{party.name}</div>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                                        <div style={{ fontSize: '11px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', background: '#F1F5F9', padding: '2px 8px', borderRadius: '4px' }}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: party.color }}></div>
+                                            {party.color}
+                                        </div>
+                                        <div style={{ fontSize: '10px', fontWeight: '900', padding: '2px 8px', background: party.state === 'National' ? '#EFF6FF' : '#F8FAFC', color: party.state === 'National' ? '#2563EB' : '#475569', borderRadius: '4px', textTransform: 'uppercase' }}>
+                                            {party.state || 'National'}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                    <button onClick={() => handleEdit(party)} style={{ color: '#2563EB', padding: '10px', background: '#F0F9FF', border: 'none', cursor: 'pointer', borderRadius: '10px', transition: 'all 0.2s' }}>
+                                        <Edit2 size={18} />
+                                    </button>
+                                    <button onClick={() => handleDelete(party.id)} style={{ color: '#EF4444', padding: '10px', background: '#FEF2F2', border: 'none', cursor: 'pointer', borderRadius: '10px', transition: 'all 0.2s' }}>
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

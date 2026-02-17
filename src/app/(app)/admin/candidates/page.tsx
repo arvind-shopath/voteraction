@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import {
     getAssemblies, getUsers, getCampaigns, updateAssembly, deleteAssembly,
     toggleCandidateStatus, setUserStatus, deleteUser, updateUserName, assignUserToAssembly, assignUserToCampaign,
-    clearAppCache, assignTeamToAssembly, removeTeamMember
+    clearAppCache, assignTeamToAssembly, removeTeamMember, updateCampaignSocialAccess
 } from '@/app/actions/admin';
 import {
     Users, Star, MapPin, Search, Filter,
     ChevronDown, ChevronRight, Edit,
     LayoutGrid, List, Search as SearchIcon,
     Shield, Share2, Users as UsersIcon, Settings, X, CheckCircle, Trash2, UserPlus, Building2,
-    AlertCircle, Trash, Lock, Key, Ghost, RefreshCw
+    AlertCircle, Trash, Lock, Key, Ghost, RefreshCw, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
@@ -23,6 +23,7 @@ export default function CandidatesPage() {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [search, setSearch] = useState('');
+    const [isMobile, setIsMobile] = useState(false);
 
     // Modal States
     const [manageTeamModalOpen, setManageTeamModalOpen] = useState(false);
@@ -56,6 +57,10 @@ export default function CandidatesPage() {
 
     useEffect(() => {
         fetchData();
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     const showMsg = (title: string, text: string, type: 'success' | 'error' = 'success') => {
@@ -78,13 +83,9 @@ export default function CandidatesPage() {
                 return;
             }
 
-            const userToAssign = users.find(u => u.id === userId);
-            // If it's a SOCIAL_MEDIA user, we assign to ASSEMBLY (shared) instead of CAMPAIGN (exclusive)
-            if (userToAssign?.role === 'SOCIAL_MEDIA') {
-                await assignUserToAssembly(userId, selectedUser.assemblyId);
-            } else {
-                await assignUserToCampaign(userId, campaignId);
-            }
+            // Standardize assignment: Always assign to campaign if possible
+            // This ensures specific assignment to the candidate, not just the assembly
+            await assignUserToCampaign(userId, campaignId);
             fetchData();
         } catch (e: any) {
             showMsg("त्रुटि", e.message, "error");
@@ -199,24 +200,24 @@ export default function CandidatesPage() {
                 </div>
             )}
 
-            <div style={{ marginBottom: '48px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <div style={{ marginBottom: '48px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-end', gap: '20px' }}>
                 <div>
-                    <h1 style={{ fontSize: '36px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.02em', marginBottom: '8px' }}>
+                    <h1 style={{ fontSize: isMobile ? '30px' : '36px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.02em', marginBottom: '8px' }}>
                         कैंडिडेट <span style={{ color: '#2563EB' }}>मैनेजमेंट</span>
                     </h1>
                     <p style={{ color: '#64748B', fontSize: '16px', fontWeight: '600' }}>सभी विधानसभा क्षेत्रों के उम्मीदवारों और विधानसभा सीटों की निगरानी</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px', background: 'white', padding: '8px', borderRadius: '24px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', gap: '16px', background: 'white', padding: '8px', borderRadius: '24px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
                     <button
                         onClick={() => setViewMode('grid')}
-                        style={{ padding: '10px 20px', borderRadius: '18px', border: 'none', background: viewMode === 'grid' ? '#2563EB' : 'transparent', color: viewMode === 'grid' ? 'white' : '#64748B', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                        style={{ flex: isMobile ? 1 : 'none', padding: '10px 20px', borderRadius: '18px', border: 'none', background: viewMode === 'grid' ? '#2563EB' : 'transparent', color: viewMode === 'grid' ? 'white' : '#64748B', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
                     >
                         <LayoutGrid size={18} /> ग्रिड
                     </button>
                     <button
                         onClick={() => setViewMode('list')}
-                        style={{ padding: '10px 20px', borderRadius: '18px', border: 'none', background: viewMode === 'list' ? '#2563EB' : 'transparent', color: viewMode === 'list' ? 'white' : '#64748B', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                        style={{ flex: isMobile ? 1 : 'none', padding: '10px 20px', borderRadius: '18px', border: 'none', background: viewMode === 'list' ? '#2563EB' : 'transparent', color: viewMode === 'list' ? 'white' : '#64748B', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}
                     >
                         <List size={18} /> लिस्ट
                     </button>
@@ -246,7 +247,7 @@ export default function CandidatesPage() {
             ) : (
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(350px, 1fr))' : '1fr',
+                    gridTemplateColumns: viewMode === 'grid' ? (isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))') : '1fr',
                     gap: '28px'
                 }}>
                     {displayItems.map((item: any) => {
@@ -255,9 +256,20 @@ export default function CandidatesPage() {
                             const a = assemblies.find(as => as.id === u.assemblyId);
                             const uIsActive = u.status === 'Active';
 
+                            const campaign = campaigns.find(c => c.id === u.campaignId);
+                            const hasSocialAccess = campaign?.accessToSocialSena;
+
                             const smCount = users.filter(usr =>
                                 ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(usr.role) &&
-                                (usr.assemblyId === u.assemblyId || usr.sharedAssignments?.some((sa: any) => sa.assemblyId === u.assemblyId))
+                                (
+                                    // Count logic:
+                                    // 1. Direct campaign assignment (legacy or specific overrides)
+                                    (usr.campaignId && usr.campaignId === u.campaignId) ||
+                                    // 2. OR Assembly match IF access is enabled
+                                    (hasSocialAccess && !usr.campaignId && usr.assemblyId === u.assemblyId) ||
+                                    // 3. OR Shared assignment IF access is enabled
+                                    (hasSocialAccess && usr.sharedAssignments?.some((sa: any) => sa.assemblyId === u.assemblyId))
+                                )
                             ).length;
                             const fieldCount = u.campaignId ? users.filter(usr => usr.campaignId === u.campaignId && usr.role === 'WORKER').length : 0;
 
@@ -311,10 +323,10 @@ export default function CandidatesPage() {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                    <div className="action-buttons" style={{ display: 'flex', gap: '8px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                                         <button
                                             onClick={() => handleTriggerManageTeam(u)}
-                                            style={{ flex: 3.5, padding: '14px', borderRadius: '18px', background: '#0F172A', color: 'white', border: 'none', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
+                                            style={{ flex: isMobile ? '1 1 100%' : 3.5, padding: '14px', borderRadius: '18px', background: '#0F172A', color: 'white', border: 'none', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
                                         >
                                             <Shield size={16} /> टीम प्रबंधन
                                         </button>
@@ -370,6 +382,7 @@ export default function CandidatesPage() {
             {manageTeamModalOpen && selectedUser && (
                 <ManageTeamModal
                     candidate={selectedUser}
+                    campaigns={campaigns}
                     users={users}
                     onAssign={handleConfirmAssignToTeam}
                     onClose={() => setManageTeamModalOpen(false)}
@@ -432,8 +445,25 @@ export default function CandidatesPage() {
     );
 }
 
-function ManageTeamModal({ candidate, users, onAssign, onClose }: any) {
+function ManageTeamModal({ candidate, campaigns, users, onAssign, onClose }: any) {
     const [search, setSearch] = useState('');
+
+    // Safety check: campaigns might be undefined if not passed down or empty
+    const campaign = campaigns ? campaigns.find((c: any) => c.id === candidate.campaignId) : null;
+    const [socialAccess, setSocialAccess] = useState(campaign?.accessToSocialSena || false);
+
+    const handleToggleSocialAccess = async () => {
+        if (!campaign) return;
+        const newState = !socialAccess;
+        setSocialAccess(newState);
+        try {
+            await updateCampaignSocialAccess(campaign.id, newState);
+            onAssign(null, null); // Refresh data
+        } catch (e: any) {
+            alert(e.message);
+            setSocialAccess(!newState); // Revert on error
+        }
+    };
 
     const currentLocalTeam = candidate.campaignId
         ? users.filter((u: any) =>
@@ -443,21 +473,24 @@ function ManageTeamModal({ candidate, users, onAssign, onClose }: any) {
         )
         : [];
 
+    // Social Team logic: Show if access is enabled OR directly assigned
     const currentSocialSena = users.filter((u: any) =>
         ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && (
-            (candidate.assemblyId && u.assemblyId === candidate.assemblyId) ||
-            (u.sharedAssignments && u.sharedAssignments.some((sa: any) => sa.assemblyId === candidate.assemblyId))
+            (u.campaignId && u.campaignId === candidate.campaignId) ||
+            (socialAccess && !u.campaignId && candidate.assemblyId && u.assemblyId === candidate.assemblyId) ||
+            (socialAccess && u.sharedAssignments && u.sharedAssignments.some((sa: any) => sa.assemblyId === candidate.assemblyId))
         )
     );
 
-    // Fans, SM, Workers in the pool (no assembly or same assembly but no campaign)
-    // Filter out Admins and Super Admins from being managed as team members
+    // Filter available pool
     const pool = users.filter((u: any) =>
         ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR', 'WORKER'].includes(u.role) &&
+        !currentSocialSena.find((cs: any) => cs.id === u.id) &&
+        !currentLocalTeam.find((cl: any) => cl.id === u.id) &&
         (
-            (['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && !currentSocialSena.find((cs: any) => cs.id === u.id)) ||
-            (u.role === 'WORKER' && !u.campaignId) ||
-            (u.role === 'WORKER' && candidate.campaignId && u.campaignId === candidate.campaignId)
+            // Only show users who are NOT assigned to another campaign (unless shared via Social Access logic above)
+            !u.campaignId ||
+            (candidate.campaignId && u.campaignId === candidate.campaignId)
         )
     );
 
@@ -479,18 +512,41 @@ function ManageTeamModal({ candidate, users, onAssign, onClose }: any) {
                 </div>
 
                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                    {/* Social Access Toggle */}
+                    <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: '20px', border: '1px solid #DBEAFE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#1E40AF' }}>सोशल सेना एक्सेस (All Access)</h4>
+                            <p style={{ fontSize: '11px', color: '#60A5FA', fontWeight: '600' }}>कैंडिडेट को विधानसभा की पूरी सोशल टीम असाइन करें (Shared Mode)</p>
+                        </div>
+                        <button
+                            onClick={handleToggleSocialAccess}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: socialAccess ? '#2563EB' : '#94A3B8' }}
+                        >
+                            {socialAccess ? <ToggleRight size={40} fill="#2563EB" color="white" /> : <ToggleLeft size={40} />}
+                        </button>
+                    </div>
+
+
                     {/* Current Team Sections */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                         <div>
-                            <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em' }}>सोशल सेना टीम ({currentSocialSena.length})</h4>
+                            <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em' }}>
+                                सोशल सेना टीम ({currentSocialSena.length})
+                            </h4>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '120px', overflowY: 'auto' }}>
                                 {currentSocialSena.map((u: any) => (
-                                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: '#EFF6FF', borderRadius: '12px', border: '1px solid #DBEAFE' }}>
+                                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'white', borderRadius: '12px', border: u.campaignId ? '1px solid #2563EB' : '1px dashed #93C5FD' }}>
                                         <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E40AF' }}>{u.name}</span>
-                                        <button onClick={() => onAssign(u.id, null)} style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: '2px' }}><X size={14} /></button>
+                                        {/* Allow removal ONLY if directly assigned. If inherited, show lock */}
+                                        {u.campaignId === candidate.campaignId ? (
+                                            <button onClick={() => onAssign(u.id, null)} style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: '2px' }}><X size={14} /></button>
+                                        ) : (
+                                            <Lock size={12} color="#93C5FD" />
+                                        )}
                                     </div>
                                 ))}
-                                {currentSocialSena.length === 0 && <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>कोई सोशल सेना सदस्य नहीं</p>}
+                                {currentSocialSena.length === 0 && <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>कोई सोशल सेना सदस्य नहीं (एक्सेस बंद है या टीम खाली है)</p>}
                             </div>
                         </div>
 
@@ -512,20 +568,6 @@ function ManageTeamModal({ candidate, users, onAssign, onClose }: any) {
                     <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                             <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>सदस्य जोड़ें (Pool)</h4>
-                            <button
-                                onClick={async () => {
-                                    try {
-                                        await assignTeamToAssembly('SOCIAL_MEDIA', candidate.assemblyId);
-                                        // Refresh data via parent handler if available
-                                        onAssign(null, null);
-                                    } catch (e: any) {
-                                        alert(e.message);
-                                    }
-                                }}
-                                style={{ padding: '6px 12px', background: '#EFF6FF', border: '1px solid #2563EB', color: '#2563EB', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}
-                            >
-                                + पूरी सोशल सेना जोड़ें
-                            </button>
                         </div>
                         <div style={{ position: 'relative', marginBottom: '12px' }}>
                             <SearchIcon style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={16} />
@@ -537,22 +579,23 @@ function ManageTeamModal({ candidate, users, onAssign, onClose }: any) {
                             />
                         </div>
                         <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {filteredPool.filter((u: any) => u.campaignId !== candidate.campaignId || !candidate.campaignId).map((u: any) => (
+                            {filteredPool.map((u: any) => (
                                 <div key={u.id} style={{ padding: '12px', borderRadius: '12px', border: '1px solid #F8FAFC', background: '#F8FAFC', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '14px' }}>{u.name}</div>
-                                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>{['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) ? 'Social Sena' : u.role} • {u.mobile}</div>
+                                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>
+                                            {u.role === 'SOCIAL_MEDIA' ? 'Social Sena (General)' :
+                                                u.role === 'SM_MANAGER' ? 'Social Sena (Manager)' :
+                                                    u.role === 'DESIGNER' ? 'Social Sena (Designer)' :
+                                                        u.role === 'EDITOR' ? 'Social Sena (Video Editor)' : u.role} • {u.mobile}
+                                        </div>
                                     </div>
-                                    {u.role !== 'SOCIAL_MEDIA' ? (
-                                        <button
-                                            onClick={() => onAssign(u.id, candidate.campaignId)}
-                                            style={{ padding: '6px 12px', background: 'white', border: '1px solid #2563EB', color: '#2563EB', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}
-                                        >
-                                            + जोड़ें
-                                        </button>
-                                    ) : (
-                                        <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '800', fontStyle: 'italic' }}>पूरी टीम असाइन करें</span>
-                                    )}
+                                    <button
+                                        onClick={() => onAssign(u.id, candidate.campaignId)}
+                                        style={{ padding: '6px 12px', background: 'white', border: '1px solid #2563EB', color: '#2563EB', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}
+                                    >
+                                        + जोड़ें
+                                    </button>
                                 </div>
                             ))}
                             {filteredPool.length === 0 && <p style={{ textAlign: 'center', padding: '20px', color: '#94A3B8', fontSize: '12px', fontWeight: '600' }}>कोई उपलब्ध सदस्य नहीं</p>}

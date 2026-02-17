@@ -71,6 +71,7 @@ model Campaign {
   assemblyId     Int
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  accessToSocialSena Boolean     @default(false)
   assembly       Assembly        @relation(fields: [assemblyId], references: [id])
   users          User[]
   voterFeedbacks VoterFeedback[]
@@ -449,6 +450,8 @@ model Party {
   name      String   @unique
   color     String   @default("#1E3A8A")
   logo      String?
+  sortOrder Int      @default(0)
+  state     String   @default("National")
   createdAt DateTime @default(now())
   voters    Voter[]
   feedbacks VoterFeedback[]

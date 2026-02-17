@@ -20,6 +20,7 @@ export async function getAssemblySettings(assemblyId: number) {
                 facebookUrl: true,
                 instagramUrl: true,
                 twitterUrl: true,
+                state: true,
                 name: true,
                 number: true,
                 prevPartyVotes: true,
@@ -27,6 +28,7 @@ export async function getAssemblySettings(assemblyId: number) {
                 historicalResults: true,
                 casteEquation: true,
                 electionDate: true,
+                nextElectionDate: true,
                 // Campaign Info
                 importantAreas: true,
                 importantNewspapers: true,
@@ -100,13 +102,19 @@ export async function updateAssemblySettings(assemblyId: number, data: {
 
     const {
         facebookUrl, instagramUrl, twitterUrl,
+        candidateUserId: _,
         ...assemblyData
     } = data;
 
-    // Sanitize numeric inputs for assembly
+    // Sanitize numeric and date inputs for assembly
     const updateData: any = { ...assemblyData };
-    if (assemblyData.prevPartyVotes !== undefined) updateData.prevPartyVotes = parseInt(assemblyData.prevPartyVotes.toString());
-    if (assemblyData.prevCandidateVotes !== undefined) updateData.prevCandidateVotes = parseInt(assemblyData.prevCandidateVotes.toString());
+    if (assemblyData.prevPartyVotes !== undefined) updateData.prevPartyVotes = parseInt(assemblyData.prevPartyVotes.toString()) || 0;
+    if (assemblyData.prevCandidateVotes !== undefined) updateData.prevCandidateVotes = parseInt(assemblyData.prevCandidateVotes.toString()) || 0;
+    if (assemblyData.electionDate !== undefined) {
+        const d = assemblyData.electionDate ? new Date(assemblyData.electionDate) : null;
+        updateData.electionDate = d;
+        updateData.nextElectionDate = d;
+    }
 
     // Update Assembly
     await prisma.assembly.update({
@@ -121,6 +129,7 @@ export async function updateAssemblySettings(assemblyId: number, data: {
             await prisma.user.update({
                 where: { id: candidateUserId },
                 data: {
+                    name: updateData.candidateName,
                     facebookUrl,
                     instagramUrl,
                     twitterUrl

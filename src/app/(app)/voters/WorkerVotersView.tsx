@@ -63,6 +63,14 @@ const badgeStyle = (color: string) => ({
     fontWeight: '700'
 });
 
+const CASTE_OPTIONS: any = {
+    'सामान्य (General)': ['ब्राह्मण', 'ठाकुर (राजपूत)', 'बनिया', 'लाला (कायस्थ)', 'त्यागी', 'भूमिहार', 'अन्य'],
+    'ओबीसी (OBC)': ['यादव', 'कुर्मी', 'कुशवाहा', 'मौर्य', 'लोध', 'जाट', 'गुज्जर', 'सैनी', 'विश्वकर्मा', 'प्रजापति', 'अन्य'],
+    'एससी (SC)': ['जाटव', 'पासी', 'धोबी', 'कोरी', 'वाल्मीकि', 'अन्य'],
+    'एसटी (ST)': ['गोंद', 'खरवार', 'सहारिया', 'अन्य'],
+    'मुस्लिम (Muslim)': ['अंसारी', 'कुरैशी', 'शेख', 'पठान', 'सैय्यद', 'मंसूरी', 'अन्य']
+};
+
 const FilterChip = ({ label, color, icon }: any) => (
     <div style={{
         display: 'flex', alignItems: 'center', gap: '6px',
@@ -139,10 +147,10 @@ export default function WorkerVotersView() {
 
     // Add Voter State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [newVoter, setNewVoter] = useState({
+    const [newVoter, setNewVoter] = useState<any>({
         name: '', age: '', gender: 'M', relativeName: '', relationshipType: '',
         mobile: '', epic: '', village: '', boothNumber: '', houseNumber: '', address: '',
-        supportStatus: 'Neutral'
+        supportStatus: 'Neutral', caste: '', subCaste: ''
     });
 
     const handleUpdateEciStatus = async (voterId: number, status: string) => {
@@ -231,7 +239,7 @@ export default function WorkerVotersView() {
             setNewVoter({
                 name: '', age: '', gender: 'M', relativeName: '', relationshipType: '',
                 mobile: '', epic: '', village: '', boothNumber: '', houseNumber: '', address: '',
-                supportStatus: 'Neutral'
+                supportStatus: 'Neutral', caste: '', subCaste: ''
             });
             alert(lang === 'hi' ? 'नाम जुड़वाने का अनुरोध भेज दिया गया है' : 'Enrolment request sent');
             fetchVoters();
@@ -818,7 +826,7 @@ export default function WorkerVotersView() {
                                                     <InfoBox label="Father/Husband" value={viewVoter.relativeName} />
                                                     <InfoBox label="Age / Gender" value={`${viewVoter.age} Yrs, ${viewVoter.gender}`} />
                                                     <InfoBox label="Mobile" value={viewVoter.mobile || '---'} />
-                                                    <InfoBox label="Caste" value={viewVoter.caste} />
+                                                    <InfoBox label="वर्ग / जाति (Category / Caste)" value={`${viewVoter.caste || ''} / ${viewVoter.subCaste || ''}`} />
                                                     <InfoBox label="Village" value={viewVoter.village} />
                                                     <InfoBox label="Booth Number" value={viewVoter.boothNumber} />
                                                 </>
@@ -868,6 +876,31 @@ export default function WorkerVotersView() {
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>VILLAGE/WARD</label>
                                                         <input style={{ ...inputStyle, padding: '10px' }} value={editData.village} onChange={(e) => setEditData({ ...editData, village: e.target.value })} />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>वर्ग (CATEGORY)</label>
+                                                        <select
+                                                            style={{ ...inputStyle, padding: '10px' }}
+                                                            value={editData.caste}
+                                                            onChange={(e) => setEditData({ ...editData, caste: e.target.value, subCaste: '' })}
+                                                        >
+                                                            <option value="">--चुनें--</option>
+                                                            {Object.keys(CASTE_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>जाति (CASTE)</label>
+                                                        <select
+                                                            style={{ ...inputStyle, padding: '10px' }}
+                                                            value={editData.subCaste}
+                                                            disabled={!editData.caste}
+                                                            onChange={(e) => setEditData({ ...editData, subCaste: e.target.value })}
+                                                        >
+                                                            <option value="">--चुनें--</option>
+                                                            {editData.caste && CASTE_OPTIONS[editData.caste]?.map((c: string) => (
+                                                                <option key={c} value={c}>{c}</option>
+                                                            ))}
+                                                        </select>
                                                     </div>
                                                 </div>
                                             )}
@@ -1090,6 +1123,34 @@ export default function WorkerVotersView() {
                                     <div style={{ flex: 1 }}>
                                         <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>{lang === 'hi' ? 'पता (Address)' : 'Address'}</label>
                                         <input style={inputStyle} placeholder={lang === 'hi' ? 'गली/मोहल्ला' : 'Full address'} value={newVoter.address} onChange={(e) => setNewVoter({ ...newVoter, address: e.target.value })} />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>वर्ग (Category)</label>
+                                        <select
+                                            style={inputStyle}
+                                            value={newVoter.caste}
+                                            onChange={(e) => setNewVoter({ ...newVoter, caste: e.target.value, subCaste: '' })}
+                                        >
+                                            <option value="">--चुनें--</option>
+                                            {Object.keys(CASTE_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
+                                        </select>
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>जाति (Caste)</label>
+                                        <select
+                                            style={inputStyle}
+                                            value={newVoter.subCaste}
+                                            disabled={!newVoter.caste}
+                                            onChange={(e) => setNewVoter({ ...newVoter, subCaste: e.target.value })}
+                                        >
+                                            <option value="">--चुनें--</option>
+                                            {newVoter.caste && CASTE_OPTIONS[newVoter.caste]?.map((c: string) => (
+                                                <option key={c} value={c}>{c}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
 

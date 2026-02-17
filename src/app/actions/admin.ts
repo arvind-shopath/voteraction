@@ -57,7 +57,12 @@ export async function createAssembly(data: {
     electionHistory?: any[]
 }) {
     const { electionHistory, ...rest } = data;
-    const assembly = await prisma.assembly.create({ data: rest });
+    const assembly = await prisma.assembly.create({
+        data: {
+            ...rest,
+            electionDate: (rest as any).nextElectionDate
+        } as any
+    });
 
     if (electionHistory && Array.isArray(electionHistory) && electionHistory.length > 0) {
         for (const h of electionHistory) {
@@ -124,6 +129,7 @@ export async function updateAssembly(idRaw: any, data: {
             enabledFeatures: rest.enabledFeatures,
             lastElectionDate: rest.lastElectionDate,
             nextElectionDate: rest.nextElectionDate,
+            electionDate: rest.nextElectionDate,
             // Campaign Info
             importantAreas: rest.importantAreas,
             importantNewspapers: rest.importantNewspapers,
@@ -385,6 +391,11 @@ export async function secureUpdateUserPassword(userId: number, newPassword: stri
 
 export async function deleteUser(id: number) {
     try {
+        const user = await prisma.user.findUnique({ where: { id } });
+        if (user?.mobile === '9723338321') {
+            throw new Error("Super Admin account cannot be deleted.");
+        }
+
         await prisma.$transaction(async (tx: any) => {
             // Find if user has a worker record
             const worker = await tx.worker.findUnique({ where: { userId: id } });
@@ -436,12 +447,30 @@ export async function toggleUserStatus(id: number, currentStatus: string) {
 }
 
 export async function setUserRole(id: number, role: string) {
-    // Only Arvind Shukla can be SUPERADMIN
+    const session = await auth();
+    const currentUser = session?.user as any;
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) throw new Error("User not found");
+
+    // Only Arvind can be SUPERADMIN
+    const isArvind = targetUser.mobile === '9723338321'; // Arvind's real mobile
+
     if (role === 'SUPERADMIN') {
-        const user = await prisma.user.findUnique({ where: { id } });
-        // Standard check: only Arvind can hold it.
-        if (user?.email !== 'arvind.shukla64@gmail.com') {
+        if (!isArvind) {
             throw new Error("Only Arvind Shukla can be assigned the Super Admin role.");
+        }
+    }
+
+    // Protect Arbvind from being demoted by anyone
+    if (isArvind && role !== 'SUPERADMIN') {
+        throw new Error("Arvind's Super Admin status is permanent.");
+    }
+
+    // Only SUPERADMIN can grant high-level roles
+    if (['ADMIN', 'SUPERADMIN', 'SOCIAL_MEDIA', 'CANDIDATE', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role)) {
+        if (currentUser?.role !== 'SUPERADMIN') {
+            throw new Error("Only Super Admin can grant this role.");
         }
     }
 
@@ -461,6 +490,13 @@ export async function setUserStatus(id: number, status: string) {
 }
 
 export async function updateUserName(id: number, name: string, mobile?: string) {
+    const session = await auth();
+    const currentUser = session?.user as any;
+
+    if (currentUser?.role !== 'SUPERADMIN') {
+        throw new Error("Only Super Admin can update user details.");
+    }
+
     const data: any = { name };
     if (mobile) {
         data.mobile = mobile;
@@ -614,6 +650,16 @@ export async function assignUserToCampaign(userId: number, campaignId: number | 
     revalidatePath('/admin/candidates');
 }
 
+
+export async function updateCampaignSocialAccess(campaignId: number, access: boolean) {
+    if (!campaignId) return;
+    await prisma.campaign.update({
+        where: { id: campaignId },
+        data: { accessToSocialSena: access }
+    });
+    revalidatePath('/admin/candidates');
+}
+
 export async function setUserWorkerType(userId: number, workerType: string | null) {
     const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -722,13 +768,24 @@ export async function getGlobalIssues() {
     });
 }
 
-export async function getParties() {
+export async function getParties(state?: string) {
+    const where = state && state !== 'All' ? {
+        OR: [
+            { state: state },
+            { state: 'National' }
+        ]
+    } : {};
+
     return await prisma.party.findMany({
-        orderBy: { name: 'asc' }
+        where,
+        orderBy: [
+            { sortOrder: 'asc' },
+            { name: 'asc' }
+        ]
     });
 }
 
-export async function createParty(data: { name: string, color: string, logo?: string }) {
+export async function createParty(data: { name: string, color: string, logo?: string, state?: string, sortOrder?: number }) {
     const party = await prisma.party.create({ data });
     revalidatePath('/admin/parties');
     revalidatePath('/settings');

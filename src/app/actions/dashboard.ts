@@ -113,7 +113,11 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
                 include: { worker: { select: { name: true } } },
                 orderBy: { createdAt: 'desc' },
                 take: 5
-            })
+            }),
+            partyDetails: (await prisma.party.findMany()).reduce((acc: any, p) => {
+                acc[p.name] = { logo: p.logo, color: p.color };
+                return acc;
+            }, {})
         };
     }
 
@@ -492,6 +496,39 @@ export async function getWarRoomStats(assemblyId: number) {
         if (v.boothNumber) votedMap.set(v.boothNumber, v._count.id);
     });
 
+    // PARTY-WISE AGGREGATION
+    const votedByParty = await prisma.voter.groupBy({
+        by: ['votedPartyId'],
+        _count: { id: true },
+        where: { assemblyId, isVoted: true, NOT: { votedPartyId: null } }
+    });
+
+    let assemblyState = 'National';
+    const assembly = await prisma.assembly.findUnique({ where: { id: assemblyId }, select: { state: true } });
+    if (assembly) assemblyState = assembly.state;
+
+    const parties = await prisma.party.findMany({
+        where: {
+            OR: [
+                { state: assemblyState },
+                { state: 'National' }
+            ]
+        },
+        orderBy: [
+            { sortOrder: 'asc' },
+            { name: 'asc' }
+        ]
+    });
+    const partyStats = votedByParty.map(p => {
+        const party = parties.find(pt => pt.id === p.votedPartyId);
+        return {
+            id: p.votedPartyId,
+            name: party?.name || 'अन्य',
+            color: party?.color || '#94A3B8',
+            count: p._count.id
+        };
+    }).sort((a, b) => b.count - a.count);
+
     // Latest active incidents
     const incidents = await prisma.issue.findMany({
         where: { assemblyId, category: 'Poll Day', status: { in: ['Open', 'In Progress'] } },
@@ -527,7 +564,8 @@ export async function getWarRoomStats(assemblyId: number) {
             totalVoters: votersCount,
             activeIncidents: incidents.length,
             incidents,
-            resolvedIncidents
+            resolvedIncidents,
+            partyStats // 🎉 Added New
         }
     };
 }

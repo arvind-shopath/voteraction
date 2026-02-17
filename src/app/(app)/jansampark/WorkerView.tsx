@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { Plus, Search, Navigation, UserPlus, Clock, Loader2, X, Target, MapPin, Save, User, Camera, Check, UserCheck, AlertCircle } from 'lucide-react';
 import { getJansamparkRoutes, getWorkerJanSamparks, getVillageCoverageData, createWorkerJanSampark } from '@/app/actions/jansampark';
 import { getVoters, createVoter } from '@/app/actions/voters';
+import { getWorkerBooth } from '@/app/actions/worker';
 
 const inputStyle = {
     width: '100%',
@@ -26,6 +27,14 @@ const labelStyle = {
     color: '#475569',
     marginBottom: '8px',
     letterSpacing: '0.3px'
+};
+
+const CASTE_OPTIONS: any = {
+    'सामान्य (General)': ['ब्राह्मण', 'ठाकुर (राजपूत)', 'बनिया', 'लाला (कायस्थ)', 'त्यागी', 'भूमिहार', 'अन्य'],
+    'ओबीसी (OBC)': ['यादव', 'कुर्मी', 'कुशवाहा', 'मौर्य', 'लोध', 'जाट', 'गुज्जर', 'सैनी', 'विश्वकर्मा', 'प्रजापति', 'अन्य'],
+    'एससी (SC)': ['जाटव', 'पासी', 'धोबी', 'कोरी', 'वाल्मीकि', 'अन्य'],
+    'एसटी (ST)': ['गोंद', 'खरवार', 'सहारिया', 'अन्य'],
+    'मुस्लिम (Muslim)': ['अंसारी', 'कुरैशी', 'शेख', 'पठान', 'सैय्यद', 'मंसूरी', 'अन्य']
 };
 
 /**
@@ -59,7 +68,7 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
         name: '', relativeName: '', relationType: '',
         age: '', gender: 'M', mobile: '', epic: '',
         village: '', boothNumber: '', houseNumber: '', area: '',
-        supportStatus: 'Neutral'
+        supportStatus: 'Neutral', caste: '', subCaste: ''
     });
 
     const [prForm, setPrForm] = useState({
@@ -78,8 +87,19 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
         }
         getJansamparkRoutes(assemblyId).then(setRoutes);
         loadEntries();
-        getVillageCoverageData(assemblyId).then(setVillageCoverage);
-    }, [assemblyId]);
+
+        async function loadCoverage() {
+            if (session?.user?.id) {
+                const booth = await getWorkerBooth(parseInt(session.user.id), assemblyId);
+                const coverage = await getVillageCoverageData(assemblyId, booth?.number);
+                setVillageCoverage(coverage);
+            } else {
+                const coverage = await getVillageCoverageData(assemblyId);
+                setVillageCoverage(coverage);
+            }
+        }
+        loadCoverage();
+    }, [assemblyId, session]);
 
     const loadEntries = () => {
         getWorkerJanSamparks({ assemblyId }).then(setEntries);
@@ -150,7 +170,7 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
                 name: '', relativeName: '', relationType: '',
                 age: '', gender: 'M', mobile: '', epic: '',
                 village: '', boothNumber: '', houseNumber: '', area: '',
-                supportStatus: 'Neutral'
+                supportStatus: 'Neutral', caste: '', subCaste: ''
             });
             alert(lang === 'hi' ? 'नया वोटर सफलतापूर्वक जोड़ा गया!' : 'Voter added successfully!');
         } catch (e: any) {
@@ -200,7 +220,46 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
 
     return (
         <div>
-            {/* 1. Candidate Upcoming Schedule */}
+            {/* 1. My Report Header & Actions (Moved to TOP) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h2 style={{ fontSize: '22px', fontWeight: '950', color: '#1E293B' }}>{t('मेरी जनसंपर्क रिपोर्ट', 'My PR Report')}</h2>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button onClick={() => setShowVoterModal({ id: null })} style={{ background: '#10B981', color: 'white', padding: '12px 20px', borderRadius: '14px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <UserPlus size={18} /> {t('नया वोटर', 'New Voter')}
+                    </button>
+                    <button onClick={() => { setSelectedVoter(null); setPrForm({ personName: '', mobile: '', village: '', atmosphere: 'Neutral', description: '', imageUrl: '' }); setShowPRForm(true); }} style={{ background: '#2563EB', color: 'white', padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Plus size={20} /> {t('नई एंट्री', 'New Entry')}
+                    </button>
+                </div>
+            </div>
+
+            {/* 2. Voter Search List */}
+            <div style={{ position: 'relative', marginBottom: '30px' }}>
+                <div style={{ position: 'absolute', left: '20px', top: '18px', color: '#94A3B8' }}><Search size={24} /></div>
+                <input type="text" placeholder={t('वोटर खोजें...', 'Search voter...')} value={searchTerm} onChange={(e) => performSearch(e.target.value)} style={{ width: '100%', padding: '18px 20px 18px 60px', borderRadius: '20px', border: '1px solid #E2E8F0', fontSize: '16px' }} />
+                {searching && <div style={{ position: 'absolute', right: '20px', top: '18px' }}><Loader2 className="animate-spin" size={24} color="#2563EB" /></div>}
+            </div>
+
+            {/* Search Results List */}
+            {voters.length > 0 && (
+                <div style={{ marginBottom: '40px', background: '#F1F5F9', padding: '24px', borderRadius: '28px' }}>
+                    {voters.map(v => (
+                        <div key={v.id} style={{ background: 'white', borderRadius: '20px', padding: '20px', border: `1px solid #E2E8F0`, marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontWeight: '900', fontSize: '17px' }}>{v.name}</div>
+                                    <div style={{ fontSize: '13px', color: '#64748B' }}>{v.village} • H.No: {v.houseNumber}</div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button onClick={() => { setSelectedVoter(v); setPrForm({ personName: v.name, mobile: v.mobile || '', village: v.village || '', atmosphere: v.supportStatus || 'Neutral', description: '', imageUrl: '' }); setShowPRForm(true); }} style={{ background: '#EEF2FF', border: 'none', padding: '10px 16px', borderRadius: '12px', color: '#4F46E5', fontWeight: '800', cursor: 'pointer' }}>{t('एंट्री करें', 'Make Entry')}</button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* 3. Candidate Upcoming Schedule */}
             <div style={{ marginBottom: '40px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: '950', color: '#1E293B', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ background: '#2563EB15', padding: '8px', borderRadius: '12px' }}><Navigation size={24} color="#2563EB" /></div>
@@ -233,7 +292,7 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
                 </div>
             </div>
 
-            {/* Village Coverage Status */}
+            {/* 4. Village Coverage Status (Now Filtered by Booth for Managers) */}
             <div style={{ background: 'white', borderRadius: '28px', padding: '32px', marginBottom: '32px', border: '1px solid #E2E8F0' }}>
                 <h3 style={{ fontSize: '20px', fontWeight: '950', color: '#0F172A', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <Target size={24} color="#7C3AED" /> {t('गांव-वार जनसंपर्क स्थिति', 'Village Coverage Status')}
@@ -277,47 +336,9 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
                 </div>
             </div>
 
-            {/* My Report Section */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '22px', fontWeight: '950', color: '#1E293B' }}>{t('मेरी जनसंपर्क रिपोर्ट', 'My PR Report')}</h2>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={() => setShowVoterModal({ id: null })} style={{ background: '#10B981', color: 'white', padding: '12px 20px', borderRadius: '14px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <UserPlus size={18} /> {t('नया वोटर', 'New Voter')}
-                    </button>
-                    <button onClick={() => { setSelectedVoter(null); setPrForm({ personName: '', mobile: '', village: '', atmosphere: 'Neutral', description: '', imageUrl: '' }); setShowPRForm(true); }} style={{ background: '#2563EB', color: 'white', padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Plus size={20} /> {t('नई एंट्री', 'New Entry')}
-                    </button>
-                </div>
-            </div>
-
-            {/* Voter Search List */}
-            <div style={{ position: 'relative', marginBottom: '30px' }}>
-                <div style={{ position: 'absolute', left: '20px', top: '18px', color: '#94A3B8' }}><Search size={24} /></div>
-                <input type="text" placeholder={t('वोटर खोजें...', 'Search voter...')} value={searchTerm} onChange={(e) => performSearch(e.target.value)} style={{ width: '100%', padding: '18px 20px 18px 60px', borderRadius: '20px', border: '1px solid #E2E8F0', fontSize: '16px' }} />
-                {searching && <div style={{ position: 'absolute', right: '20px', top: '18px' }}><Loader2 className="animate-spin" size={24} color="#2563EB" /></div>}
-            </div>
-
-            {/* Search Results List */}
-            {voters.length > 0 && (
-                <div style={{ marginBottom: '40px', background: '#F1F5F9', padding: '24px', borderRadius: '28px' }}>
-                    {voters.map(v => (
-                        <div key={v.id} style={{ background: 'white', borderRadius: '20px', padding: '20px', border: `1px solid #E2E8F0`, marginBottom: '10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <div style={{ fontWeight: '900', fontSize: '17px' }}>{v.name}</div>
-                                    <div style={{ fontSize: '13px', color: '#64748B' }}>{v.village} • H.No: {v.houseNumber}</div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '6px' }}>
-                                    <button onClick={() => { setSelectedVoter(v); setPrForm({ personName: v.name, mobile: v.mobile || '', village: v.village || '', atmosphere: v.supportStatus || 'Neutral', description: '', imageUrl: '' }); setShowPRForm(true); }} style={{ background: '#EEF2FF', border: 'none', padding: '10px 16px', borderRadius: '12px', color: '#4F46E5', fontWeight: '800', cursor: 'pointer' }}>{t('एंट्री करें', 'Make Entry')}</button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Past Entries Grid */}
+            {/* 5. Past Entries Grid */}
             <div style={{ background: 'white', borderRadius: '28px', padding: '30px', border: '1px solid #E2E8F0' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: '950', color: '#1E293B', marginBottom: '24px' }}>{t('पिछली एंट्रियां (History)', 'Recent History')}</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
                     {entries.map(e => (
                         <div key={e.id} style={{ border: '1px solid #F1F5F9', borderRadius: '28px', overflow: 'hidden', background: '#F8FAFC' }}>
@@ -533,6 +554,25 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
                             <div>
                                 <span style={labelStyle}>{t('पूरा नाम', 'Full Name')}</span>
                                 <input style={inputStyle} value={voterForm.name} onChange={e => setVoterForm({ ...voterForm, name: e.target.value })} placeholder={t('मतदाता का नाम', 'Type voter name')} />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div>
+                                    <span style={labelStyle}>{t('वर्ग', 'Category')}</span>
+                                    <select style={inputStyle} value={voterForm.caste} onChange={e => setVoterForm({ ...voterForm, caste: e.target.value, subCaste: '' })}>
+                                        <option value="">{t('--चुनें--', '--Select--')}</option>
+                                        {Object.keys(CASTE_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <span style={labelStyle}>{t('जाति', 'Caste')}</span>
+                                    <select style={inputStyle} value={voterForm.subCaste} disabled={!voterForm.caste} onChange={e => setVoterForm({ ...voterForm, subCaste: e.target.value })}>
+                                        <option value="">{t('--चुनें--', '--Select--')}</option>
+                                        {voterForm.caste && CASTE_OPTIONS[voterForm.caste]?.map((c: string) => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

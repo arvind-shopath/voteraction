@@ -42,8 +42,8 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
             workerType === 'CENTRAL_EDITOR' ? 'सोशल सेना वीडियो एडिटर' :
                 workerType === 'CENTRAL_MONITOR' ? 'सोशल सेना मॉनिटर' : 'सोशल सेना सदस्य';
 
-    const userName = simulationPersona?.name || session?.user?.name || candidateName || 'यूजर';
-    const userImage = simulationPersona?.image || session?.user?.image || candidateImageUrl;
+    const userName = simulationPersona?.name || candidateName || session?.user?.name || 'यूजर';
+    const userImage = simulationPersona?.image || candidateImageUrl || session?.user?.image;
 
     const effectiveRoleToUse = effectiveRole || userRole;
     const isSimulatingActive = isSimulating;

@@ -12,7 +12,9 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
             data: {
                 name: body.name,
                 color: body.color,
-                logo: body.logo
+                logo: body.logo,
+                state: body.state,
+                sortOrder: parseInt(body.sortOrder?.toString()) || 0
             }
         });
 

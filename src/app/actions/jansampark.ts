@@ -207,16 +207,25 @@ export async function updateJansamparkVisit(visitId: number, data: { atmosphere?
     return { success: true };
 }
 
-export async function getVillageCoverageData(assemblyId: number) {
+export async function getVillageCoverageData(assemblyId: number, boothNumber?: number) {
     // 1. Get all unique villages from voters with their booth numbers
+    const where: any = { assemblyId };
+    if (boothNumber) {
+        where.boothNumber = boothNumber;
+    }
+
     const voters = await prisma.voter.findMany({
-        where: { assemblyId },
+        where,
         select: {
             village: true,
             boothNumber: true,
             supportStatus: true
         }
     });
+
+    // Filtering logic for villages based on boothNumber is naturally handled by the voters query above.
+    // However, if we filter voters, we only get villages present in that booth.
+    // This is exactly what is needed for Booth Managers.
 
     // 2. Get all Jansampark visits
     const routes = await prisma.jansamparkRoute.findMany({

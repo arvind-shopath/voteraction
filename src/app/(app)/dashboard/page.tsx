@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [activeHistoryTab, setActiveHistoryTab] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<'hi' | 'en'>('hi');
+  const [isMobile, setIsMobile] = useState(false);
 
   const currentUser = session?.user as any;
   const realRole = currentUser?.role || 'CANDIDATE';
@@ -129,7 +130,8 @@ export default function Dashboard() {
     topBooths: lang === 'hi' ? 'बूथ सेंटीमेंट (Top 5 Positive)' : 'Top Sentiment Booths',
     feedback: lang === 'hi' ? 'जनसंपर्क फीडबैक' : 'Jansampark Feedback',
     historicalHeader: lang === 'hi' ? 'पिछले चुनाव के आंकड़े (Historical)' : 'Historical Election Data',
-    casteEquationHeader: lang === 'hi' ? 'विधानसभा का जाति समीकरण (Admin Input)' : 'Assembly Caste Equation'
+    casteEquationHeader: lang === 'hi' ? 'विधानसभा का जाति समीकरण (Admin Input)' : 'Assembly Caste Equation',
+    selectAssembly: lang === 'hi' ? 'विधानसभा चुनें' : 'Select Assembly'
   };
 
   // Safe parsing for admin inputs
@@ -142,23 +144,32 @@ export default function Dashboard() {
   const totalVoters = stats?.voters || 0;
 
   // View Selection Logic
-  const isBM = (effectiveRole === 'WORKER' && effectiveWorkerType === 'BOOTH_MANAGER') || (realRole === 'WORKER' && currentUser?.workerType === 'BOOTH_MANAGER' && !effectiveRole);
+  const isBoothIncharge = (effectiveRole === 'WORKER' && effectiveWorkerType === 'BOOTH_MANAGER') || (realRole === 'WORKER' && currentUser?.workerType === 'BOOTH_MANAGER' && !effectiveRole);
   const isPP = (effectiveRole === 'WORKER' && effectiveWorkerType === 'PANNA_PRAMUKH') || (realRole === 'WORKER' && currentUser?.workerType === 'PANNA_PRAMUKH' && !effectiveRole);
 
-  if (isBM) {
-    return <BoothDashboardView userId={currentUser.id} lang={lang} assemblyId={selectedAssemblyId} />;
+  if (isBoothIncharge) {
+    return <BoothDashboardView userId={currentUser.id} lang={lang} assemblyId={selectedAssemblyId} isMobile={isMobile} />;
   }
 
   if (isPP) {
-    return <PannaDashboardView userId={currentUser.id} lang={lang} assemblyId={selectedAssemblyId} />;
+    return <PannaDashboardView userId={currentUser.id} lang={lang} assemblyId={selectedAssemblyId} isMobile={isMobile} />;
   }
 
   return (
     <div style={{ paddingBottom: '100px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
-        <div>
+      {/* Header and Assembly/Campaign selection */}
+      <div style={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between',
+        alignItems: isMobile ? 'flex-start' : 'flex-start',
+        gap: '24px',
+        marginBottom: '32px'
+      }}>
+        {/* Title and description */}
+        <div style={{ width: isMobile ? '100%' : 'auto' }}>
           <h1 style={{
-            fontSize: '32px',
+            fontSize: isMobile ? '24px' : '32px',
             fontWeight: '900',
             background: 'linear-gradient(135deg, #1E293B 0%, #475569 100%)',
             WebkitBackgroundClip: 'text',
@@ -179,34 +190,51 @@ export default function Dashboard() {
           </p>
         </div>
 
+        {/* Global/Admin Selections */}
         {canSwitch && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)', padding: '10px 18px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <Filter size={16} color="#64748B" />
-            <select
-              value={selectedAssemblyId || ''}
-              onChange={(e) => {
-                const id = Number(e.target.value);
-                setSelectedAssemblyId(id);
-                setSelectedCampaignId(null);
+          <div style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: '12px',
+            width: isMobile ? '100%' : 'auto'
+          }}>
+            {role !== 'CANDIDATE' && (
+              <select
+                value={selectedAssemblyId || ''}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setSelectedAssemblyId(id);
+                  setSelectedCampaignId(null);
 
-                // If simulating, sync the identity
-                if (effectiveRole === 'CANDIDATE') {
-                  const assm = assemblies.find((a: any) => a.id === id);
-                  if (assm) {
-                    setEffectiveRole('CANDIDATE', null, {
-                      name: assm.candidateName || 'Candidate',
-                      image: assm.candidateImageUrl
-                    });
+                  // If simulating, sync the identity
+                  if (effectiveRole === 'CANDIDATE') {
+                    const assm = assemblies.find((a: any) => a.id === id);
+                    if (assm) {
+                      setEffectiveRole('CANDIDATE', null, {
+                        name: assm.candidateName || 'Candidate',
+                        image: assm.candidateImageUrl
+                      });
+                    }
                   }
-                }
-              }}
-              style={{ border: 'none', outline: 'none', fontWeight: '700', fontSize: '14px', color: '#1E293B', cursor: 'pointer', background: 'transparent' }}
-            >
-              <option value="">{lang === 'hi' ? 'सीट चुनें' : 'Select Assembly'}</option>
-              {assemblies.map((a: any, idx: number) => (
-                <option key={a.id} value={a.id}>{a.name} ({a.number || idx + 1})</option>
-              ))}
-            </select>
+                }}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '16px',
+                  border: '1px solid #E2E8F0',
+                  background: 'white',
+                  fontWeight: '700',
+                  color: '#1E293B',
+                  outline: 'none',
+                  flex: isMobile ? 1 : 'none'
+                }}
+              >
+                <option value="">{t.selectAssembly}</option>
+                {assemblies.map((a: any, idx: number) => (
+                  <option key={a.id} value={a.id}>{a.name} ({a.number || idx + 1})</option>
+                ))}
+              </select>
+            )}
+
             {selectedAssemblyId && (
               <select
                 value={selectedCampaignId || ''}
@@ -214,7 +242,16 @@ export default function Dashboard() {
                   const id = Number(e.target.value);
                   setSelectedCampaignId(id || null);
                 }}
-                style={{ border: 'none', outline: 'none', fontWeight: '700', fontSize: '14px', color: '#1E293B', cursor: 'pointer', marginLeft: '8px', background: 'transparent' }}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '16px',
+                  border: '1px solid #E2E8F0',
+                  background: 'white',
+                  fontWeight: '700',
+                  color: '#1E293B',
+                  outline: 'none',
+                  flex: isMobile ? 1 : 'none'
+                }}
               >
                 <option value="">{lang === 'hi' ? 'अभियान चुनें (सभी)' : 'Select Campaign (All)'}</option>
                 {assemblies.find(a => a.id === selectedAssemblyId)?.campaigns?.map((c: any) => (
@@ -222,461 +259,492 @@ export default function Dashboard() {
                 ))}
               </select>
             )}
+
+            {isGlobalDisplay && (
+              <div style={{
+                display: 'flex',
+                background: '#F1F5F9',
+                padding: '4px',
+                borderRadius: '14px',
+                gap: '4px',
+                width: isMobile ? '100%' : 'auto'
+              }}>
+                <button
+                  onClick={() => setEffectiveRole(null)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: !effectiveRole ? 'white' : 'transparent',
+                    color: !effectiveRole ? '#1E293B' : '#64748B',
+                    fontWeight: '800',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: !effectiveRole ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
+                  }}
+                >
+                  Admin View
+                </button>
+                <button
+                  onClick={() => setEffectiveRole('CANDIDATE')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: effectiveRole === 'CANDIDATE' ? 'white' : 'transparent',
+                    color: effectiveRole === 'CANDIDATE' ? '#1E293B' : '#64748B',
+                    fontWeight: '800',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: effectiveRole === 'CANDIDATE' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
+                  }}
+                >
+                  Simulation
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {!stats && !loading && (
-        <div style={{ padding: '80px 20px', textAlign: 'center', background: 'white', borderRadius: '24px', border: '1px solid #E2E8F0', marginTop: '20px' }}>
-          {isGlobalDisplay ? (
-            <>
-              <Shield size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
-              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#1E293B' }}>{lang === 'hi' ? 'कृपया विधानसभा चुनें' : 'Please Select an Assembly'}</h2>
-              <p style={{ color: '#64748B', maxWidth: '400px', margin: '8px auto' }}>{lang === 'hi' ? 'डेटा और विश्लेषण देखने के लिए ऊपर दिए गए फिल्टर से विधानसभा का चुनाव करें।' : 'Select an assembly from the filter above to view live data and analysis.'}</p>
-            </>
-          ) : (
-            <>
-              <Users size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
-              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#1E293B' }}>{lang === 'hi' ? 'कैंडिडेट का चुनाव करें' : 'Select a Candidate'}</h2>
-              <p style={{ color: '#64748B', maxWidth: '400px', margin: '8px auto' }}>{lang === 'hi' ? 'कैंडिडेट डैशबोर्ड देखने के लिए एक कैंडिडेट का चुनाव करें।' : 'Select a candidate campaign to view this workspace.'}</p>
+      {
+        !stats && !loading && (
+          <div style={{ padding: '80px 20px', textAlign: 'center', background: 'white', borderRadius: '24px', border: '1px solid #E2E8F0', marginTop: '20px' }}>
+            {isGlobalDisplay ? (
+              <>
+                <Shield size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
+                <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#1E293B' }}>{lang === 'hi' ? 'कृपया विधानसभा चुनें' : 'Please Select an Assembly'}</h2>
+                <p style={{ color: '#64748B', maxWidth: '400px', margin: '8px auto' }}>{lang === 'hi' ? 'डेटा और विश्लेषण देखने के लिए ऊपर दिए गए फिल्टर से विधानसभा का चुनाव करें।' : 'Select an assembly from the filter above to view live data and analysis.'}</p>
+              </>
+            ) : (
+              <>
+                <Users size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
+                <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#1E293B' }}>{lang === 'hi' ? 'कैंडिडेट का चुनाव करें' : 'Select a Candidate'}</h2>
+                <p style={{ color: '#64748B', maxWidth: '400px', margin: '8px auto' }}>{lang === 'hi' ? 'कैंडिडेट डैशबोर्ड देखने के लिए एक कैंडिडेट का चुनाव करें।' : 'Select a candidate campaign to view this workspace.'}</p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginTop: '32px', maxWidth: '1000px', margin: '32px auto 0' }}>
-                {(assemblies || []).flatMap(a => (a.campaigns || []).map((c: any) => ({ ...c, assemblyName: a.name, assemblyNumber: a.number }))).map((c: any) => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setSelectedAssemblyId(c.assemblyId);
-                      setSelectedCampaignId(c.id);
-                    }}
-                    style={{ padding: '20px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '12px' }}
-                    onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary-bg)'}
-                    onMouseOut={e => e.currentTarget.style.borderColor = '#E2E8F0'}
-                  >
-                    <div style={{ width: '40px', height: '40px', background: '#F1F5F9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', color: 'var(--primary-bg)' }}>
-                      {c.candidateName?.[0] || 'C'}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: '800', fontSize: '15px', color: '#1E293B' }}>{c.candidateName}</div>
-                      <div style={{ fontSize: '12px', color: '#64748B' }}>{c.assemblyName} ({c.assemblyNumber})</div>
-                    </div>
-                  </button>
-                ))}
-                {(!assemblies || assemblies.length === 0) && (
-                  <div style={{ gridColumn: '1/-1', color: '#94A3B8' }}>{lang === 'hi' ? 'कोई विधानसभा/अभियान नहीं मिला।' : 'No assemblies or campaigns found.'}</div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {stats && (
-        <>
-          <div className="kpi-grid" style={{ gap: '20px' }}>
-            <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5)', borderRadius: '20px' }}>
-              <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t.voters}</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
-                <div className="kpi-value" style={{ color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{totalVoters.toLocaleString('hi-IN')}</div>
-                <div style={{ fontSize: '11px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', backdropFilter: 'blur(4px)' }}>
-                  <ArrowUpRight size={12} /> Verified
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginTop: '32px', maxWidth: '1000px', margin: '32px auto 0' }}>
+                  {(assemblies || []).flatMap(a => (a.campaigns || []).map((c: any) => ({ ...c, assemblyName: a.name, assemblyNumber: a.number }))).map((c: any) => (
+                    <button
+                      key={c.id}
+                      onClick={() => {
+                        setSelectedAssemblyId(c.assemblyId);
+                        setSelectedCampaignId(c.id);
+                      }}
+                      style={{ padding: '20px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px', textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '12px' }}
+                      onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary-bg)'}
+                      onMouseOut={e => e.currentTarget.style.borderColor = '#E2E8F0'}
+                    >
+                      <div style={{ width: '40px', height: '40px', background: '#F1F5F9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', color: 'var(--primary-bg)' }}>
+                        {c.candidateName?.[0] || 'C'}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '15px', color: '#1E293B' }}>{c.candidateName}</div>
+                        <div style={{ fontSize: '12px', color: '#64748B' }}>{c.assemblyName} ({c.assemblyNumber})</div>
+                      </div>
+                    </button>
+                  ))}
+                  {(!assemblies || assemblies.length === 0) && (
+                    <div style={{ gridColumn: '1/-1', color: '#94A3B8' }}>{lang === 'hi' ? 'कोई विधानसभा/अभियान नहीं मिला।' : 'No assemblies or campaigns found.'}</div>
+                  )}
                 </div>
-              </div>
-            </div>
-            <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 25px -5px rgba(139, 92, 246, 0.5)', borderRadius: '20px' }}>
-              <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t.booths}</div>
-              <div className="kpi-value" style={{ color: 'white' }}>{stats.booths || 0}</div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>{lang === 'hi' ? 'प्रभारी नियुक्त हैं' : 'Incharge assigned'}</div>
-            </div>
-            <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.5)', borderRadius: '20px' }}>
-              <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t.workers}</div>
-              <div className="kpi-value" style={{ color: 'white' }}>{stats.workers || 0}</div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>On-field active</div>
-            </div>
-            <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.5)', borderRadius: '20px' }}>
-              <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t.tasks}</div>
-              <div className="kpi-value" style={{ color: 'white' }}>{stats.tasks || 0}</div>
-              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>{lang === 'hi' ? 'सफलता दर: 84%' : 'Success Rate: 84%'}</div>
-            </div>
+              </>
+            )}
           </div>
+        )
+      }
 
-          <div className="dashboard-layout">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div className="dashboard-subgrid">
-                <div className="card" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1E293B' }}>
-                    <BarChart3 size={20} color="#2563EB" /> {t.casteAnalytics}
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {casteData.slice(0, 6).map((item: any, idx: number) => {
-                      const colors = ['#1E3A8A', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
-                      const w = totalVoters > 0 ? (item.count / totalVoters) * 100 : 0;
-                      return (
-                        <div key={idx}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '14px' }}>
-                            <span style={{ fontWeight: '700' }}>{item.name}</span>
-                            <span style={{ fontWeight: '800', color: '#64748B' }}>{item.count.toLocaleString('hi-IN')}</span>
-                          </div>
-                          <div style={{ height: '8px', background: '#F1F5F9', borderRadius: '10px', overflow: 'hidden' }}>
-                            <div style={{ width: `${w}%`, height: '100%', background: colors[idx % colors.length], borderRadius: '10px' }}></div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="card" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1E293B' }}>
-                    <Users size={20} color="#8B5CF6" /> {t.ageDist}
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {ageData.map((item: any, idx: number) => {
-                      const colors = ['#F59E0B', '#10B981', '#2563EB', '#8B5CF6', '#94A3B8'];
-                      const percent = totalVoters > 0 ? Math.round((item.count / totalVoters) * 100) : 0;
-                      return (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: colors[idx % colors.length] }}></div>
-                          <div style={{ flex: 1, fontSize: '14px', fontWeight: '700' }}>{item.range}</div>
-                          <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{percent}%</div>
-                        </div>
-                      )
-                    })}
+      {
+        stats && (
+          <>
+            <div className="kpi-grid" style={{ gap: '20px' }}>
+              <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5)', borderRadius: '20px' }}>
+                <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t.voters}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+                  <div className="kpi-value" style={{ color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{totalVoters.toLocaleString('hi-IN')}</div>
+                  <div style={{ fontSize: '11px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', backdropFilter: 'blur(4px)' }}>
+                    <ArrowUpRight size={12} /> Verified
                   </div>
                 </div>
               </div>
+              <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 25px -5px rgba(139, 92, 246, 0.5)', borderRadius: '20px' }}>
+                <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t.booths}</div>
+                <div className="kpi-value" style={{ color: 'white' }}>{stats.booths || 0}</div>
+                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>{lang === 'hi' ? 'प्रभारी नियुक्त हैं' : 'Incharge assigned'}</div>
+              </div>
+              <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.5)', borderRadius: '20px' }}>
+                <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t.workers}</div>
+                <div className="kpi-value" style={{ color: 'white' }}>{stats.workers || 0}</div>
+                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>On-field active</div>
+              </div>
+              <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.5)', borderRadius: '20px' }}>
+                <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>{t.tasks}</div>
+                <div className="kpi-value" style={{ color: 'white' }}>{stats.tasks || 0}</div>
+                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', marginTop: '4px' }}>{lang === 'hi' ? 'सफलता दर: 84%' : 'Success Rate: 84%'}</div>
+              </div>
+            </div>
 
-              <div className="card" style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%)', border: '1px solid #DBEAFE', boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.1)' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <PieChart size={20} color="#2563EB" /> {lang === 'hi' ? 'विधानसभा का जाति समीकरण' : 'Assembly Caste Equation'}
-                </h3>
-                {adminCastes.length > 0 ? (
-                  <div className="caste-grid">
-                    {/* Pie Chart */}
-                    <div style={{ position: 'relative', width: '300px', height: '300px', margin: '0 auto' }}>
-                      <svg viewBox="0 0 200 200" style={{ width: '100%', height: '100%' }}>
-                        {(() => {
-                          let currentAngle = 0;
-                          const colors = ['#3B82F6', '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6', '#06B6D4'];
-                          return adminCastes.map((c: any, idx: number) => {
-                            const startAngle = currentAngle;
-                            const sliceAngle = (c.percent / 100) * 360;
-                            currentAngle += sliceAngle;
-
-                            const startRad = (startAngle - 90) * (Math.PI / 180);
-                            const endRad = (currentAngle - 90) * (Math.PI / 180);
-
-                            const x1 = 100 + 90 * Math.cos(startRad);
-                            const y1 = 100 + 90 * Math.sin(startRad);
-                            const x2 = 100 + 90 * Math.cos(endRad);
-                            const y2 = 100 + 90 * Math.sin(endRad);
-
-                            const largeArc = sliceAngle > 180 ? 1 : 0;
-
-                            return (
-                              <path
-                                key={idx}
-                                d={`M 100 100 L ${x1} ${y1} A 90 90 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                                fill={colors[idx % colors.length]}
-                                stroke="white"
-                                strokeWidth="2"
-                              />
-                            );
-                          });
-                        })()}
-                        {/* Center circle for donut effect */}
-                        <circle cx="100" cy="100" r="50" fill="white" />
-                        <text x="100" y="95" textAnchor="middle" fontSize="14" fontWeight="700" fill="#64748B">जाति</text>
-                        <text x="100" y="110" textAnchor="middle" fontSize="14" fontWeight="700" fill="#64748B">समीकरण</text>
-                      </svg>
-                    </div>
-
-                    {/* Legend */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px' }}>
-                      {adminCastes.map((c: any, idx: number) => {
-                        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6', '#06B6D4'];
+            <div className="dashboard-layout">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div className="dashboard-subgrid">
+                  <div className="card" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1E293B' }}>
+                      <BarChart3 size={20} color="#2563EB" /> {t.casteAnalytics}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {casteData.slice(0, 6).map((item: any, idx: number) => {
+                        const colors = ['#1E3A8A', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+                        const w = totalVoters > 0 ? (item.count / totalVoters) * 100 : 0;
                         return (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                            <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: colors[idx % colors.length], flexShrink: 0 }}></div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: '800', fontSize: '14px', color: '#1E293B' }}>{c.name}</div>
-                              <div style={{ fontWeight: '900', fontSize: '16px', color: colors[idx % colors.length] }}>{c.percent}%</div>
+                          <div key={idx}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '14px' }}>
+                              <span style={{ fontWeight: '700' }}>{item.name}</span>
+                              <span style={{ fontWeight: '800', color: '#64748B' }}>{item.count.toLocaleString('hi-IN')}</span>
+                            </div>
+                            <div style={{ height: '8px', background: '#F1F5F9', borderRadius: '10px', overflow: 'hidden' }}>
+                              <div style={{ width: `${w}%`, height: '100%', background: colors[idx % colors.length], borderRadius: '10px' }}></div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                ) : (
-                  <div style={{ textAlign: 'center', color: '#94A3B8', padding: '60px 20px' }}>डेटा अनुपलब्ध</div>
-                )}
-              </div>
 
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <List size={20} color="#1E293B" /> {t.historicalHeader}
-                  </h3>
-
-                  {/* Year Tabs */}
-                  {(stats?.electionHistory?.length > 0 || stats.historicalResults) && (
-                    <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
-                      {stats?.electionHistory?.length > 0 && [...new Set(stats.electionHistory.map((h: any) => h.year.toString()))].map((year: any) => (
-                        <button
-                          key={year}
-                          onClick={() => setActiveHistoryTab(year)}
-                          style={{
-                            padding: '6px 16px',
-                            borderRadius: '10px',
-                            border: 'none',
-                            background: activeHistoryTab === year ? 'white' : 'transparent',
-                            fontWeight: '700',
-                            fontSize: '13px',
-                            color: activeHistoryTab === year ? '#1E40AF' : '#64748B',
-                            cursor: 'pointer',
-                            boxShadow: activeHistoryTab === year ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          {year}
-                        </button>
-                      ))}
-                      {stats.historicalResults && (
-                        <button
-                          onClick={() => setActiveHistoryTab('Default')}
-                          style={{
-                            padding: '6px 16px',
-                            borderRadius: '10px',
-                            border: 'none',
-                            background: activeHistoryTab === 'Default' ? 'white' : 'transparent',
-                            fontWeight: '700',
-                            fontSize: '13px',
-                            color: activeHistoryTab === 'Default' ? '#1E40AF' : '#64748B',
-                            cursor: 'pointer',
-                            boxShadow: activeHistoryTab === 'Default' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          {lang === 'hi' ? 'अन्य / डिफॉल्ट' : 'Other'}
-                        </button>
-                      )}
+                  <div className="card" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1E293B' }}>
+                      <Users size={20} color="#8B5CF6" /> {t.ageDist}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {ageData.map((item: any, idx: number) => {
+                        const colors = ['#F59E0B', '#10B981', '#2563EB', '#8B5CF6', '#94A3B8'];
+                        const percent = totalVoters > 0 ? Math.round((item.count / totalVoters) * 100) : 0;
+                        return (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: colors[idx % colors.length] }}></div>
+                            <div style={{ flex: 1, fontSize: '14px', fontWeight: '700' }}>{item.range}</div>
+                            <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{percent}%</div>
+                          </div>
+                        )
+                      })}
                     </div>
+                  </div>
+                </div>
+
+                <div className="card" style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%)', border: '1px solid #DBEAFE', boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.1)' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <PieChart size={20} color="#2563EB" /> {lang === 'hi' ? 'विधानसभा का जाति समीकरण' : 'Assembly Caste Equation'}
+                  </h3>
+                  {adminCastes.length > 0 ? (
+                    <div className="caste-grid">
+                      {/* Pie Chart */}
+                      <div style={{ position: 'relative', width: '300px', height: '300px', margin: '0 auto' }}>
+                        <svg viewBox="0 0 200 200" style={{ width: '100%', height: '100%' }}>
+                          {(() => {
+                            let currentAngle = 0;
+                            const colors = ['#3B82F6', '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6', '#06B6D4'];
+                            return adminCastes.map((c: any, idx: number) => {
+                              const startAngle = currentAngle;
+                              const sliceAngle = (c.percent / 100) * 360;
+                              currentAngle += sliceAngle;
+
+                              const startRad = (startAngle - 90) * (Math.PI / 180);
+                              const endRad = (currentAngle - 90) * (Math.PI / 180);
+
+                              const x1 = 100 + 90 * Math.cos(startRad);
+                              const y1 = 100 + 90 * Math.sin(startRad);
+                              const x2 = 100 + 90 * Math.cos(endRad);
+                              const y2 = 100 + 90 * Math.sin(endRad);
+
+                              const largeArc = sliceAngle > 180 ? 1 : 0;
+
+                              return (
+                                <path
+                                  key={idx}
+                                  d={`M 100 100 L ${x1} ${y1} A 90 90 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                                  fill={colors[idx % colors.length]}
+                                  stroke="white"
+                                  strokeWidth="2"
+                                />
+                              );
+                            });
+                          })()}
+                          {/* Center circle for donut effect */}
+                          <circle cx="100" cy="100" r="50" fill="white" />
+                          <text x="100" y="95" textAnchor="middle" fontSize="14" fontWeight="700" fill="#64748B">जाति</text>
+                          <text x="100" y="110" textAnchor="middle" fontSize="14" fontWeight="700" fill="#64748B">समीकरण</text>
+                        </svg>
+                      </div>
+
+                      {/* Legend */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px' }}>
+                        {adminCastes.map((c: any, idx: number) => {
+                          const colors = ['#3B82F6', '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6', '#06B6D4'];
+                          return (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                              <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: colors[idx % colors.length], flexShrink: 0 }}></div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#1E293B' }}>{c.name}</div>
+                                <div style={{ fontWeight: '900', fontSize: '16px', color: colors[idx % colors.length] }}>{c.percent}%</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', color: '#94A3B8', padding: '60px 20px' }}>डेटा अनुपलब्ध</div>
                   )}
                 </div>
 
-                <div className="responsive-table-wrapper">
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
-                        <th style={{ textAlign: 'left', padding: '14px 16px', color: '#64748B', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'hi' ? 'पार्टी' : 'Party'}</th>
-                        <th style={{ textAlign: 'left', padding: '14px 16px', color: '#64748B', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'hi' ? 'प्रत्याशी' : 'Candidate'}</th>
-                        <th style={{ textAlign: 'right', padding: '14px 16px', color: '#64748B', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'hi' ? 'वोट मिले' : 'Votes Obtained'}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        let displayLines = [];
-                        if (activeHistoryTab === 'Default') {
-                          displayLines = historicalLines.map(l => ({
-                            partyName: l.party,
-                            candidateName: l.candidate,
-                            votesReceived: l.votes
-                          }));
-                        } else {
-                          displayLines = stats.electionHistory.filter((h: any) => h.year.toString() === activeHistoryTab);
-                        }
+                <div className="card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <List size={20} color="#1E293B" /> {t.historicalHeader}
+                    </h3>
 
-                        const sortedLines = [...displayLines].sort((a, b) => (b.votesReceived || 0) - (a.votesReceived || 0));
-                        const winner = sortedLines[0];
-                        const runnerUp = sortedLines[1];
-                        const winningMargin = winner && runnerUp ? (winner.votesReceived || 0) - (runnerUp.votesReceived || 0) : 0;
+                    {/* Year Tabs */}
+                    {(stats?.electionHistory?.length > 0 || stats.historicalResults) && (
+                      <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+                        {stats?.electionHistory?.length > 0 && [...new Set(stats.electionHistory.map((h: any) => h.year.toString()))].map((year: any) => (
+                          <button
+                            key={year}
+                            onClick={() => setActiveHistoryTab(year)}
+                            style={{
+                              padding: '6px 16px',
+                              borderRadius: '10px',
+                              border: 'none',
+                              background: activeHistoryTab === year ? 'white' : 'transparent',
+                              fontWeight: '700',
+                              fontSize: '13px',
+                              color: activeHistoryTab === year ? '#1E40AF' : '#64748B',
+                              cursor: 'pointer',
+                              boxShadow: activeHistoryTab === year ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {year}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-                        return (
-                          <>
-                            {sortedLines.map((line: any, idx: number) => {
-                              const pConfig = PARTY_CONFIG[line.partyName] || { color: '#64748B', logo: '' };
-                              return (
-                                <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: idx === 0 ? '#F0FDF4' : 'white', transition: 'background 0.2s' }}>
-                                  <td style={{ padding: '18px 16px', fontWeight: '800', color: idx === 0 ? '#059669' : '#1E293B', fontSize: '15px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '4px' }}>
-                                        {pConfig.logo ? (
-                                          <img src={pConfig.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                        ) : (
-                                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pConfig.color }}></div>
-                                        )}
-                                      </div>
-                                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          {line.partyName}
-                                          {idx === 0 && <span style={{ padding: '2px 8px', background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white', borderRadius: '20px', fontSize: '9px', fontWeight: '900', textTransform: 'uppercase' }}>विजेता</span>}
+                  <div className="responsive-table-wrapper">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #E2E8F0', background: '#F8FAFC' }}>
+                          <th style={{ textAlign: 'left', padding: '14px 16px', color: '#64748B', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'hi' ? 'पार्टी' : 'Party'}</th>
+                          <th style={{ textAlign: 'left', padding: '14px 16px', color: '#64748B', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'hi' ? 'प्रत्याशी' : 'Candidate'}</th>
+                          <th style={{ textAlign: 'right', padding: '14px 16px', color: '#64748B', fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'hi' ? 'वोट मिले' : 'Votes Obtained'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          let displayLines = [];
+                          if (activeHistoryTab === 'Default') {
+                            displayLines = historicalLines.map(l => ({
+                              partyName: l.party,
+                              candidateName: l.candidate,
+                              votesReceived: l.votes
+                            }));
+                          } else {
+                            displayLines = stats.electionHistory.filter((h: any) => h.year.toString() === activeHistoryTab);
+                          }
+
+                          const sortedLines = [...displayLines].sort((a, b) => (b.votesReceived || 0) - (a.votesReceived || 0));
+                          const winner = sortedLines[0];
+                          const runnerUp = sortedLines[1];
+                          const winningMargin = winner && runnerUp ? (winner.votesReceived || 0) - (runnerUp.votesReceived || 0) : 0;
+
+                          return (
+                            <>
+                              {sortedLines.map((line: any, idx: number) => {
+                                const pConfig = stats?.partyDetails?.[line.partyName] || PARTY_CONFIG[line.partyName] || { color: '#64748B', logo: '' };
+                                return (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: idx === 0 ? '#F0FDF4' : 'white', transition: 'background 0.2s' }}>
+                                    <td style={{ padding: '18px 16px', fontWeight: '800', color: idx === 0 ? '#059669' : '#1E293B', fontSize: '15px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '4px' }}>
+                                          {pConfig.logo ? (
+                                            <img src={pConfig.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                          ) : (
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pConfig.color }}></div>
+                                          )}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {line.partyName}
+                                            {idx === 0 && <span style={{ padding: '2px 8px', background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white', borderRadius: '20px', fontSize: '9px', fontWeight: '900', textTransform: 'uppercase' }}>विजेता</span>}
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '18px 16px', fontWeight: '700', color: '#64748B', fontSize: '14px' }}>{line.candidateName}</td>
-                                  <td style={{ padding: '18px 16px', fontWeight: '900', textAlign: 'right', color: idx === 0 ? '#059669' : '#10B981', fontSize: '16px' }}>{line.votesReceived?.toLocaleString('hi-IN')}</td>
-                                </tr>
-                              );
-                            })}
-                            {displayLines.length === 0 && (
-                              <tr><td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: '#94A3B8' }}>कोई डेटा उपलब्ध नहीं</td></tr>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-                {(() => {
-                  let displayLines = [];
-                  if (activeHistoryTab === 'Default') {
-                    displayLines = historicalLines.map(l => ({ votesReceived: l.votes }));
-                  } else {
-                    displayLines = stats.electionHistory.filter((h: any) => h.year.toString() === activeHistoryTab);
-                  }
-                  const sortedLines = [...displayLines].sort((a, b) => (b.votesReceived || 0) - (a.votesReceived || 0));
-                  const winner = sortedLines[0];
-                  const runnerUp = sortedLines[1];
-                  const winningMargin = winner && runnerUp ? (winner.votesReceived || 0) - (runnerUp.votesReceived || 0) : 0;
-
-                  return winningMargin > 0 ? (
-                    <div style={{ marginTop: '24px', padding: '20px', background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)', borderRadius: '16px', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div style={{ padding: '12px', background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.1)' }}>
-                        <TrendingUp size={24} color="#2563EB" />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>विजयी अंतराल (Winning Margin)</div>
-                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#1E40AF' }}>{winningMargin.toLocaleString('hi-IN')} वोट</div>
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-              {/* Leaderboard Card */}
-              {selectedAssemblyId && <LeaderboardCard assemblyId={selectedAssemblyId} />}
-
-              <div className="card" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1E3A8A 100%)', color: 'white' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
-                  <TrendingUp size={18} color="white" /> {t.todayStatus}
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ padding: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(10px)' }}>
-                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>पार्टी की ताकत (Current)</div>
-                    <div style={{ fontSize: '24px', fontWeight: '900' }}>{(stats.prevPartyVotes || 0).toLocaleString('hi-IN')}</div>
+                                    </td>
+                                    <td style={{ padding: '18px 16px', fontWeight: '700', color: '#64748B', fontSize: '14px' }}>{line.candidateName}</td>
+                                    <td style={{ padding: '18px 16px', fontWeight: '900', textAlign: 'right', color: idx === 0 ? '#059669' : '#10B981', fontSize: '16px' }}>{line.votesReceived?.toLocaleString('hi-IN')}</td>
+                                  </tr>
+                                );
+                              })}
+                              {displayLines.length === 0 && (
+                                <tr><td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: '#94A3B8' }}>कोई डेटा उपलब्ध नहीं</td></tr>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
                   </div>
-                  <div style={{ padding: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(10px)' }}>
-                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>प्रत्याशी के अपने वोट</div>
-                    <div style={{ fontSize: '24px', fontWeight: '900' }}>{(stats.prevCandidateVotes || 0).toLocaleString('hi-IN')}</div>
-                  </div>
-                </div>
-              </div>
+                  {(() => {
+                    let displayLines = [];
+                    if (activeHistoryTab === 'Default') {
+                      displayLines = historicalLines.map(l => ({ votesReceived: l.votes }));
+                    } else {
+                      displayLines = stats.electionHistory.filter((h: any) => h.year.toString() === activeHistoryTab);
+                    }
+                    const sortedLines = [...displayLines].sort((a, b) => (b.votesReceived || 0) - (a.votesReceived || 0));
+                    const winner = sortedLines[0];
+                    const runnerUp = sortedLines[1];
+                    const winningMargin = winner && runnerUp ? (winner.votesReceived || 0) - (runnerUp.votesReceived || 0) : 0;
 
-              <div className="card" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)', border: '1px solid #E2E8F0' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#059669' }}>
-                  <TrendingUp size={18} color="#059669" /> {t.topBooths}
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {boothSentiment.slice(0, 5).map((booth: any, idx: number) => (
-                    <div key={idx} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontWeight: '800', fontSize: '13px' }}>बूथ #{booth.boothNumber}</div>
-                      <div style={{ fontWeight: '900', color: '#10B981', fontSize: '15px' }}>{booth.support}% +</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="card" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)', border: '1px solid #E2E8F0' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#2563EB' }}>
-                  <Shield size={18} color="#2563EB" /> {t.feedback}
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {stats.latestFeedback?.length > 0 ? (
-                    <>
-                      {stats.latestFeedback.map((f: any, idx: number) => (
-                        <div key={idx} style={{ padding: '12px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <span style={{ fontWeight: '800', fontSize: '13px' }}>{f.personName}</span>
-                            <span style={{
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              fontSize: '10px',
-                              fontWeight: '800',
-                              background: f.atmosphere === 'Positive' ? '#DCFCE7' : f.atmosphere === 'Negative' ? '#FEE2E2' : '#FEF3C7',
-                              color: f.atmosphere === 'Positive' ? '#166534' : f.atmosphere === 'Negative' ? '#991B1B' : '#92400E'
-                            }}>{f.atmosphere === 'Positive' ? 'सकारात्मक' : f.atmosphere === 'Negative' ? 'नकारात्मक' : 'सामान्य'}</span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#64748B' }}>{f.village} • {f.worker?.name || 'कार्यकर्ता'}</div>
+                    return winningMargin > 0 ? (
+                      <div style={{ marginTop: '24px', padding: '20px', background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)', borderRadius: '16px', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ padding: '12px', background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.1)' }}>
+                          <TrendingUp size={24} color="#2563EB" />
                         </div>
-                      ))}
-                      <button onClick={() => window.location.href = '/jansampark'} style={{ marginTop: '12px', padding: '10px', border: '1px solid #2563EB', color: '#2563EB', background: 'white', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}>रजिस्टर खोलें</button>
-                    </>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '20px 0', border: '2px dashed #F1F5F9', borderRadius: '12px' }}>
-                      <p style={{ color: '#94A3B8', fontSize: '13px' }}>नवीनतम दौरों की रिपोर्ट देखने के लिए जनसंपर्क रजिस्टर देखें।</p>
-                      <button onClick={() => window.location.href = '/jansampark'} style={{ marginTop: '12px', padding: '8px 16px', border: '1px solid var(--primary-bg)', color: 'var(--primary-bg)', background: 'white', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>रजिस्टर खोलें</button>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>विजयी अंतराल (Winning Margin)</div>
+                          <div style={{ fontSize: '28px', fontWeight: '900', color: '#1E40AF' }}>{winningMargin.toLocaleString('hi-IN')} वोट</div>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                {/* Leaderboard Card */}
+                {selectedAssemblyId && <LeaderboardCard assemblyId={selectedAssemblyId} />}
+
+                <div className="card" style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1E3A8A 100%)', color: 'white' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
+                    <TrendingUp size={18} color="white" /> {t.todayStatus}
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ padding: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(10px)' }}>
+                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>पार्टी की ताकत (Current)</div>
+                      <div style={{ fontSize: '24px', fontWeight: '900' }}>{(stats.prevPartyVotes || 0).toLocaleString('hi-IN')}</div>
                     </div>
-                  )}
+                    <div style={{ padding: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(10px)' }}>
+                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>प्रत्याशी के अपने वोट</div>
+                      <div style={{ fontSize: '24px', fontWeight: '900' }}>{(stats.prevCandidateVotes || 0).toLocaleString('hi-IN')}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)', border: '1px solid #E2E8F0' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#059669' }}>
+                    <TrendingUp size={18} color="#059669" /> {t.topBooths}
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {boothSentiment.slice(0, 5).map((booth: any, idx: number) => (
+                      <div key={idx} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontWeight: '800', fontSize: '13px' }}>बूथ #{booth.boothNumber}</div>
+                        <div style={{ fontWeight: '900', color: '#10B981', fontSize: '15px' }}>{booth.support}% +</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="card" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)', border: '1px solid #E2E8F0' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#2563EB' }}>
+                    <Shield size={18} color="#2563EB" /> {t.feedback}
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {stats.latestFeedback?.length > 0 ? (
+                      <>
+                        {stats.latestFeedback.map((f: any, idx: number) => (
+                          <div key={idx} style={{ padding: '12px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <span style={{ fontWeight: '800', fontSize: '13px' }}>{f.personName}</span>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontSize: '10px',
+                                fontWeight: '800',
+                                background: f.atmosphere === 'Positive' ? '#DCFCE7' : f.atmosphere === 'Negative' ? '#FEE2E2' : '#FEF3C7',
+                                color: f.atmosphere === 'Positive' ? '#166534' : f.atmosphere === 'Negative' ? '#991B1B' : '#92400E'
+                              }}>{f.atmosphere === 'Positive' ? 'सकारात्मक' : f.atmosphere === 'Negative' ? 'नकारात्मक' : 'सामान्य'}</span>
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748B' }}>{f.village} • {f.worker?.name || 'कार्यकर्ता'}</div>
+                          </div>
+                        ))}
+                        <button onClick={() => window.location.href = '/jansampark'} style={{ marginTop: '12px', padding: '10px', border: '1px solid #2563EB', color: '#2563EB', background: 'white', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}>रजिस्टर खोलें</button>
+                      </>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '20px 0', border: '2px dashed #F1F5F9', borderRadius: '12px' }}>
+                        <p style={{ color: '#94A3B8', fontSize: '13px' }}>नवीनतम दौरों की रिपोर्ट देखने के लिए जनसंपर्क रजिस्टर देखें।</p>
+                        <button onClick={() => window.location.href = '/jansampark'} style={{ marginTop: '12px', padding: '8px 16px', border: '1px solid var(--primary-bg)', color: 'var(--primary-bg)', background: 'white', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>रजिस्टर खोलें</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Full-width Booth Analysis at the bottom */}
-          <div className="card" style={{ marginTop: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Shield size={20} color="#2563EB" /> {t.boothAnalysis}
-              </h3>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#10B981' }}></div> {lang === 'hi' ? 'सकारात्मक (Strong Support)' : 'Strong Support'}</span>
-                <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F59E0B' }}></div> {lang === 'hi' ? 'सामान्य (Neutral)' : 'Neutral'}</span>
-                <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#EF4444' }}></div> {lang === 'hi' ? 'नकारात्मक (Challenge)' : 'Challenge'}</span>
+            {/* Full-width Booth Analysis at the bottom */}
+            <div className="card" style={{ marginTop: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Shield size={20} color="#2563EB" /> {t.boothAnalysis}
+                </h3>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#10B981' }}></div> {lang === 'hi' ? 'सकारात्मक (Strong Support)' : 'Strong Support'}</span>
+                  <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F59E0B' }}></div> {lang === 'hi' ? 'सामान्य (Neutral)' : 'Neutral'}</span>
+                  <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: '#EF4444' }}></div> {lang === 'hi' ? 'नकारात्मक (Challenge)' : 'Challenge'}</span>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(75px, 1fr))', gap: '12px' }}>
+                {boothSentiment.map((booth: any, idx: number) => {
+                  const color = booth.support > 60 ? '#10B981' : booth.support > 40 ? '#F59E0B' : '#EF4444';
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        aspectRatio: '1',
+                        background: `${color}08`,
+                        border: `1.5px solid ${color}`,
+                        borderRadius: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        boxShadow: `0 2px 4px ${color}10`
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
+                        e.currentTarget.style.boxShadow = `0 8px 16px ${color}20`;
+                        e.currentTarget.style.background = `${color}15`;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                        e.currentTarget.style.boxShadow = `0 2px 4px ${color}10`;
+                        e.currentTarget.style.background = `${color}08`;
+                      }}
+                    >
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', marginBottom: '2px' }}>Booth</div>
+                      <div style={{ fontSize: '16px', fontWeight: '900', color: color, lineHeight: '1' }}>{booth.boothNumber}</div>
+                      <div style={{ fontSize: '12px', fontWeight: '800', color: color, marginTop: '4px' }}>{booth.support}%</div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(75px, 1fr))', gap: '12px' }}>
-              {boothSentiment.map((booth: any, idx: number) => {
-                const color = booth.support > 60 ? '#10B981' : booth.support > 40 ? '#F59E0B' : '#EF4444';
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      aspectRatio: '1',
-                      background: `${color}08`,
-                      border: `1.5px solid ${color}`,
-                      borderRadius: '12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: `0 2px 4px ${color}10`
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
-                      e.currentTarget.style.boxShadow = `0 8px 16px ${color}20`;
-                      e.currentTarget.style.background = `${color}15`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                      e.currentTarget.style.boxShadow = `0 2px 4px ${color}10`;
-                      e.currentTarget.style.background = `${color}08`;
-                    }}
-                  >
-                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', marginBottom: '2px' }}>Booth</div>
-                    <div style={{ fontSize: '16px', fontWeight: '900', color: color, lineHeight: '1' }}>{booth.boothNumber}</div>
-                    <div style={{ fontSize: '12px', fontWeight: '800', color: color, marginTop: '4px' }}>{booth.support}%</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        )
+      }
 
       <style jsx>{`
         .dashboard-layout {
@@ -710,13 +778,13 @@ export default function Dashboard() {
            }
         }
       `}</style>
-    </div>
+    </div >
   );
 }
 
 
 
-function BoothDashboardView({ userId, lang, assemblyId }: { userId: number, lang: string, assemblyId: number | null }) {
+function BoothDashboardView({ userId, lang, assemblyId, isMobile }: { userId: number, lang: string, assemblyId: number | null, isMobile: boolean }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -833,20 +901,20 @@ function BoothDashboardView({ userId, lang, assemblyId }: { userId: number, lang
   return (
     <div style={{ paddingBottom: '100px' }}>
       {data.worker && <DigitalIdCard worker={data.worker} assemblyName={data.assembly?.name} />}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '20px', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800' }}>बूथ डैशबोर्ड (Booth #{data.booth.number})</h1>
+          <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: '800' }}>बूथ डैशबोर्ड (Booth #{data.booth.number})</h1>
           <p style={{ color: '#64748B' }}>{data.booth.name || 'Booth Incharge Interface'}</p>
         </div>
-        <button onClick={() => setIsEditing(!isEditing)} style={{ background: '#2563EB', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: '800', cursor: 'pointer' }}>
+        <button onClick={() => setIsEditing(!isEditing)} style={{ width: isMobile ? '100%' : 'auto', background: '#2563EB', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: '800', cursor: 'pointer' }}>
           {isEditing ? (lang === 'hi' ? 'कैंसिल' : 'Cancel') : t.edit}
         </button>
       </div>
 
       {isEditing ? (
-        <div className="card" style={{ padding: '32px', marginBottom: '32px' }}>
-          <h3 style={{ marginBottom: '20px' }}>एनालिटिक्स डेटा अपडेट करें (JSON Format)</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        <div className="card" style={{ padding: isMobile ? '20px' : '32px', marginBottom: '32px' }}>
+          <h3 style={{ marginBottom: '20px', fontSize: isMobile ? '14px' : '18px' }}>एनालिटिक्स डेटा अपडेट करें (JSON Format)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '16px' : '24px', marginBottom: '24px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700' }}>{t.historical} (JSON)</label>
               <textarea rows={10} value={editData.historical} onChange={e => setEditData({ ...editData, historical: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E2E8F0', fontFamily: 'monospace', fontSize: '13px' }} placeholder='[{"party": "BJP", "votes": 450}, ...]' />
@@ -879,7 +947,7 @@ function BoothDashboardView({ userId, lang, assemblyId }: { userId: number, lang
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', marginTop: '32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr', gap: '24px', marginTop: '32px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
               {/* Caste Section */}
@@ -887,7 +955,7 @@ function BoothDashboardView({ userId, lang, assemblyId }: { userId: number, lang
                 <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <PieChart size={20} color="#2563EB" /> {t.caste}
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '32px' }}>
                   {/* Real-time (Calculated) */}
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '16px' }}>वास्तविक डेटा (Live)</div>
@@ -986,7 +1054,7 @@ function BoothDashboardView({ userId, lang, assemblyId }: { userId: number, lang
   );
 }
 
-function PannaDashboardView({ userId, lang, assemblyId }: { userId: number, lang: string, assemblyId: number | null }) {
+function PannaDashboardView({ userId, lang, assemblyId, isMobile }: { userId: number, lang: string, assemblyId: number | null, isMobile: boolean }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1080,7 +1148,7 @@ function PannaDashboardView({ userId, lang, assemblyId }: { userId: number, lang
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{
-          fontSize: '32px',
+          fontSize: isMobile ? '24px' : '32px',
           fontWeight: '900',
           background: 'linear-gradient(135deg, #1E293B 0%, #475569 100%)',
           WebkitBackgroundClip: 'text',
@@ -1091,7 +1159,7 @@ function PannaDashboardView({ userId, lang, assemblyId }: { userId: number, lang
         </h1>
         <p style={{
           color: '#64748B',
-          fontSize: '15px',
+          fontSize: isMobile ? '13px' : '15px',
           fontWeight: '600'
         }}>
           {t.liveAnalysis}
@@ -1122,7 +1190,7 @@ function PannaDashboardView({ userId, lang, assemblyId }: { userId: number, lang
       </div>
 
       {/* Main Content Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: '24px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
           {/* Sentiment Card */}

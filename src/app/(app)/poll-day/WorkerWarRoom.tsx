@@ -20,15 +20,19 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
 
     const [searchTerm, setSearchTerm] = useState('');
     const [voters, setVoters] = useState<any[]>([]);
+    const [parties, setParties] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [reporting, setReporting] = useState(false);
     const [myReports, setMyReports] = useState<any[]>([]);
+    const [votedPartyModal, setVotedPartyModal] = useState<{ voterId: number, name: string } | null>(null);
+    const [selectedPartyId, setSelectedPartyId] = useState<number | null>(null);
 
-    // Load Booth List for Field Workers
+    // Load Booth List & Parties
     useEffect(() => {
         if (isFieldWorker) {
             getAllBooths(assemblyId).then(setBoothList);
         }
+        import('@/app/actions/admin').then(m => m.getParties().then(setParties));
     }, [isFieldWorker, assemblyId]);
 
     const loadVoters = async (search = '') => {
@@ -37,7 +41,7 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
             assemblyId,
             booth: currentBooth.toString(),
             search,
-            pageSize: 50,
+            pageSize: (isPanna ? 100 : 2000), // Show more for managers as requested
             pannaOnly: isPanna
         });
         setVoters(res.voters || []);
@@ -46,31 +50,60 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
 
     const loadReports = async () => {
         const reports = await getMyReportedIssues(assemblyId);
-        // Filter reports relevant to this worker or booth if possible (backend currently returns assembly wide latest)
         setMyReports(reports);
     };
 
     useEffect(() => {
         loadVoters();
         loadReports();
-        const interval = setInterval(loadReports, 10000); // Poll for report status updates
+        const interval = setInterval(loadReports, 10000);
         return () => clearInterval(interval);
     }, [currentBooth, isPanna]);
 
-    const handleMarkVoted = async (voterId: number, currentStatus: boolean, mobile?: string) => {
-        await updateVoterVotedStatus(voterId, !currentStatus);
-        setVoters(voters.map(v => v.id === voterId ? { ...v, isVoted: !currentStatus } : v));
-    };
-
-    const handleSyncTurnout = async () => {
-        const votedCount = voters.filter(v => v.isVoted).length;
-        const totalCount = voters.length;
+    const autoSyncTurnout = async (updatedVoters: any[]) => {
+        const votedCount = updatedVoters.filter(v => v.isVoted).length;
+        const totalCount = updatedVoters.length;
         if (totalCount === 0) return;
 
         const turnoutPct = Math.round((votedCount / totalCount) * 100);
         await updateBoothPollingData(currentBooth, turnoutPct, assemblyId);
-        alert(`सफलता: बूथ #${currentBooth} का मतदान प्रतिशत (${turnoutPct}%) अपडेट कर दिया गया है!`);
     };
+
+    const handleMarkVoted = async (voter: any) => {
+        if (voter.isVoted) {
+            // Unmark voted - direct
+            await updateVoterVotedStatus(voter.id, false);
+            const newList = voters.map(v => v.id === voter.id ? { ...v, isVoted: false, votedPartyId: null } : v);
+            setVoters(newList);
+            autoSyncTurnout(newList);
+        } else {
+            // Mark voted - Ask for Party
+            setSelectedPartyId(null);
+            setVotedPartyModal({ voterId: voter.id, name: voter.name });
+        }
+    };
+
+    const confirmVotedWithParty = async () => {
+        if (!votedPartyModal || !selectedPartyId) return;
+        try {
+            await updateVoterVotedStatus(votedPartyModal.voterId, true, selectedPartyId);
+            const newList = voters.map(v => v.id === votedPartyModal.voterId ? { ...v, isVoted: true, votedPartyId: selectedPartyId } : v);
+            setVoters(newList);
+            setVotedPartyModal(null);
+            setSelectedPartyId(null);
+            autoSyncTurnout(newList);
+        } catch (error: any) {
+            alert(error.message || "Failed to update status");
+        }
+    };
+
+    // Calculate Party Stats for Header
+    const partyStats = voters.reduce((acc: any, v: any) => {
+        if (v.isVoted && v.votedPartyId) {
+            acc[v.votedPartyId] = (acc[v.votedPartyId] || 0) + 1;
+        }
+        return acc;
+    }, {});
 
     const [showModal, setShowModal] = useState(false);
     const [incidentDesc, setIncidentDesc] = useState('');
@@ -149,19 +182,25 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
                 </div>
 
                 {/* Voter Stats */}
-                <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '24px', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+                <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '24px', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
                         <div style={{ fontSize: '13px', color: '#94A3B8', fontWeight: '800', marginBottom: '4px' }}>{isPanna ? 'मेरे मतदाता' : 'कुल मतदाता'}</div>
                         <div style={{ fontSize: '28px', fontWeight: '950' }}>{voters.length}</div>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <button
-                            onClick={handleSyncTurnout}
-                            style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid #3B82F6', color: '#60A5FA', padding: '6px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                            <TrendingUp size={12} /> डेटा सिंक करें
-                        </button>
+
+                    {/* Party Breakdown (Worker View) */}
+                    <div style={{ flex: 1, display: 'flex', gap: '8px', overflowX: 'auto', padding: '0 10px', scrollbarWidth: 'none' }}>
+                        {Object.entries(partyStats).map(([pid, count]: any) => {
+                            const p = parties.find(pt => pt.id === parseInt(pid));
+                            return (
+                                <div key={pid} style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '12px', border: `1px solid ${p?.color || '#3B82F6'}44`, borderLeft: `3px solid ${p?.color || '#3B82F6'}`, minWidth: '80px' }}>
+                                    <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '700' }}>{p?.name || 'Party'}</div>
+                                    <div style={{ fontSize: '16px', fontWeight: '900', color: p?.color || 'white' }}>{count}</div>
+                                </div>
+                            );
+                        })}
                     </div>
+
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '13px', color: '#10B981', fontWeight: '800', marginBottom: '4px' }}>मतदान हुआ</div>
                         <div style={{ fontSize: '28px', fontWeight: '950', color: '#10B981' }}>{voters.filter(v => v.isVoted).length}</div>
@@ -197,65 +236,52 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
                     <input
                         placeholder="नाम या मोबाइल नंबर से खोजें..."
                         value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); if (e.target.value.length > 2) loadVoters(e.target.value); }}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setSearchTerm(val);
+                            if (val.length === 0) loadVoters('');
+                            else if (val.length > 2) loadVoters(val);
+                        }}
                         style={{ width: '100%', padding: '14px 20px 14px 48px', borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '15px', fontWeight: '800', outline: 'none' }}
                     />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-                    {voters.map(v => (
-                        <div key={v.id} style={{
-                            padding: '20px', borderRadius: '24px', border: '1px solid #F1F5F9',
-                            background: v.isVoted ? '#F0FDF4' : 'white',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            transition: 'all 0.2s'
-                        }}>
-                            <div>
-                                <div style={{ fontSize: '16px', fontWeight: '950', color: '#0F172A' }}>{v.name}</div>
-                                <div style={{ fontSize: '13px', color: '#64748B', fontWeight: '700', marginTop: '2px' }}>
-                                    Epic: {v.epic} • Age: {v.age}
-                                </div>
-                                {v.mobile && (
-                                    <div style={{ marginTop: '6px' }}>
-                                        <a href={`tel:${v.mobile}`} style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                            textDecoration: 'none', color: '#3B82F6', fontSize: '13px', fontWeight: '800',
-                                            padding: '4px 8px', background: '#EFF6FF', borderRadius: '8px'
-                                        }}>
-                                            <Phone size={12} fill="#3B82F6" /> {v.mobile}
-                                        </a>
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => handleMarkVoted(v.id, v.isVoted)}
-                                style={{
-                                    background: v.isVoted ? '#22C55E' : '#EEF2FF',
-                                    color: v.isVoted ? 'white' : '#4F46E5',
-                                    padding: '10px 16px',
-                                    borderRadius: '12px',
-                                    border: 'none',
-                                    fontWeight: '900',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    minWidth: '80px'
-                                }}
-                            >
-                                {v.isVoted ? <CheckCircle2 size={18} /> : <div style={{ width: 18, height: 18, border: '2px solid #4F46E5', borderRadius: '50%' }}></div>}
-                                <span style={{ fontSize: '11px' }}>{v.isVoted ? 'Voted' : 'Vote?'}</span>
-                            </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
+                    {/* Pending Voters Section */}
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                            <div style={{ width: '8px', height: '8px', background: '#EF4444', borderRadius: '50%' }}></div>
+                            <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A' }}>मतदान शेष (Pending - {voters.filter(v => !v.isVoted).length})</h3>
                         </div>
-                    ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                            {voters.filter(v => !v.isVoted).map(v => (
+                                <VoterCard key={v.id} v={v} handleMarkVoted={handleMarkVoted} parties={parties} />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Completed Voters Section */}
+                    {voters.some(v => v.isVoted) && (
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                <div style={{ width: '8px', height: '8px', background: '#10B981', borderRadius: '50%' }}></div>
+                                <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A' }}>मतदान पूर्ण (Completed - {voters.filter(v => v.isVoted).length})</h3>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                                {voters.filter(v => v.isVoted).map(v => (
+                                    <VoterCard key={v.id} v={v} handleMarkVoted={handleMarkVoted} parties={parties} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {voters.length === 0 && !loading && (
-                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: '#94A3B8', fontWeight: '800' }}>
+                        <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8', fontWeight: '800' }}>
                             {isPanna ? 'आपके असाइन किए गए कोई मतदाता नहीं मिले।' : 'कोई मतदाता नहीं मिला।'}
                         </div>
                     )}
                     {loading && (
-                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px' }}>
+                        <div style={{ textAlign: 'center', padding: '40px' }}>
                             <Loader2 className="animate-spin" size={32} color="#2563EB" />
                         </div>
                     )}
@@ -357,6 +383,80 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
                 </div>
             )}
 
+            {/* 4. VOTED PARTY SELECTION MODAL */}
+            {votedPartyModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000,
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        background: 'white', width: '100%', maxWidth: '400px',
+                        borderRadius: '24px', padding: '32px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}>
+                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                            <div style={{ background: '#F0F9FF', padding: '16px', borderRadius: '50%', width: 'fit-content', margin: '0 auto 16px' }}>
+                                <CheckCircle2 size={32} color="#0EA5E9" />
+                            </div>
+                            <h3 style={{ fontSize: '20px', fontWeight: '950', color: '#0F172A' }}>{votedPartyModal.name}</h3>
+                            <p style={{ color: '#64748B', fontSize: '14px', fontWeight: '600', marginTop: '4px' }}>वोट किस पार्टी को दिया गया?</p>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+                            {parties.map(p => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => setSelectedPartyId(p.id)}
+                                    style={{
+                                        padding: '16px 12px', borderRadius: '16px',
+                                        border: selectedPartyId === p.id ? `2px solid ${p.color}` : `1px solid ${p.color}22`,
+                                        background: selectedPartyId === p.id ? `${p.color}15` : `${p.color}08`,
+                                        color: '#0F172A', fontWeight: '800', fontSize: '14px',
+                                        cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center',
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                        boxShadow: selectedPartyId === p.id ? `0 4px 12px ${p.color}33` : 'none',
+                                        transform: selectedPartyId === p.id ? 'scale(1.02)' : 'scale(1)'
+                                    }}
+                                >
+                                    {p.logo ? (
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid #E2E8F0' }}>
+                                            <img src={p.logo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                        </div>
+                                    ) : (
+                                        <div style={{ width: '8px', height: '8px', background: p.color, borderRadius: '50%' }}></div>
+                                    )}
+                                    {p.name}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => setVotedPartyModal(null)}
+                                style={{ flex: 1, padding: '14px', borderRadius: '16px', border: 'none', background: '#F1F5F9', color: '#64748B', fontWeight: '800', cursor: 'pointer' }}
+                            >
+                                रद्द करें
+                            </button>
+                            <button
+                                onClick={confirmVotedWithParty}
+                                disabled={!selectedPartyId}
+                                style={{
+                                    flex: 1, padding: '14px', borderRadius: '16px', border: 'none',
+                                    background: selectedPartyId ? '#4338CA' : '#E2E8F0',
+                                    color: selectedPartyId ? 'white' : '#94A3B8',
+                                    fontWeight: '800', cursor: selectedPartyId ? 'pointer' : 'not-allowed'
+                                }}
+                            >
+                                सुरक्षित करें (OK)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style jsx global>{`
                 @keyframes slideUp {
                     from { opacity: 0; transform: translateY(20px) scale(0.95); }
@@ -365,6 +465,56 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
             `}</style>
         </div>
 
+    );
+}
+
+function VoterCard({ v, handleMarkVoted, parties }: { v: any, handleMarkVoted: (v: any) => void, parties: any[] }) {
+    return (
+        <div style={{
+            padding: '20px', borderRadius: '24px', border: '1px solid #F1F5F9',
+            background: v.isVoted ? '#F0FDF4' : 'white',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            transition: 'all 0.2s',
+            boxShadow: v.isVoted ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+        }}>
+            <div>
+                <div style={{ fontSize: '16px', fontWeight: '950', color: '#0F172A' }}>{v.name}</div>
+                <div style={{ fontSize: '13px', color: '#64748B', fontWeight: '700', marginTop: '2px' }}>
+                    Epic: {v.epic} • Age: {v.age}
+                </div>
+                {v.mobile && (
+                    <div style={{ marginTop: '6px' }}>
+                        <a href={`tel:${v.mobile}`} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            textDecoration: 'none', color: '#3B82F6', fontSize: '13px', fontWeight: '800',
+                            padding: '4px 8px', background: '#EFF6FF', borderRadius: '8px'
+                        }}>
+                            <Phone size={12} fill="#3B82F6" /> {v.mobile}
+                        </a>
+                    </div>
+                )}
+            </div>
+            <button
+                onClick={() => handleMarkVoted(v)}
+                style={{
+                    background: v.isVoted ? '#22C55E' : '#EEF2FF',
+                    color: v.isVoted ? 'white' : '#4F46E5',
+                    padding: '10px 16px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    minWidth: '80px'
+                }}
+            >
+                {v.isVoted ? <CheckCircle2 size={18} /> : <div style={{ width: 18, height: 18, border: '2px solid #4F46E5', borderRadius: '50%' }}></div>}
+                <span style={{ fontSize: '11px' }}>{v.isVoted ? (parties.find(p => p.id === v.votedPartyId)?.name || 'Voted') : 'Vote?'}</span>
+            </button>
+        </div>
     );
 }
 
