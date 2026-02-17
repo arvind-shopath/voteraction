@@ -21,8 +21,8 @@ export function ViewProvider({ children }: { children: React.ReactNode }) {
     const realRole = (session?.user as any)?.role as Role;
     const realWorkerType = (session?.user as any)?.workerType as WorkerType;
 
-    const [effectiveRole, setEffectiveRoleState] = useState<Role>('CANDIDATE');
-    const [effectiveWorkerType, setEffectiveWorkerTypeState] = useState<WorkerType>(null);
+    const [effectiveRole, setEffectiveRoleState] = useState<Role>(realRole || 'CANDIDATE');
+    const [effectiveWorkerType, setEffectiveWorkerTypeState] = useState<WorkerType>(realWorkerType || null);
     const [simulationPersona, setSimulationPersona] = useState<{ name: string; image: string | null } | undefined>(undefined);
     const [isSimulating, setIsSimulating] = useState(false);
 

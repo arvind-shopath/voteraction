@@ -40,23 +40,21 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
     const realRole = session?.user?.role || 'CANDIDATE';
     const role = effectiveRole || realRole;
     const workerType = effectiveWorkerType || session?.user?.workerType;
-    const isGlobal = (role === 'ADMIN' || role === 'SUPERADMIN') && !effectiveRole;
+    const isSimulatingActive = (effectiveRole && effectiveRole !== realRole) || !!simulationPersona;
+    const isGlobal = (role === 'ADMIN' || role === 'SUPERADMIN') && !isSimulatingActive;
 
     // Branding Logic
-    const isSimulatingActive = (effectiveRole && effectiveRole !== realRole) || !!simulationPersona;
 
     // For SUPERADMIN/ADMIN, we should always show "Super Admin" branding unless they are specifically SIMULATING a candidate
     const shouldShowCandidateBranding = !isGlobal || isSimulatingActive;
 
-    const userName = shouldShowCandidateBranding
-        ? (simulationPersona?.name || (isSimulatingActive
-            ? (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य'))
-            : (candidateName || session?.user?.name || 'यूजर')))
-        : (role === 'SUPERADMIN' ? (lang === 'hi' ? 'सर्वेसर्वा' : 'Super Admin') : (lang === 'hi' ? 'एडमिन' : 'Admin'));
+    const userName = isSimulatingActive
+        ? (simulationPersona?.name || (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य')))
+        : (session?.user?.name || (isGlobal ? (role === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन') : 'यूजर'));
 
-    const userImage = shouldShowCandidateBranding
-        ? (simulationPersona?.image || candidateImageUrl || session?.user?.image)
-        : null;
+    const userImage = isSimulatingActive
+        ? (simulationPersona?.image || candidateImageUrl)
+        : (isGlobal ? null : (session?.user?.image || candidateImageUrl));
 
     const getMenuItems = () => {
         // Core Admin View (Switching to other views via Header View Switcher)

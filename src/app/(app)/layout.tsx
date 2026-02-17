@@ -15,14 +15,19 @@ export default async function AppLayout({
     children: React.ReactNode;
 }) {
     const session = await auth();
+    const userRole = (session?.user as any)?.role;
     const assemblyId = (session?.user as any)?.assemblyId;
 
     const cookieStore = await cookies();
+    const effectiveRole = cookieStore.get('effectiveRole')?.value;
     const personaCookie = cookieStore.get('simulationPersona')?.value;
     let simulatedPersona = null;
     if (personaCookie) {
         try { simulatedPersona = JSON.parse(decodeURIComponent(personaCookie)); } catch (e) { }
     }
+
+    const isSimulatingActive = (effectiveRole && effectiveRole !== userRole) || !!simulatedPersona;
+    const isGlobalView = (userRole === 'ADMIN' || userRole === 'SUPERADMIN') && !isSimulatingActive;
 
     let branding = {
         themeColor: '#1E3A8A',
@@ -33,9 +38,15 @@ export default async function AppLayout({
 
     try {
         const prisma = prismaInstance as any;
-        const assembly = assemblyId
-            ? await prisma.assembly.findUnique({ where: { id: assemblyId } })
-            : await prisma.assembly.findFirst();
+
+        // If it's a global view for Admin/SuperAdmin, don't fetch a default assembly branding
+        const shouldFetchBranding = assemblyId || !isGlobalView;
+
+        const assembly = shouldFetchBranding
+            ? (assemblyId
+                ? await prisma.assembly.findUnique({ where: { id: assemblyId } })
+                : await prisma.assembly.findFirst())
+            : null;
 
         if (assembly) {
             let logoUrl = assembly.logoUrl;
@@ -60,7 +71,6 @@ export default async function AppLayout({
         console.error('Branding fetch failed:', error);
     }
 
-    const effectiveRole = cookieStore.get('effectiveRole')?.value;
     const effectiveWorkerType = cookieStore.get('effectiveWorkerType')?.value;
     const isCentralSocial = effectiveRole === 'SOCIAL_MEDIA' && (effectiveWorkerType === 'SOCIAL_CENTRAL' || effectiveWorkerType?.startsWith('CENTRAL_'));
 
