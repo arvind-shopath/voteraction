@@ -215,6 +215,21 @@ export async function getVoters(filters: {
         where.subCaste = subCaste;
     }
 
+    if (filters.contactStatus && filters.contactStatus !== 'सभी' && filters.contactStatus !== 'सभी संपर्क स्थिति') {
+        if (filters.contactStatus === 'Contacted' || filters.contactStatus === 'संपर्कित') {
+            where.OR = [
+                ...(where.OR || []),
+                { supportStatus: { in: ['Support', 'Oppose'] } },
+                { updatedByName: { not: null } },
+                { notes: { not: null } }
+            ];
+        } else if (filters.contactStatus === 'Pending' || filters.contactStatus === 'संपर्क बाकी') {
+            where.supportStatus = 'Neutral';
+            where.updatedByName = null;
+            where.notes = null;
+        }
+    }
+
     if (surname && surname !== 'सभी उपनाम') {
         where.surname = surname;
     }

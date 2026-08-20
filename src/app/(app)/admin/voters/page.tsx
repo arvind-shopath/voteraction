@@ -145,7 +145,7 @@ export default function AdminVotersPage() {
     });
 
     const [filters, setFilters] = useState({
-        search: '', booth: 'सभी बूथ', boothName: 'सभी बूथ नाम', status: 'सभी स्थिति', gender: 'सभी', village: 'सभी गांव',
+        search: '', booth: 'सभी बूथ', boothName: 'सभी बूथ नाम', status: 'सभी स्थिति', contactStatus: 'सभी', gender: 'सभी', village: 'सभी गांव',
         casteCategory: 'सभी वर्ग', caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
         familySize: 'सभी परिवार', ageFilter: 'सभी आयु',
         isHead: false, isPwD: false, isImportant: false, isVoted: 'All', votedPartyId: '',
@@ -197,8 +197,8 @@ export default function AdminVotersPage() {
             return () => clearTimeout(timeoutId);
         }
     }, [
-        selectedAssembly, filters.page, filters.search, filters.booth, filters.boothName, filters.status, filters.gender, filters.village,
-        filters.casteCategory, filters.caste, filters.familySize, filters.ageFilter,
+        selectedAssembly, filters.page, filters.search, filters.booth, filters.boothName, filters.status, filters.contactStatus, filters.gender, filters.village,
+        filters.casteCategory, filters.caste, filters.subCaste, filters.familySize, filters.ageFilter,
         filters.isHead, filters.isPwD, filters.isImportant, filters.isVoted, filters.votedPartyId
     ]);
 
@@ -546,6 +546,18 @@ export default function AdminVotersPage() {
                                 onChange={(val) => setFilters(prev => ({ ...prev, gender: val, page: 1 }))}
                                 placeholder="लिंग"
                                 searchPlaceholder="लिंग खोजें..."
+                            />
+
+                            <SearchableSelect
+                                options={[
+                                    { label: 'संपर्क स्थिति (सभी)', value: 'सभी' },
+                                    { label: '✅ संपर्कित (Contacted)', value: 'Contacted' },
+                                    { label: '⏳ संपर्क बाकी (Pending)', value: 'Pending' }
+                                ]}
+                                value={filters.contactStatus || 'सभी'}
+                                onChange={(val) => setFilters(prev => ({ ...prev, contactStatus: val, page: 1 }))}
+                                placeholder="संपर्क स्थिति"
+                                searchPlaceholder="संपर्कित या बाकी खोजें..."
                             />
 
                             <SearchableSelect
