@@ -989,9 +989,30 @@ export async function updateElectionDate(assemblyId: number, date: Date) {
     revalidatePath('/dashboard');
 }
 
-export async function getAssemblyInfo(assemblyId: number) {
+export async function getAssemblyInfo(assemblyIdRaw?: any) {
+    const session = await auth();
+    const user_s = session?.user as any;
+    
+    let targetAssemblyId: number | null = null;
+    if (assemblyIdRaw !== undefined && assemblyIdRaw !== null && assemblyIdRaw !== '') {
+        const parsed = parseInt(assemblyIdRaw.toString(), 10);
+        if (!isNaN(parsed) && parsed > 0) targetAssemblyId = parsed;
+    }
+
+    if (user_s?.assemblyId) {
+        const userAsm = parseInt(user_s.assemblyId.toString(), 10);
+        if (!targetAssemblyId || ['CANDIDATE', 'ELECTION_MANAGER', 'WORKER'].includes(user_s.role)) {
+            targetAssemblyId = userAsm;
+        }
+    }
+
+    if (!targetAssemblyId) {
+        const firstAsm = await prisma.assembly.findFirst();
+        targetAssemblyId = firstAsm ? firstAsm.id : 14;
+    }
+
     return await prisma.assembly.findUnique({
-        where: { id: assemblyId }
+        where: { id: targetAssemblyId }
     });
 }
 

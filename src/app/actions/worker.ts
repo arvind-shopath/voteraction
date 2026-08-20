@@ -86,12 +86,24 @@ export async function getWorkersInAssembly(assemblyIdRaw?: any) {
     const role = effectiveRole;
     const userId = user_s?.id;
 
-    // Resolve target assembly ID safely as integer
-    let targetAssemblyId = 1;
+    // Resolve target assembly ID safely
+    let targetAssemblyId: number | null = null;
     if (assemblyIdRaw !== undefined && assemblyIdRaw !== null && assemblyIdRaw !== '') {
-        targetAssemblyId = parseInt(assemblyIdRaw.toString(), 10) || 1;
-    } else if (user_s?.assemblyId) {
-        targetAssemblyId = parseInt(user_s.assemblyId.toString(), 10) || 1;
+        const parsed = parseInt(assemblyIdRaw.toString(), 10);
+        if (!isNaN(parsed) && parsed > 0) targetAssemblyId = parsed;
+    }
+
+    // If logged in as Candidate, Election Manager, or Worker, prioritize their assigned assembly
+    if (user_s?.assemblyId) {
+        const userAsm = parseInt(user_s.assemblyId.toString(), 10);
+        if (!targetAssemblyId || ['CANDIDATE', 'ELECTION_MANAGER', 'WORKER'].includes(user_s.role)) {
+            targetAssemblyId = userAsm;
+        }
+    }
+
+    if (!targetAssemblyId) {
+        const firstAsm = await prisma.assembly.findFirst();
+        targetAssemblyId = firstAsm ? firstAsm.id : 14;
     }
 
     let whereClause: any = {
@@ -110,7 +122,7 @@ export async function getWorkersInAssembly(assemblyIdRaw?: any) {
             const user = await prisma.user.findUnique({ where: { id: parseInt(userId) } });
             if (user && ['ADMIN', 'SUPERADMIN'].includes(user.role)) {
                 currentUserWorker = await prisma.worker.findFirst({
-                    where: { assemblyId, type: 'BOOTH_MANAGER' },
+                    where: { assemblyId: targetAssemblyId, type: 'BOOTH_MANAGER' },
                     orderBy: { id: 'asc' }
                 });
             }

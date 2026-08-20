@@ -2,11 +2,37 @@
 
 import { prisma as prismaClient } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 
 const prisma = prismaClient as any;
 
-export async function getBooths(assemblyIdRaw: any) {
-    const assemblyId = parseInt((assemblyIdRaw || 1).toString(), 10);
+async function resolveAssemblyId(assemblyIdRaw?: any) {
+    const session = await auth();
+    const user_s = session?.user as any;
+    
+    let targetAssemblyId: number | null = null;
+    if (assemblyIdRaw !== undefined && assemblyIdRaw !== null && assemblyIdRaw !== '') {
+        const parsed = parseInt(assemblyIdRaw.toString(), 10);
+        if (!isNaN(parsed) && parsed > 0) targetAssemblyId = parsed;
+    }
+
+    if (user_s?.assemblyId) {
+        const userAsm = parseInt(user_s.assemblyId.toString(), 10);
+        if (!targetAssemblyId || ['CANDIDATE', 'ELECTION_MANAGER', 'WORKER'].includes(user_s.role)) {
+            targetAssemblyId = userAsm;
+        }
+    }
+
+    if (!targetAssemblyId) {
+        const firstAsm = await prisma.assembly.findFirst();
+        targetAssemblyId = firstAsm ? firstAsm.id : 14;
+    }
+
+    return targetAssemblyId;
+}
+
+export async function getBooths(assemblyIdRaw?: any) {
+    const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     const booths = await prisma.booth.findMany({
         where: { assemblyId },
         include: {
@@ -140,8 +166,8 @@ export async function updateBooth(id: number, data: {
     revalidatePath('/booths');
 }
 
-export async function getBoothsWithAssignment(assemblyIdRaw: any) {
-    const assemblyId = parseInt((assemblyIdRaw || 1).toString(), 10);
+export async function getBoothsWithAssignment(assemblyIdRaw?: any) {
+    const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     const booths = await prisma.booth.findMany({
         where: { assemblyId },
         include: {
@@ -155,8 +181,8 @@ export async function getBoothsWithAssignment(assemblyIdRaw: any) {
     return booths;
 }
 
-export async function getBoothCoverageStats(assemblyIdRaw: any) {
-    const assemblyId = parseInt((assemblyIdRaw || 1).toString(), 10);
+export async function getBoothCoverageStats(assemblyIdRaw?: any) {
+    const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     const totalBooths = await prisma.booth.count({ where: { assemblyId } });
     const assignedBooths = await prisma.worker.groupBy({
         by: ['boothId'],
