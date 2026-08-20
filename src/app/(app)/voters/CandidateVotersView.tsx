@@ -557,6 +557,8 @@ export default function CandidateVotersView() {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
+    const activeFilterCount = Object.values(filters).filter(v => v !== 'All' && v !== false && v !== '' && !String(v).includes('सभी')).length;
+
     const handleClearFilters = (e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
         setFilters({
