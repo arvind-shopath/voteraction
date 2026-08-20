@@ -843,8 +843,12 @@ export async function getFilterOptions(assemblyId?: number) {
             ]
         }),
         prisma.worker.findMany({
-            where: { ...where, type: 'PANNA_PRAMUKH', deletedAt: null },
+            where: { ...where, type: { in: ['PANNA_PRAMUKH', 'PANNA'] }, deletedAt: null },
             select: { id: true, name: true, booth: { select: { number: true } } }
+        }),
+        prisma.worker.findMany({
+            where: { ...where, type: { in: ['BOOTH_MANAGER', 'BOOTH'] }, deletedAt: null },
+            select: { id: true, name: true, mobile: true, booth: { select: { number: true, name: true } }, user: { select: { mobile: true } } }
         }),
         prisma.voter.findMany({
             where: { ...where, village: { not: null }, boothNumber: { not: null } },
@@ -908,7 +912,14 @@ export async function getFilterOptions(assemblyId?: number) {
         booths: booths || [],
         villageBooths: villageBoothPairs.map(vb => ({ village: vb.village as string, boothNumber: vb.boothNumber as number })),
         parties: parties || [],
-        pannaPramukhs: pannaPramukhs.map(p => ({ id: p.id, name: p.name, boothNumber: p.booth?.number }))
+        pannaPramukhs: pannaPramukhs.map(p => ({ id: p.id, name: p.name, boothNumber: p.booth?.number })),
+        boothManagers: boothManagers.map(bm => ({
+            id: bm.id,
+            name: bm.name,
+            mobile: bm.mobile || bm.user?.mobile || '',
+            boothNumber: bm.booth?.number,
+            boothName: bm.booth?.name
+        }))
     };
 
 }

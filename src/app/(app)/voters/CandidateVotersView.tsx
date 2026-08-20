@@ -517,7 +517,7 @@ export default function CandidateVotersView() {
         }
     }, [
         assemblyId, filters.page, filters.search, filters.booth, filters.status, filters.contactStatus, filters.gender, filters.village,
-        filters.casteCategory, filters.caste, filters.subCaste, filters.familySize, filters.ageFilter,
+        filters.casteCategory, filters.caste, filters.subCaste, filters.surname, filters.familySize, filters.ageFilter, filters.pannaId,
         filters.isHead, filters.isPwD, filters.isImportant, filters.isVoted, filters.votedPartyId
     ]);
 
@@ -826,8 +826,8 @@ export default function CandidateVotersView() {
                                 options={[
                                     { label: t.allPanna, value: 'सभी पन्ना प्रमुख' },
                                     ...(options.pannaPramukhs
-                                        ?.filter((p: any) => filters.booth === 'सभी बूथ' || p.boothNumber === parseInt(filters.booth))
-                                        .map((p: any) => ({ label: `${p.name} (#${p.boothNumber})`, value: String(p.id) })) || [])
+                                        ?.filter((p: any) => filters.booth === 'सभी बूथ' || !filters.booth || p.boothNumber === parseInt(filters.booth))
+                                        .map((p: any) => ({ label: `${p.name}${p.boothNumber ? ` (बूथ #${p.boothNumber})` : ''}`, value: String(p.id) })) || [])
                                 ]}
                                 value={filters.pannaId}
                                 onChange={(val) => setFilters(prev => ({ ...prev, pannaId: val, page: 1 }))}
@@ -943,6 +943,33 @@ export default function CandidateVotersView() {
                         </div>
                     )}
                 </div>
+
+                {/* Booth Manager Banner (Shown when a booth is selected) */}
+                {filters.booth && filters.booth !== 'सभी बूथ' && (() => {
+                    const bm = options.boothManagers?.find((b: any) => b.boothNumber === parseInt(filters.booth));
+                    return bm ? (
+                        <div style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)', border: '1px solid #BFDBFE', borderRadius: '18px', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px', boxShadow: '0 4px 12px rgba(37,99,235,0.06)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#2563EB', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '18px' }}>
+                                    🏢
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#1D4ED8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>बूथ {filters.booth} इंचार्ज / बूथ मैनेजर</div>
+                                    <div style={{ fontSize: '16px', fontWeight: '900', color: '#0F172A' }}>{bm.name}</div>
+                                </div>
+                            </div>
+                            {bm.mobile && (
+                                <a href={`tel:${bm.mobile}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'white', border: '1px solid #93C5FD', padding: '8px 18px', borderRadius: '12px', color: '#1D4ED8', fontWeight: '800', fontSize: '13px', textDecoration: 'none', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+                                    <Phone size={15} /> {bm.mobile}
+                                </a>
+                            )}
+                        </div>
+                    ) : (
+                        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '14px', padding: '12px 18px', marginBottom: '20px', fontSize: '13px', color: '#92400E', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>⚠️</span> बूथ {filters.booth} पर अभी कोई बूथ मैनेजर नियुक्त नहीं है।
+                        </div>
+                    );
+                })()}
 
                 {/* 3. TABLE/CARDS */}
                 {loading ? (

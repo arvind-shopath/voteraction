@@ -646,48 +646,129 @@ export default function WorkersPage() {
                 </div>
             )}
 
-            {/* Voter List Modal */}
-            {showVoterList && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '700px', borderRadius: '28px', overflow: 'hidden' }}>
-                        <div style={{ padding: '24px 32px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <h2 style={{ fontSize: '20px', fontWeight: '900' }}>पन्ना वोटर लिस्ट</h2>
-                                <p style={{ fontSize: '13px', color: '#64748B' }}>{showVoterList.name} के अंतर्गत {viewingVoters.length} वोटर</p>
+            {/* Voter List Modal (Jan-Sampark & Campaign Progress) */}
+            {showVoterList && (() => {
+                const total = viewingVoters.length;
+                const contacted = viewingVoters.filter(v => {
+                    const fb = v.feedbacks?.[0];
+                    return (fb?.supportStatus && fb.supportStatus !== 'Neutral') || (v.supportStatus && v.supportStatus !== 'Neutral') || fb?.notes || v.notes || fb?.updatedByName || v.updatedByName;
+                }).length;
+                const supporters = viewingVoters.filter(v => {
+                    const fb = v.feedbacks?.[0];
+                    return (fb?.supportStatus === 'Support') || (v.supportStatus === 'Support');
+                }).length;
+                const pending = total - contacted;
+
+                return (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                        <div className="card" style={{ background: 'white', width: '100%', maxWidth: '750px', borderRadius: '28px', overflow: 'hidden', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                            {/* Modal Header */}
+                            <div style={{ padding: '24px 32px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A' }}>पन्ना प्रमुख जनसंपर्क रिपोर्ट</h2>
+                                    <p style={{ fontSize: '13px', color: '#64748B', marginTop: '2px' }}>{showVoterList.name} (बूथ #{showVoterList.booth?.number || '-'})</p>
+                                </div>
+                                <button onClick={() => setShowVoterList(null)} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '50%', padding: '8px', cursor: 'pointer' }}><X size={20} /></button>
                             </div>
-                            <button onClick={() => setShowVoterList(null)} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '50%', padding: '8px' }}><X size={20} /></button>
-                        </div>
-                        <div style={{ padding: '24px', maxHeight: '60vh', overflowY: 'auto' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {viewingVoters.map((v: any) => (
-                                    <div key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '16px', background: v.isVoted ? '#ECFDF5' : '#F8FAFC', borderRadius: '16px', border: v.isVoted ? '1px solid #A7F3D0' : '1px solid #E2E8F0' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A' }}>{v.name}</div>
-                                            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>{v.gender === 'M' ? 'पुरुष' : 'महिला'}, {v.age} वर्ष | EPIC: {v.epic || 'N/A'}</div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            {v.isVoted ? (
-                                                <>
-                                                    <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#DCFCE7', color: '#15803D', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        ✓ मतदान संपन्न
-                                                    </span>
-                                                    <button onClick={() => handleToggleVoted(v.id, true)} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #CBD5E1', background: 'white', color: '#64748B', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
-                                                        बदलें (Undo)
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <button onClick={() => handleToggleVoted(v.id, false)} style={{ padding: '6px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', background: 'white', color: '#334155', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    वोट दर्ज करें (Mark Voted)
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+
+                            {/* Summary Bar */}
+                            <div style={{ padding: '16px 32px', background: '#F1F5F9', borderBottom: '1px solid #E2E8F0', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', textAlign: 'center' }}>
+                                <div style={{ background: 'white', padding: '10px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>कुल वोटर</div>
+                                    <div style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A' }}>{total}</div>
+                                </div>
+                                <div style={{ background: 'white', padding: '10px', borderRadius: '12px', border: '1px solid #BBF7D0' }}>
+                                    <div style={{ fontSize: '11px', color: '#15803D', fontWeight: '700' }}>संपर्क हुआ</div>
+                                    <div style={{ fontSize: '18px', fontWeight: '900', color: '#15803D' }}>{contacted}</div>
+                                </div>
+                                <div style={{ background: 'white', padding: '10px', borderRadius: '12px', border: '1px solid #BFDBFE' }}>
+                                    <div style={{ fontSize: '11px', color: '#1D4ED8', fontWeight: '700' }}>समर्थक</div>
+                                    <div style={{ fontSize: '18px', fontWeight: '900', color: '#1D4ED8' }}>{supporters}</div>
+                                </div>
+                                <div style={{ background: 'white', padding: '10px', borderRadius: '12px', border: '1px solid #FED7AA' }}>
+                                    <div style={{ fontSize: '11px', color: '#C2410C', fontWeight: '700' }}>संपर्क बाकी</div>
+                                    <div style={{ fontSize: '18px', fontWeight: '900', color: '#C2410C' }}>{pending}</div>
+                                </div>
+                            </div>
+
+                            {/* Voters List */}
+                            <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {viewingVoters.map((v: any) => {
+                                        const fb = v.feedbacks?.[0];
+                                        const isContacted = Boolean((fb?.supportStatus && fb.supportStatus !== 'Neutral') || (v.supportStatus && v.supportStatus !== 'Neutral') || fb?.notes || v.notes || fb?.updatedByName || v.updatedByName);
+                                        const currentSupport = fb?.supportStatus || v.supportStatus || 'Neutral';
+                                        const notes = fb?.notes || v.notes;
+                                        const updater = fb?.updatedByName || v.updatedByName;
+
+                                        return (
+                                            <div key={v.id} style={{ padding: '16px', background: isContacted ? '#F8FAFC' : '#FFFFFF', borderRadius: '16px', border: isContacted ? '1px solid #CBD5E1' : '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {v.name}
+                                                            {v.houseNumber && (
+                                                                <span style={{ fontSize: '11px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
+                                                                    🏠 मकान: {v.houseNumber}
+                                                                </span>
+                                                            )}
+                                                            {v.village && (
+                                                                <span style={{ fontSize: '11px', color: '#64748B' }}>
+                                                                    📍 {v.village}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                                            <span>{v.gender === 'M' ? 'पुरुष' : 'महिला'}, {v.age} वर्ष</span>
+                                                            {v.epic && <span>EPIC: <b>{v.epic}</b></span>}
+                                                            {v.mobile && <span>📞 <b>{v.mobile}</b></span>}
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {isContacted ? (
+                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#DCFCE7', color: '#15803D', fontSize: '11px', fontWeight: '800' }}>
+                                                                ✓ संपर्क संपन्न
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#FEF3C7', color: '#B45309', fontSize: '11px', fontWeight: '800' }}>
+                                                                ⏳ संपर्क बाकी
+                                                            </span>
+                                                        )}
+
+                                                        {currentSupport === 'Support' && (
+                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#DCFCE7', color: '#15803D', fontSize: '11px', fontWeight: '800' }}>
+                                                                🟢 समर्थक
+                                                            </span>
+                                                        )}
+                                                        {currentSupport === 'Oppose' && (
+                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#FEE2E2', color: '#DC2626', fontSize: '11px', fontWeight: '800' }}>
+                                                                🔴 विरोधी
+                                                            </span>
+                                                        )}
+                                                        {currentSupport === 'Neutral' && (
+                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#F1F5F9', color: '#64748B', fontSize: '11px', fontWeight: '700' }}>
+                                                                ⚪ न्यूट्रल
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {(notes || updater) && (
+                                                    <div style={{ marginTop: '10px', padding: '8px 12px', background: '#F1F5F9', borderRadius: '10px', fontSize: '12px', color: '#334155', borderLeft: '3px solid #2563EB' }}>
+                                                        {notes && <div><b>📝 अपडेट / नोट:</b> {notes}</div>}
+                                                        {updater && <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>👤 दर्जकर्ता: {updater}</div>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Voter Assignment Modal */}
             {showAssignVoters && (

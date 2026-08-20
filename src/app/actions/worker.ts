@@ -415,8 +415,22 @@ export async function autoAssignVotersByCount(workerId: number, targetCount: num
 }
 
 export async function getWorkerAssignedVoters(workerId: number) {
+    const session = await auth();
+    const user = session?.user;
+    const campaignId = (user as any)?.campaignId;
+
     return await prisma.voter.findMany({
-        where: { pannaPramukhId: workerId }
+        where: { pannaPramukhId: parseInt(workerId.toString()) },
+        include: {
+            feedbacks: campaignId ? {
+                where: { campaignId }
+            } : true
+        },
+        orderBy: [
+            { village: 'asc' },
+            { houseNumber: 'asc' },
+            { id: 'asc' }
+        ]
     });
 }
 
