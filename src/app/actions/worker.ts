@@ -220,12 +220,33 @@ export async function checkCreativeTeamStatus(assemblyId: number) {
     return !!creativeTeam;
 }
 
+export async function getAssemblyVillages(assemblyIdRaw?: any) {
+    const assemblyId = await resolveAssemblyId(assemblyIdRaw);
+    const villages = await prisma.voter.groupBy({
+        by: ['village'],
+        where: {
+            assemblyId,
+            village: { not: null }
+        },
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } }
+    });
+    return villages
+        .filter((v: any) => v.village && v.village.trim() !== '')
+        .map((v: any) => ({
+            name: v.village,
+            voterCount: v._count.id
+        }));
+}
+
 export async function createWorker(data: {
     name: string,
     mobile: string,
     type: string,
     assemblyId: number,
     boothId?: number,
+    boothIds?: number[],
+    assignedVillages?: string[],
     password?: string
 }) {
     const session = await auth();
@@ -284,6 +305,9 @@ export async function createWorker(data: {
 
     // 2. Create Worker
     const creatorCampaignId = currentUser?.campaignId;
+    const idsJson = data.boothIds && data.boothIds.length > 0 ? JSON.stringify(data.boothIds) : null;
+    const primaryBoothId = data.boothIds && data.boothIds.length > 0 ? data.boothIds[0] : (data.boothId || null);
+    const villagesJson = data.assignedVillages && data.assignedVillages.length > 0 ? JSON.stringify(data.assignedVillages) : null;
 
     await prisma.worker.create({
         data: {
@@ -291,8 +315,10 @@ export async function createWorker(data: {
             mobile: data.mobile,
             type: data.type,
             assemblyId: data.assemblyId,
-            campaignId: creatorCampaignId || null, // Inherit campaign from creator
-            boothId: data.boothId || null,
+            campaignId: creatorCampaignId || null,
+            boothId: primaryBoothId,
+            boothIds: idsJson,
+            assignedVillages: villagesJson,
             performanceScore: 0,
             userId: userId
         }
@@ -306,6 +332,7 @@ export async function updateWorker(workerId: number, data: {
     type?: string;
     boothId?: number | null;
     boothIds?: number[];
+    assignedVillages?: string[];
 }) {
     const worker = await prisma.worker.findUnique({
         where: { id: workerId },
@@ -316,6 +343,9 @@ export async function updateWorker(workerId: number, data: {
 
     const idsJson = data.boothIds && data.boothIds.length > 0 ? JSON.stringify(data.boothIds) : null;
     const primaryBoothId = data.boothIds && data.boothIds.length > 0 ? data.boothIds[0] : (data.boothId !== undefined ? data.boothId : worker.boothId);
+    const villagesJson = data.assignedVillages !== undefined
+        ? (data.assignedVillages && data.assignedVillages.length > 0 ? JSON.stringify(data.assignedVillages) : null)
+        : worker.assignedVillages;
 
     // Update Worker record
     await prisma.worker.update({
@@ -325,7 +355,8 @@ export async function updateWorker(workerId: number, data: {
             mobile: data.mobile !== undefined ? data.mobile : worker.mobile,
             type: data.type !== undefined ? data.type : worker.type,
             boothId: primaryBoothId,
-            boothIds: idsJson
+            boothIds: idsJson,
+            assignedVillages: villagesJson
         }
     });
 

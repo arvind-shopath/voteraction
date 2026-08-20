@@ -9,7 +9,8 @@ import {
     updateWorker,
     updateWorkerPassword,
     autoAssignVotersByCount,
-    checkCreativeTeamStatus
+    checkCreativeTeamStatus,
+    getAssemblyVillages
 } from '@/app/actions/worker';
 import { getBoothsWithAssignment, getBoothCoverageStats } from '@/app/actions/booth';
 import { getUnassignedVoters, updateVoterFeedback } from '@/app/actions/voters';
@@ -18,7 +19,7 @@ import {
     UserPlus, Plus, Phone, Users, Share2, X, ShieldCheck,
     LayoutList, Filter, Search, CheckCircle, ChevronRight,
     Home, UserCheck, AlertCircle, Calendar, RefreshCcw,
-    TrendingUp, Zap, Map as MapIcon, Edit2, Lock, Key, ChevronDown, User, Network
+    TrendingUp, Zap, Map as MapIcon, Edit2, Lock, Key, ChevronDown, User, Network, MapPin
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useView } from '@/context/ViewContext';
@@ -26,6 +27,7 @@ import { useView } from '@/context/ViewContext';
 export default function WorkersPage() {
     const [workers, setWorkers] = useState<any[]>([]);
     const [booths, setBooths] = useState<any[]>([]);
+    const [villages, setVillages] = useState<any[]>([]);
     const [coverage, setCoverage] = useState<any>(null);
     const [assembly, setAssembly] = useState<any>(null);
     const [hasCreativeTeam, setHasCreativeTeam] = useState(false);
@@ -39,6 +41,8 @@ export default function WorkersPage() {
     const [showEdit, setShowEdit] = useState<any>(null);
     const [showPasswordReset, setShowPasswordReset] = useState<any>(null);
 
+    const [boothSearch, setBoothSearch] = useState('');
+    const [villageSearch, setVillageSearch] = useState('');
     const [voterSearch, setVoterSearch] = useState('');
     const [availableVoters, setAvailableVoters] = useState<any[]>([]);
     const [viewingVoters, setViewingVoters] = useState<any[]>([]);
@@ -51,6 +55,8 @@ export default function WorkersPage() {
         mobile: '',
         type: 'FIELD',
         boothId: '',
+        boothIds: [] as string[],
+        assignedVillages: [] as string[],
         password: ''
     });
 
@@ -59,7 +65,8 @@ export default function WorkersPage() {
         mobile: '',
         type: '',
         boothId: '',
-        boothIds: [] as string[]  // Multi-booth support for Booth Manager
+        boothIds: [] as string[],
+        assignedVillages: [] as string[]
     });
 
     const [newPassword, setNewPassword] = useState('');
@@ -91,30 +98,34 @@ export default function WorkersPage() {
         try {
             const currentAsmId = (session?.user as any)?.assemblyId ? parseInt((session?.user as any).assemblyId.toString(), 10) : assemblyId;
             if (isBoothManager) {
-                const [wData, bData, aData] = await Promise.all([
+                const [wData, bData, aData, vilData] = await Promise.all([
                     getWorkersInAssembly(currentAsmId),
                     getBoothsWithAssignment(currentAsmId),
-                    getAssemblyInfo(currentAsmId)
+                    getAssemblyInfo(currentAsmId),
+                    getAssemblyVillages(currentAsmId)
                 ]);
                 setWorkers(wData || []);
                 setBooths(bData || []);
                 setAssembly(aData || null);
+                setVillages(vilData || []);
                 if (aData?.electionDate) {
                     setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
                 }
             } else {
-                const [wData, bData, cData, aData, teamStatus] = await Promise.all([
+                const [wData, bData, cData, aData, teamStatus, vilData] = await Promise.all([
                     getWorkersInAssembly(currentAsmId),
                     getBoothsWithAssignment(currentAsmId),
                     getBoothCoverageStats(currentAsmId),
                     getAssemblyInfo(currentAsmId),
-                    checkCreativeTeamStatus(currentAsmId)
+                    checkCreativeTeamStatus(currentAsmId),
+                    getAssemblyVillages(currentAsmId)
                 ]);
                 setWorkers(wData || []);
                 setBooths(bData || []);
                 setCoverage(cData || null);
                 setAssembly(aData || null);
                 setHasCreativeTeam(teamStatus || false);
+                setVillages(vilData || []);
                 if (aData?.electionDate) {
                     setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
                 }
@@ -143,10 +154,12 @@ export default function WorkersPage() {
         await createWorker({
             ...formData,
             boothId: formData.boothId ? parseInt(formData.boothId) : undefined,
+            boothIds: formData.type === 'BOOTH_MANAGER' && formData.boothIds.length > 0 ? formData.boothIds.map(id => parseInt(id)) : undefined,
+            assignedVillages: formData.type === 'FIELD' && formData.assignedVillages.length > 0 ? formData.assignedVillages : undefined,
             assemblyId
         });
         setShowAdd(false);
-        setFormData({ name: '', mobile: '', type: 'FIELD', boothId: '', password: '' });
+        setFormData({ name: '', mobile: '', type: 'FIELD', boothId: '', boothIds: [], assignedVillages: [], password: '' });
         fetchData();
     };
 
@@ -159,9 +172,11 @@ export default function WorkersPage() {
             mobile: editData.mobile,
             type: editData.type,
             boothId: editData.boothId ? parseInt(editData.boothId) : null,
-            // Multi-booth: pass boothIds array for Booth Manager
             boothIds: editData.type === 'BOOTH_MANAGER' && editData.boothIds.length > 0
                 ? editData.boothIds.map(id => parseInt(id))
+                : undefined,
+            assignedVillages: editData.type === 'FIELD'
+                ? editData.assignedVillages
                 : undefined
         });
         setShowEdit(null);
@@ -186,20 +201,28 @@ export default function WorkersPage() {
     };
 
     const openEditModal = (worker: any) => {
-        // Parse existing boothIds JSON if available
         let existingBoothIds: string[] = [];
         if (worker.boothIds) {
             try { existingBoothIds = JSON.parse(worker.boothIds).map(String); } catch { existingBoothIds = []; }
         } else if (worker.boothId) {
             existingBoothIds = [worker.boothId.toString()];
         }
+
+        let existingVillages: string[] = [];
+        if (worker.assignedVillages) {
+            try { existingVillages = JSON.parse(worker.assignedVillages); } catch { existingVillages = []; }
+        }
+
         setEditData({
             name: worker.name,
             mobile: worker.mobile || worker.user?.mobile || '',
             type: worker.type,
             boothId: worker.boothId?.toString() || '',
-            boothIds: existingBoothIds
+            boothIds: existingBoothIds,
+            assignedVillages: existingVillages
         });
+        setBoothSearch('');
+        setVillageSearch('');
         setShowEdit(worker);
     };
 
@@ -441,7 +464,46 @@ export default function WorkersPage() {
                                     </div>
                                 </div>
 
-                                {worker.booth && (
+                                {worker.type === 'BOOTH_MANAGER' && (() => {
+                                    let bIds: string[] = [];
+                                    if (worker.boothIds) {
+                                        try { bIds = JSON.parse(worker.boothIds).map(String); } catch {}
+                                    }
+                                    const matchedBooths = booths.filter(b => bIds.includes(b.id.toString()));
+                                    return (
+                                        <div style={{ marginBottom: '16px', fontSize: '13px', color: '#1E40AF', fontWeight: '700', padding: '8px 12px', background: '#EFF6FF', borderRadius: '12px', border: '1px solid #BFDBFE' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Home size={14} color="#2563EB" />
+                                                <span>असाइंड बूथ ({matchedBooths.length || (worker.booth ? 1 : 0)}):</span>
+                                            </div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#3B82F6', fontWeight: '800' }}>
+                                                {matchedBooths.length > 0
+                                                    ? matchedBooths.map(b => `बूथ #${b.number}`).join(', ')
+                                                    : (worker.booth ? `बूथ #${worker.booth.number}: ${worker.booth.name || ''}` : 'कोई बूथ नहीं')}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {worker.type === 'FIELD' && (() => {
+                                    let vilList: string[] = [];
+                                    if (worker.assignedVillages) {
+                                        try { vilList = JSON.parse(worker.assignedVillages); } catch {}
+                                    }
+                                    return (
+                                        <div style={{ marginBottom: '16px', fontSize: '13px', color: '#047857', fontWeight: '700', padding: '8px 12px', background: '#ECFDF5', borderRadius: '12px', border: '1px solid #A7F3D0' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span>🏡</span>
+                                                <span>असाइंड गांव ({vilList.length || 'सभी'}):</span>
+                                            </div>
+                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#059669', fontWeight: '800' }}>
+                                                {vilList.length > 0 ? vilList.join(', ') : 'सभी गांव (असीमित)'}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {worker.type !== 'BOOTH_MANAGER' && worker.type !== 'FIELD' && worker.booth && (
                                     <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#475569', fontWeight: '700', padding: '8px 12px', background: '#F8FAFC', borderRadius: '12px' }}>
                                         <Home size={14} color="#2563EB" /> बूथ {worker.booth.number}: {worker.booth.name || 'N/A'}
                                     </div>
@@ -495,12 +557,9 @@ export default function WorkersPage() {
                                     {hierarchyData.generalWorkers.map((w: any) => (
                                         <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
                                             <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', fontWeight: '800' }}>{w.name[0]}</div>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: '800', fontSize: '14px' }}>{w.name}</div>
-                                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8' }}>{'ग्राउंड सपोर्ट'}</div>
-                                            </div>
-                                            <div style={{ padding: '4px 10px', background: '#7C3AED', color: 'white', borderRadius: '8px', fontSize: '12px', fontWeight: '900' }}>
-                                                {w.totalPoints || 0} ✨
+                                            <div>
+                                                <div style={{ fontWeight: '800', fontSize: '15px' }}>{w.name}</div>
+                                                <div style={{ fontSize: '12px', color: '#64748B' }}>{w.mobile || 'कोई नंबर नहीं'}</div>
                                             </div>
                                         </div>
                                     ))}
@@ -509,56 +568,60 @@ export default function WorkersPage() {
                         </>
                     )}
 
-                    {/* Level 2 -> 3: Booth Manager -> Panna Pramukhs */}
+                    {/* Level 3: Booth Hierarchy */}
                     <div>
                         <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#64748B', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Network size={18} /> बूथ स्तर की टीम (बूथ मैनेजर {'>'} पन्ना प्रमुख)
+                            <Home size={18} /> बूथ एवं पन्ना प्रमुख नेटवर्क
                         </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '24px' }}>
-                            {hierarchyData.boothGroups.map((group: any) => (
-                                <div key={group.id} style={{ border: '2px solid #F1F5F9', borderRadius: '24px', overflow: 'hidden', background: '#F8FAFC' }}>
-                                    <div style={{ padding: '16px 20px', background: '#1E3A8A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontWeight: '900', fontSize: '15px' }}>बूथ नं. {group.number}</span>
-                                        <span style={{ fontSize: '11px', fontWeight: '700' }}>{group.area}</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
+                            {hierarchyData.boothGroups.map(group => (
+                                <div key={group.id} style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '20px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ padding: '16px 20px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontWeight: '900', color: '#1E293B', fontSize: '15px' }}>बूथ {group.number}</span>
+                                            <span style={{ fontSize: '13px', color: '#64748B' }}>{group.name}</span>
+                                        </div>
+                                        <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '6px', background: group.manager ? '#DCFCE7' : '#FEE2E2', color: group.manager ? '#15803D' : '#B91C1C' }}>
+                                            {group.manager ? 'मैनेजर तैनात' : 'मैनेजर खाली'}
+                                        </span>
                                     </div>
 
-                                    <div style={{ padding: '20px' }}>
+                                    <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                         {/* Booth Manager */}
-                                        <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                                            <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#FFF7ED', border: '1px solid #FFEDD5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706' }}><UserCheck size={20} /></div>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{group.manager?.name || 'बूथ मैनेजर नियुक्त नहीं'}</div>
-                                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#D97706' }}>{group.manager ? 'बूथ मैनेजर' : 'रिक्त'}</div>
-                                            </div>
-                                            <div style={{ padding: '6px 14px', background: '#7C3AED', color: 'white', borderRadius: '10px', fontSize: '14px', fontWeight: '900' }}>
-                                                {group.manager?.totalPoints || 0} ✨
-                                            </div>
-                                            {canEditWorkers && group.manager && (
-                                                <button onClick={() => openEditModal(group.manager)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
-                                                    <Edit2 size={16} />
-                                                </button>
+                                        <div>
+                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', marginBottom: '8px' }}>बूथ मैनेजर</div>
+                                            {group.manager ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: '#EFF6FF', borderRadius: '12px', border: '1px solid #DBEAFE' }}>
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#2563EB', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '13px' }}>{group.manager.name[0]}</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: '800', fontSize: '14px', color: '#1E3A8A' }}>{group.manager.name}</div>
+                                                        <div style={{ fontSize: '12px', color: '#60A5FA' }}>{group.manager.mobile || 'कोई नंबर नहीं'}</div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div style={{ padding: '10px', background: '#FFF1F2', borderRadius: '12px', border: '1px dashed #FECDD3', textAlign: 'center', fontSize: '12px', color: '#E11D48', fontWeight: '700' }}>
+                                                    बूथ मैनेजर असाइन नहीं है
+                                                </div>
                                             )}
                                         </div>
 
-                                        {/* Panna Pramukhs (Children) */}
-                                        <div style={{ paddingLeft: '24px', position: 'relative', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            <div style={{ position: 'absolute', left: '10px', top: -16, bottom: 20, width: '2px', background: '#E2E8F0' }}></div>
-                                            {group.pannaPramukhs.map((p: any) => (
-                                                <div key={p.id} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                                                    <div style={{ position: 'absolute', left: '-14px', top: '50%', width: '14px', height: '2px', background: '#E2E8F0' }}></div>
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', color: '#2563EB' }}>{p.name[0]}</div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontSize: '13px', fontWeight: '800' }}>{p.name}</div>
-                                                        <div style={{ fontSize: '10px', color: '#64748B' }}>पन्ना प्रमुख | {p.stats?.totalVoters} वोटर</div>
+                                        {/* Panna Pramukhs */}
+                                        <div>
+                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', marginBottom: '8px' }}>पन्ना प्रमुख ({group.pannaPramukhs.length})</div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {group.pannaPramukhs.map(p => (
+                                                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #F1F5F9' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#E2E8F0', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '11px' }}>{p.name[0]}</div>
+                                                            <span style={{ fontWeight: '700', fontSize: '13px' }}>{p.name}</span>
+                                                        </div>
+                                                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#2563EB' }}>{p.stats?.contactedVoters || 0} संपर्क</span>
                                                     </div>
-                                                    <div style={{ padding: '4px 10px', background: '#F5F3FF', border: '1px solid #7C3AED', color: '#7C3AED', borderRadius: '8px', fontSize: '12px', fontWeight: '900' }}>
-                                                        {p.totalPoints || 0} ✨
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {group.pannaPramukhs.length === 0 && (
-                                                <div style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic', paddingLeft: '8px' }}>कोई पन्ना प्रमुख नहीं</div>
-                                            )}
+                                                ))}
+                                                {group.pannaPramukhs.length === 0 && (
+                                                    <div style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic', paddingLeft: '8px' }}>कोई पन्ना प्रमुख नहीं</div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -571,7 +634,7 @@ export default function WorkersPage() {
             {/* Modals */}
             {showAdd && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', overflowY: 'auto' }}>
-                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '28px 32px', borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto', margin: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '520px', padding: '28px 32px', borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto', margin: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ fontSize: '22px', fontWeight: '900' }}>नया सदस्य जोड़ें</h2>
                             <button onClick={() => setShowAdd(false)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer' }}><X size={20} /></button>
@@ -582,7 +645,7 @@ export default function WorkersPage() {
                                 <input required type="text" placeholder="नाम लिखें" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>मोबाइल नंबर (वोटर हेल्पलाइन सर्च के लिए भी)</label>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>मोबाइल नंबर (Login Username)</label>
                                 <input required type="text" placeholder="10 अंकों का मोबाइल नंबर" value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
@@ -594,44 +657,166 @@ export default function WorkersPage() {
                             </div>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>प्रकार (Role / पद)</label>
-                                <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value, boothId: '' })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
+                                <select value={formData.type} onChange={e => {
+                                    setFormData({ ...formData, type: e.target.value, boothId: '', boothIds: [], assignedVillages: [] });
+                                    setBoothSearch('');
+                                    setVillageSearch('');
+                                }} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
                                     <option value="ELECTION_MANAGER">🗄️ इलेक्शन मैनेजर (Election Manager)</option>
                                     <option value="BOOTH_MANAGER">🏢 बूथ मैनेजर (Booth Manager)</option>
                                     <option value="PANNA_PRAMUKH">📄 पन्ना प्रमुख (Panna Pramukh)</option>
                                     <option value="FIELD">🚶‍♂️ ग्राउंड कार्यकर्ता (Ground Worker)</option>
                                 </select>
                             </div>
-                            {(formData.type === 'BOOTH_MANAGER' || formData.type === 'PANNA_PRAMUKH') && (
-                                <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>
-                                        {formData.type === 'BOOTH_MANAGER' ? '🗳️ बूथ असाइन करें (एक से अधिक चुन सकते हैं)' : 'बूथ असाइन करें'}
-                                    </label>
-                                    {formData.type === 'BOOTH_MANAGER' ? (
-                                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '8px' }}>
-                                            {availableBoothsForForm.map(b => (
-                                                <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', background: formData.boothId === b.id.toString() ? '#EFF6FF' : 'transparent' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        value={b.id}
-                                                        checked={formData.boothId === b.id.toString()}
-                                                        onChange={e => setFormData({ ...formData, boothId: e.target.checked ? b.id.toString() : '' })}
-                                                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                                    />
-                                                    <span style={{ fontSize: '14px', fontWeight: '600' }}>बूथ {b.number}: {b.name || 'N/A'}</span>
-                                                    {b.workers?.some((w: any) => ['BOOTH_MANAGER', 'BOOTH'].includes(w.type)) && (
-                                                        <span style={{ fontSize: '11px', padding: '2px 6px', background: '#FEF9C3', color: '#92400E', borderRadius: '6px', fontWeight: '700' }}>असाइन है</span>
-                                                    )}
-                                                </label>
-                                            ))}
+
+                            {/* Booth Manager: Searchable Multi-Booth Picker */}
+                            {formData.type === 'BOOTH_MANAGER' && (() => {
+                                const filteredBooths = availableBoothsForForm.filter(b =>
+                                    b.number.toString().includes(boothSearch) ||
+                                    (b.name && b.name.toLowerCase().includes(boothSearch.toLowerCase())) ||
+                                    (b.villageNameHi && b.villageNameHi.toLowerCase().includes(boothSearch.toLowerCase()))
+                                );
+                                return (
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                            <label style={{ fontSize: '14px', fontWeight: '800' }}>🗳️ बूथ चुनें (एक से अधिक)</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button type="button" onClick={() => setFormData({ ...formData, boothIds: availableBoothsForForm.map(b => b.id.toString()), boothId: availableBoothsForForm[0]?.id.toString() || '' })} style={{ fontSize: '11px', color: '#2563EB', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}>सभी चुनें</button>
+                                                <span style={{ color: '#CBD5E1' }}>|</span>
+                                                <button type="button" onClick={() => setFormData({ ...formData, boothIds: [], boothId: '' })} style={{ fontSize: '11px', color: '#EF4444', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}>हटाएं</button>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <select required value={formData.boothId} onChange={e => setFormData({ ...formData, boothId: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
-                                            <option value="">बूथ चुनें...</option>
-                                            {availableBoothsForForm.map(b => <option key={b.id} value={b.id}>बूथ {b.number}: {b.name || 'N/A'}</option>)}
-                                        </select>
-                                    )}
+
+                                        {/* Sticky Search Bar */}
+                                        <div style={{ position: 'relative', marginBottom: '8px' }}>
+                                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94A3B8' }} />
+                                            <input
+                                                type="text"
+                                                placeholder="🔍 बूथ नंबर, नाम या गांव से खोजें..."
+                                                value={boothSearch}
+                                                onChange={e => setBoothSearch(e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid #CBD5E1', borderRadius: '10px', fontSize: '13px', background: 'white' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '8px', background: '#FAFAFA' }}>
+                                            {filteredBooths.length === 0 ? (
+                                                <div style={{ padding: '16px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>कोई बूथ नहीं मिला</div>
+                                            ) : (
+                                                filteredBooths.map(b => {
+                                                    const isChecked = formData.boothIds.includes(b.id.toString());
+                                                    return (
+                                                        <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', background: isChecked ? '#EFF6FF' : 'transparent', marginBottom: '4px', border: isChecked ? '1px solid #BFDBFE' : '1px solid transparent' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                value={b.id}
+                                                                checked={isChecked}
+                                                                onChange={e => {
+                                                                    const newIds = e.target.checked
+                                                                        ? [...formData.boothIds, b.id.toString()]
+                                                                        : formData.boothIds.filter(id => id !== b.id.toString());
+                                                                    const primaryBooth = newIds.length > 0 ? newIds[0] : '';
+                                                                    setFormData({ ...formData, boothIds: newIds, boothId: primaryBooth });
+                                                                }}
+                                                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563EB' }}
+                                                            />
+                                                            <div>
+                                                                <span style={{ fontSize: '14px', fontWeight: '700' }}>बूथ {b.number}: {b.name || 'N/A'}</span>
+                                                                {b.villageNameHi && <span style={{ fontSize: '12px', color: '#64748B', marginLeft: '6px' }}>({b.villageNameHi})</span>}
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                        {formData.boothIds.length > 0 && (
+                                            <div style={{ marginTop: '8px', padding: '8px 12px', background: '#DCFCE7', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#15803D' }}>
+                                                ✅ {formData.boothIds.length} बूथ चुने गए — प्राइमरी: बूथ #{availableBoothsForForm.find(b => b.id.toString() === formData.boothIds[0])?.number || '-'}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Panna Pramukh: Single Booth */}
+                            {formData.type === 'PANNA_PRAMUKH' && (
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>बूथ चुनें</label>
+                                    <select required value={formData.boothId} onChange={e => setFormData({ ...formData, boothId: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
+                                        <option value="">बूथ चुनें...</option>
+                                        {availableBoothsForForm.map(b => <option key={b.id} value={b.id}>बूथ {b.number}: {b.name || 'N/A'}</option>)}
+                                    </select>
                                 </div>
                             )}
+
+                            {/* Ground Worker (FIELD): Searchable Multi-Village Assignment */}
+                            {formData.type === 'FIELD' && (() => {
+                                const filteredVillages = villages.filter(v =>
+                                    v.name.toLowerCase().includes(villageSearch.toLowerCase())
+                                );
+                                return (
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                            <label style={{ fontSize: '14px', fontWeight: '800' }}>🏡 गांव असाइन करें (एक से अधिक चुन सकते हैं)</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button type="button" onClick={() => setFormData({ ...formData, assignedVillages: villages.map(v => v.name) })} style={{ fontSize: '11px', color: '#2563EB', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}>सभी चुनें</button>
+                                                <span style={{ color: '#CBD5E1' }}>|</span>
+                                                <button type="button" onClick={() => setFormData({ ...formData, assignedVillages: [] })} style={{ fontSize: '11px', color: '#EF4444', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}>हटाएं</button>
+                                            </div>
+                                        </div>
+
+                                        {/* Sticky Village Search Bar */}
+                                        <div style={{ position: 'relative', marginBottom: '8px' }}>
+                                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94A3B8' }} />
+                                            <input
+                                                type="text"
+                                                placeholder="🔍 गांव का नाम खोजें..."
+                                                value={villageSearch}
+                                                onChange={e => setVillageSearch(e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid #CBD5E1', borderRadius: '10px', fontSize: '13px', background: 'white' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '8px', background: '#FAFAFA' }}>
+                                            {filteredVillages.length === 0 ? (
+                                                <div style={{ padding: '16px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>कोई गांव नहीं मिला</div>
+                                            ) : (
+                                                filteredVillages.map(v => {
+                                                    const isChecked = formData.assignedVillages.includes(v.name);
+                                                    return (
+                                                        <label key={v.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', background: isChecked ? '#ECFDF5' : 'transparent', marginBottom: '4px', border: isChecked ? '1px solid #A7F3D0' : '1px solid transparent' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    value={v.name}
+                                                                    checked={isChecked}
+                                                                    onChange={e => {
+                                                                        const newVils = e.target.checked
+                                                                            ? [...formData.assignedVillages, v.name]
+                                                                            : formData.assignedVillages.filter(name => name !== v.name);
+                                                                        setFormData({ ...formData, assignedVillages: newVils });
+                                                                    }}
+                                                                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#059669' }}
+                                                                />
+                                                                <span style={{ fontSize: '14px', fontWeight: '700', color: '#1E293B' }}>{v.name}</span>
+                                                            </div>
+                                                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#047857', background: '#D1FAE5', padding: '2px 8px', borderRadius: '6px' }}>
+                                                                {v.voterCount.toLocaleString('hi-IN')} वोटर
+                                                            </span>
+                                                        </label>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                        {formData.assignedVillages.length > 0 && (
+                                            <div style={{ marginTop: '8px', padding: '8px 12px', background: '#ECFDF5', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#047857' }}>
+                                                ✅ {formData.assignedVillages.length} गांव चुने गए: {formData.assignedVillages.join(', ')}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
                             <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
                                 <button type="button" onClick={() => setShowAdd(false)} style={{ flex: 1, padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }}>कैंसिल</button>
                                 <button type="submit" style={{ flex: 1, padding: '14px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '900' }}>जोड़ें</button>
@@ -644,7 +829,7 @@ export default function WorkersPage() {
             {/* Edit Worker Modal */}
             {showEdit && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
-                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '28px 32px', borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto', margin: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '520px', padding: '28px 32px', borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto', margin: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ fontSize: '22px', fontWeight: '900' }}>कार्यकर्ता विवरण अपडेट करें</h2>
                             <div style={{ display: 'flex', gap: '8px' }}>
@@ -663,60 +848,165 @@ export default function WorkersPage() {
                             </div>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>कार्यकर्ता पद (Role)</label>
-                                <select value={editData.type} onChange={e => setEditData({ ...editData, type: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
+                                <select value={editData.type} onChange={e => {
+                                    setEditData({ ...editData, type: e.target.value });
+                                    setBoothSearch('');
+                                    setVillageSearch('');
+                                }} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
                                     <option value="ELECTION_MANAGER">🗄️ इलेक्शन मैनेजर (Election Manager)</option>
                                     <option value="BOOTH_MANAGER">🏢 बूथ मैनेजर (Booth Manager)</option>
                                     <option value="PANNA_PRAMUKH">📄 पन्ना प्रमुख (Panna Pramukh)</option>
                                     <option value="FIELD">🚶‍♂️ ग्राउंड कार्यकर्ता (Ground Worker)</option>
                                 </select>
                             </div>
-                            {(editData.type === 'BOOTH_MANAGER' || editData.type === 'PANNA_PRAMUKH') && (
-                                <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>
-                                        {editData.type === 'BOOTH_MANAGER' ? '🗳️ बूथ चुनें (एक से अधिक)' : 'बूथ बदलें'}
-                                    </label>
-                                    {editData.type === 'BOOTH_MANAGER' ? (
+
+                            {/* Booth Manager: Searchable Multi-Booth Picker in Edit Modal */}
+                            {editData.type === 'BOOTH_MANAGER' && (() => {
+                                const filteredBooths = availableBoothsForEdit.filter(b =>
+                                    b.number.toString().includes(boothSearch) ||
+                                    (b.name && b.name.toLowerCase().includes(boothSearch.toLowerCase())) ||
+                                    (b.villageNameHi && b.villageNameHi.toLowerCase().includes(boothSearch.toLowerCase()))
+                                );
+                                return (
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                            <label style={{ fontSize: '14px', fontWeight: '800' }}>🗳️ बूथ चुनें (एक से अधिक)</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button type="button" onClick={() => setEditData({ ...editData, boothIds: availableBoothsForEdit.map(b => b.id.toString()), boothId: availableBoothsForEdit[0]?.id.toString() || '' })} style={{ fontSize: '11px', color: '#2563EB', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}>सभी चुनें</button>
+                                                <span style={{ color: '#CBD5E1' }}>|</span>
+                                                <button type="button" onClick={() => setEditData({ ...editData, boothIds: [], boothId: '' })} style={{ fontSize: '11px', color: '#EF4444', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}>हटाएं</button>
+                                            </div>
+                                        </div>
+
+                                        {/* Sticky Search Bar */}
+                                        <div style={{ position: 'relative', marginBottom: '8px' }}>
+                                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94A3B8' }} />
+                                            <input
+                                                type="text"
+                                                placeholder="🔍 बूथ नंबर, नाम या गांव से खोजें..."
+                                                value={boothSearch}
+                                                onChange={e => setBoothSearch(e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid #CBD5E1', borderRadius: '10px', fontSize: '13px', background: 'white' }}
+                                            />
+                                        </div>
+
                                         <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '8px', background: '#FAFAFA' }}>
-                                            {availableBoothsForEdit.map((b: any) => {
-                                                const isChecked = editData.boothIds.includes(b.id.toString());
-                                                return (
-                                                    <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', background: isChecked ? '#EFF6FF' : 'transparent', marginBottom: '4px', border: isChecked ? '1px solid #BFDBFE' : '1px solid transparent' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            value={b.id}
-                                                            checked={isChecked}
-                                                            onChange={e => {
-                                                                const newIds = e.target.checked
-                                                                    ? [...editData.boothIds, b.id.toString()]
-                                                                    : editData.boothIds.filter(id => id !== b.id.toString());
-                                                                const primaryBooth = newIds.length > 0 ? newIds[0] : '';
-                                                                setEditData({ ...editData, boothIds: newIds, boothId: primaryBooth });
-                                                            }}
-                                                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563EB' }}
-                                                        />
-                                                        <div>
-                                                            <div style={{ fontSize: '14px', fontWeight: '700', color: '#1E293B' }}>बूथ {b.number}: {b.name || 'N/A'}</div>
-                                                            {b.workers?.some((w: any) => ['BOOTH_MANAGER', 'BOOTH'].includes(w.type) && w.id !== showEdit?.id) && (
-                                                                <div style={{ fontSize: '11px', color: '#F59E0B', fontWeight: '600' }}>⚠️ पहले से असाइन है</div>
-                                                            )}
-                                                        </div>
-                                                    </label>
-                                                );
-                                            })}
-                                            {editData.boothIds.length > 0 && (
-                                                <div style={{ marginTop: '8px', padding: '8px 12px', background: '#DCFCE7', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#15803D' }}>
-                                                    ✅ {editData.boothIds.length} बूथ चुने गए — प्राइमरी: बूथ #{availableBoothsForEdit.find((b: any) => b.id.toString() === editData.boothIds[0])?.number || '-'}
-                                                </div>
+                                            {filteredBooths.length === 0 ? (
+                                                <div style={{ padding: '16px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>कोई बूथ नहीं मिला</div>
+                                            ) : (
+                                                filteredBooths.map((b: any) => {
+                                                    const isChecked = editData.boothIds.includes(b.id.toString());
+                                                    return (
+                                                        <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', background: isChecked ? '#EFF6FF' : 'transparent', marginBottom: '4px', border: isChecked ? '1px solid #BFDBFE' : '1px solid transparent' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                value={b.id}
+                                                                checked={isChecked}
+                                                                onChange={e => {
+                                                                    const newIds = e.target.checked
+                                                                        ? [...editData.boothIds, b.id.toString()]
+                                                                        : editData.boothIds.filter(id => id !== b.id.toString());
+                                                                    const primaryBooth = newIds.length > 0 ? newIds[0] : '';
+                                                                    setEditData({ ...editData, boothIds: newIds, boothId: primaryBooth });
+                                                                }}
+                                                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563EB' }}
+                                                            />
+                                                            <div>
+                                                                <div style={{ fontSize: '14px', fontWeight: '700', color: '#1E293B' }}>बूथ {b.number}: {b.name || 'N/A'}</div>
+                                                                {b.villageNameHi && <div style={{ fontSize: '11px', color: '#64748B' }}>गांव: {b.villageNameHi}</div>}
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })
                                             )}
                                         </div>
-                                    ) : (
-                                        <select value={editData.boothId} onChange={e => setEditData({ ...editData, boothId: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
-                                            <option value="">कोई बूथ नहीं</option>
-                                            {availableBoothsForEdit.map((b: any) => <option key={b.id} value={b.id}>बूथ {b.number}: {b.name || 'N/A'}</option>)}
-                                        </select>
-                                    )}
+                                        {editData.boothIds.length > 0 && (
+                                            <div style={{ marginTop: '8px', padding: '8px 12px', background: '#DCFCE7', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#15803D' }}>
+                                                ✅ {editData.boothIds.length} बूथ चुने गए — प्राइमरी: बूथ #{availableBoothsForEdit.find((b: any) => b.id.toString() === editData.boothIds[0])?.number || '-'}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Panna Pramukh: Single Booth in Edit Modal */}
+                            {editData.type === 'PANNA_PRAMUKH' && (
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>बूथ बदलें</label>
+                                    <select value={editData.boothId} onChange={e => setEditData({ ...editData, boothId: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
+                                        <option value="">कोई बूथ नहीं</option>
+                                        {availableBoothsForEdit.map((b: any) => <option key={b.id} value={b.id}>बूथ {b.number}: {b.name || 'N/A'}</option>)}
+                                    </select>
                                 </div>
                             )}
+
+                            {/* Ground Worker (FIELD): Searchable Multi-Village in Edit Modal */}
+                            {editData.type === 'FIELD' && (() => {
+                                const filteredVillages = villages.filter(v =>
+                                    v.name.toLowerCase().includes(villageSearch.toLowerCase())
+                                );
+                                return (
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                            <label style={{ fontSize: '14px', fontWeight: '800' }}>🏡 गांव असाइन करें (एक से अधिक चुन सकते हैं)</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button type="button" onClick={() => setEditData({ ...editData, assignedVillages: villages.map(v => v.name) })} style={{ fontSize: '11px', color: '#2563EB', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}>सभी चुनें</button>
+                                                <span style={{ color: '#CBD5E1' }}>|</span>
+                                                <button type="button" onClick={() => setEditData({ ...editData, assignedVillages: [] })} style={{ fontSize: '11px', color: '#EF4444', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer' }}>हटाएं</button>
+                                            </div>
+                                        </div>
+
+                                        {/* Sticky Village Search Bar */}
+                                        <div style={{ position: 'relative', marginBottom: '8px' }}>
+                                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94A3B8' }} />
+                                            <input
+                                                type="text"
+                                                placeholder="🔍 गांव का नाम खोजें..."
+                                                value={villageSearch}
+                                                onChange={e => setVillageSearch(e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid #CBD5E1', borderRadius: '10px', fontSize: '13px', background: 'white' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '8px', background: '#FAFAFA' }}>
+                                            {filteredVillages.length === 0 ? (
+                                                <div style={{ padding: '16px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>कोई गांव नहीं मिला</div>
+                                            ) : (
+                                                filteredVillages.map(v => {
+                                                    const isChecked = editData.assignedVillages.includes(v.name);
+                                                    return (
+                                                        <label key={v.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', background: isChecked ? '#ECFDF5' : 'transparent', marginBottom: '4px', border: isChecked ? '1px solid #A7F3D0' : '1px solid transparent' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    value={v.name}
+                                                                    checked={isChecked}
+                                                                    onChange={e => {
+                                                                        const newVils = e.target.checked
+                                                                            ? [...editData.assignedVillages, v.name]
+                                                                            : editData.assignedVillages.filter(name => name !== v.name);
+                                                                        setEditData({ ...editData, assignedVillages: newVils });
+                                                                    }}
+                                                                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#059669' }}
+                                                                />
+                                                                <span style={{ fontSize: '14px', fontWeight: '700', color: '#1E293B' }}>{v.name}</span>
+                                                            </div>
+                                                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#047857', background: '#D1FAE5', padding: '2px 8px', borderRadius: '6px' }}>
+                                                                {v.voterCount.toLocaleString('hi-IN')} वोटर
+                                                            </span>
+                                                        </label>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                        {editData.assignedVillages.length > 0 && (
+                                            <div style={{ marginTop: '8px', padding: '8px 12px', background: '#ECFDF5', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#047857' }}>
+                                                ✅ {editData.assignedVillages.length} गांव चुने गए: {editData.assignedVillages.join(', ')}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
                                 <button type="button" onClick={() => setShowEdit(null)} style={{ flex: 1, padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }}>कैंसिल</button>
                                 <button type="submit" style={{ flex: 1, padding: '14px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '900' }}>अपडेट करें</button>

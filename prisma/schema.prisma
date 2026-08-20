@@ -332,6 +332,7 @@ model Worker {
   userId            Int?               @unique
   boothId           Int?               // Primary booth (backward compat)
   boothIds          String?            // JSON array of all assigned booth IDs e.g. "[1,2,3]"
+  assignedVillages  String?            // JSON array of assigned village names for Ground Worker e.g. '["सौरी", "कटघरा"]'
   housesCovered     Int                @default(0)
   attendanceRate    Int                @default(0)
   performanceScore  Int                @default(0)

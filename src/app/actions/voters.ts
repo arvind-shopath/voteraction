@@ -98,8 +98,18 @@ export async function getVoters(filters: {
 
         // Enforce booth restriction
         const boothToUse = workerBoothNumber || worker?.booth?.number;
-        if (boothToUse) {
+        if (boothToUse && workerType !== 'FIELD') {
             where.boothNumber = boothToUse;
+        }
+
+        // Enforce Ground Worker assigned villages
+        if ((workerType === 'FIELD' || workerType === 'GROUND') && worker?.assignedVillages) {
+            try {
+                const assignedVils = JSON.parse(worker.assignedVillages);
+                if (Array.isArray(assignedVils) && assignedVils.length > 0) {
+                    where.village = { in: assignedVils };
+                }
+            } catch (e) {}
         }
 
         if (workerType === 'PANNA_PRAMUKH') {
