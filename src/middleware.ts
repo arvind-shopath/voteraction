@@ -34,10 +34,11 @@ export default auth((req) => {
         const userStatus = (req.auth?.user as any)?.status;
 
         // If not active, redirect to pending page
-        if (userStatus !== "Active") {
+        if (userStatus?.toLowerCase() !== "active") {
             const res = NextResponse.redirect(new URL("/pending", nextUrl));
             return res;
         }
+
 
         // If active but no assembly assigned, still pending assembly
         if (!userRole || (userRole !== "ADMIN" && userRole !== "SUPERADMIN" && !(req.auth?.user as any)?.assemblyId)) {
