@@ -227,8 +227,9 @@ export function predictVoterAttributes(name: string, relativeName?: string): Pre
 
     return {
         religion,
-        caste: extractedSurname ? extractedSurname : 'अन्य / अज्ञात',
+        caste: 'अन्य / अज्ञात',
         casteCategory: 'Other',
         surname: extractedSurname
     };
 }
+
