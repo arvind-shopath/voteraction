@@ -167,7 +167,7 @@ export async function getWorkersInAssembly(assemblyIdRaw?: any) {
     const contactedStats = await prisma.voter.groupBy({
         by: ['pannaPramukhId'],
         where: {
-            assemblyId,
+            assemblyId: targetAssemblyId,
             pannaPramukhId: { not: null },
             OR: [
                 { mobile: { not: null } },
@@ -180,7 +180,7 @@ export async function getWorkersInAssembly(assemblyIdRaw?: any) {
     const votedStats = await prisma.voter.groupBy({
         by: ['pannaPramukhId'],
         where: {
-            assemblyId,
+            assemblyId: targetAssemblyId,
             pannaPramukhId: { not: null },
             isVoted: true
         },
