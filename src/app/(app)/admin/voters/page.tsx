@@ -203,6 +203,35 @@ export default function AdminVotersPage() {
     ]);
 
 
+    const selectedBoothNum = filters.booth !== 'सभी बूथ' ? parseInt(filters.booth) : null;
+    const selectedVillageName = filters.village !== 'सभी गांव' ? filters.village : null;
+
+    const availableVillages = useMemo(() => {
+        let vList = options.villages || [];
+        if (selectedBoothNum && Array.isArray(options.villageBooths)) {
+            const matches = options.villageBooths
+                .filter((vb: any) => vb.boothNumber === selectedBoothNum)
+                .map((vb: any) => vb.village);
+            if (matches.length > 0) {
+                vList = vList.filter((vName: string) => matches.includes(vName));
+            }
+        }
+        return vList;
+    }, [options.villages, options.villageBooths, selectedBoothNum]);
+
+    const availableBooths = useMemo(() => {
+        let bList = options.booths || [];
+        if (selectedVillageName && Array.isArray(options.villageBooths)) {
+            const matchedBoothNums = options.villageBooths
+                .filter((vb: any) => vb.village === selectedVillageName)
+                .map((vb: any) => vb.boothNumber);
+            if (matchedBoothNums.length > 0) {
+                bList = bList.filter((b: any) => typeof b === 'object' ? matchedBoothNums.includes(b.number) : matchedBoothNums.includes(parseInt(b)));
+            }
+        }
+        return bList;
+    }, [options.booths, options.villageBooths, selectedVillageName]);
+
     const handleFilterChange = (e: any) => {
         const { name, value, type, checked } = e.target;
         setFilters(prev => ({
@@ -432,7 +461,7 @@ export default function AdminVotersPage() {
                                 </div>
                             </div>
                             <SearchableSelect
-                                options={['सभी बूथ', ...options.booths.map((b: any) => {
+                                options={['सभी बूथ', ...availableBooths.map((b: any) => {
                                     if (typeof b === 'object') {
                                         const num = b.number;
                                         let name = (b.name || '').replace(/^(?:भाग|बूथ|Booth)\s*\d+\s*[\-\:]\s*/i, '').trim();
@@ -447,38 +476,67 @@ export default function AdminVotersPage() {
                                 onChange={(val) => {
                                     const selectedNum = parseInt(val);
                                     let matchedName = 'सभी बूथ नाम';
+                                    let validVillage = filters.village;
                                     if (!isNaN(selectedNum)) {
                                         const bObj = options.booths.find((b: any) => typeof b === 'object' && b.number === selectedNum);
                                         if (bObj && bObj.name) matchedName = bObj.name.replace(/^(?:भाग|बूथ|Booth)\s*\d+\s*[\-\:]\s*/i, '').trim();
+
+                                        if (Array.isArray(options.villageBooths)) {
+                                            const matches = options.villageBooths.filter((vb: any) => vb.boothNumber === selectedNum).map((vb: any) => vb.village);
+                                            if (matches.length > 0 && !matches.includes(filters.village)) {
+                                                validVillage = 'सभी गांव';
+                                            }
+                                        }
                                     }
-                                    setFilters(prev => ({ ...prev, booth: val, boothName: matchedName, page: 1 }));
+                                    setFilters(prev => ({ ...prev, booth: val, boothName: matchedName, village: validVillage, page: 1 }));
                                 }}
                                 placeholder="बूथ संख्या / नाम"
                                 searchPlaceholder="बूथ संख्या या नाम खोजें..."
                             />
 
                             <SearchableSelect
-                                options={['सभी बूथ नाम', ...options.booths.map((b: any) => {
+                                options={['सभी बूथ नाम', ...availableBooths.map((b: any) => {
                                     const rawName = typeof b === 'object' ? b.name : b;
                                     return (rawName || '').replace(/^(?:भाग|बूथ|Booth)\s*\d+\s*[\-\:]\s*/i, '').trim();
                                 }).filter(Boolean)]}
                                 value={filters.boothName}
                                 onChange={(val) => {
                                     let matchedNum = 'सभी बूथ';
+                                    let validVillage = filters.village;
                                     if (val !== 'सभी बूथ नाम') {
                                         const bObj = options.booths.find((b: any) => typeof b === 'object' && (b.name === val || b.name?.endsWith(val)));
-                                        if (bObj && bObj.number) matchedNum = String(bObj.number);
+                                        if (bObj && bObj.number) {
+                                            matchedNum = String(bObj.number);
+                                            const num = bObj.number;
+                                            if (Array.isArray(options.villageBooths)) {
+                                                const matches = options.villageBooths.filter((vb: any) => vb.boothNumber === num).map((vb: any) => vb.village);
+                                                if (matches.length > 0 && !matches.includes(filters.village)) {
+                                                    validVillage = 'सभी गांव';
+                                                }
+                                            }
+                                        }
                                     }
-                                    setFilters(prev => ({ ...prev, boothName: val, booth: matchedNum, page: 1 }));
+                                    setFilters(prev => ({ ...prev, boothName: val, booth: matchedNum, village: validVillage, page: 1 }));
                                 }}
                                 placeholder="बूथ का नाम"
                                 searchPlaceholder="बूथ नाम खोजें..."
                             />
 
                             <SearchableSelect
-                                options={['सभी गांव', ...options.villages]}
+                                options={['सभी गांव', ...availableVillages]}
                                 value={filters.village}
-                                onChange={(val) => setFilters(prev => ({ ...prev, village: val, page: 1 }))}
+                                onChange={(val) => {
+                                    let validBooth = filters.booth;
+                                    let validBoothName = filters.boothName;
+                                    if (val !== 'सभी गांव' && Array.isArray(options.villageBooths)) {
+                                        const matchedBoothNums = options.villageBooths.filter((vb: any) => vb.village === val).map((vb: any) => vb.boothNumber);
+                                        if (matchedBoothNums.length > 0 && selectedBoothNum && !matchedBoothNums.includes(selectedBoothNum)) {
+                                            validBooth = 'सभी बूथ';
+                                            validBoothName = 'सभी बूथ नाम';
+                                        }
+                                    }
+                                    setFilters(prev => ({ ...prev, village: val, booth: validBooth, boothName: validBoothName, page: 1 }));
+                                }}
                                 placeholder="गांव/वार्ड"
                                 searchPlaceholder="गांव/वार्ड खोजें..."
                             />

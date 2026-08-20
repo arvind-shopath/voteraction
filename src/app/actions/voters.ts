@@ -777,7 +777,7 @@ export async function getFilterOptions(assemblyId?: number) {
         if (assembly) assemblyState = assembly.state;
     }
 
-    const [casteCategories, castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties, pannaPramukhs] = await Promise.all([
+    const [casteCategories, castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties, pannaPramukhs, villageBoothPairs] = await Promise.all([
         prisma.voter.findMany({
             select: { casteCategory: true },
             distinct: ['casteCategory'],
@@ -828,6 +828,11 @@ export async function getFilterOptions(assemblyId?: number) {
         prisma.worker.findMany({
             where: { ...where, type: 'PANNA_PRAMUKH', deletedAt: null },
             select: { id: true, name: true, booth: { select: { number: true } } }
+        }),
+        prisma.voter.findMany({
+            where: { ...where, village: { not: null }, boothNumber: { not: null } },
+            select: { village: true, boothNumber: true },
+            distinct: ['village', 'boothNumber']
         })
     ]);
 
@@ -870,6 +875,7 @@ export async function getFilterOptions(assemblyId?: number) {
         surnames: surnames.map(s => ({ value: s.surname as string, parent: s.subCaste as string })),
         villages: villages.map(v => v.village as string).filter(Boolean),
         booths: booths || [],
+        villageBooths: villageBoothPairs.map(vb => ({ village: vb.village as string, boothNumber: vb.boothNumber as number })),
         parties: parties || [],
         pannaPramukhs: pannaPramukhs.map(p => ({ id: p.id, name: p.name, boothNumber: p.booth?.number }))
     };
