@@ -87,37 +87,42 @@ export default function WorkersPage() {
 
     async function fetchData() {
         setLoading(true);
-        const currentAsmId = (session?.user as any)?.assemblyId ? parseInt((session?.user as any).assemblyId.toString(), 10) : assemblyId;
-        if (isBoothManager) {
-            const [wData, bData, aData] = await Promise.all([
-                getWorkersInAssembly(currentAsmId),
-                getBoothsWithAssignment(currentAsmId),
-                getAssemblyInfo(currentAsmId)
-            ]);
-            setWorkers(wData || []);
-            setBooths(bData || []);
-            setAssembly(aData);
-            if (aData?.electionDate) {
-                setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
+        try {
+            const currentAsmId = (session?.user as any)?.assemblyId ? parseInt((session?.user as any).assemblyId.toString(), 10) : assemblyId;
+            if (isBoothManager) {
+                const [wData, bData, aData] = await Promise.all([
+                    getWorkersInAssembly(currentAsmId),
+                    getBoothsWithAssignment(currentAsmId),
+                    getAssemblyInfo(currentAsmId)
+                ]);
+                setWorkers(wData || []);
+                setBooths(bData || []);
+                setAssembly(aData || null);
+                if (aData?.electionDate) {
+                    setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
+                }
+            } else {
+                const [wData, bData, cData, aData, teamStatus] = await Promise.all([
+                    getWorkersInAssembly(currentAsmId),
+                    getBoothsWithAssignment(currentAsmId),
+                    getBoothCoverageStats(currentAsmId),
+                    getAssemblyInfo(currentAsmId),
+                    checkCreativeTeamStatus(currentAsmId)
+                ]);
+                setWorkers(wData || []);
+                setBooths(bData || []);
+                setCoverage(cData || null);
+                setAssembly(aData || null);
+                setHasCreativeTeam(teamStatus || false);
+                if (aData?.electionDate) {
+                    setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
+                }
             }
-        } else {
-            const [wData, bData, cData, aData, teamStatus] = await Promise.all([
-                getWorkersInAssembly(currentAsmId),
-                getBoothsWithAssignment(currentAsmId),
-                getBoothCoverageStats(currentAsmId),
-                getAssemblyInfo(currentAsmId),
-                checkCreativeTeamStatus(currentAsmId)
-            ]);
-            setWorkers(wData || []);
-            setBooths(bData || []);
-            setCoverage(cData);
-            setAssembly(aData);
-            setHasCreativeTeam(teamStatus);
-            if (aData?.electionDate) {
-                setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
-            }
+        } catch (e) {
+            console.error("Error fetching workers data:", e);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     const validatePassword = (pwd: string) => {

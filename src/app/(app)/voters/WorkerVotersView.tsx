@@ -4,7 +4,7 @@
  */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Search, Filter, Users, MapPin, Phone, Edit2, Eye, User, Home, ChevronDown, ChevronUp, X, Loader2, Share2, Crown, Activity, Star, Printer, UserPlus, ShieldCheck, UserMinus, AlertTriangle, RefreshCw, CloudDownload, Database, WifiOff, CheckCircle } from 'lucide-react';

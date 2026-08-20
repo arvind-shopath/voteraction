@@ -7,7 +7,7 @@ import { LayoutGrid, List, MapPin, User, CheckCircle2, TrendingUp, Plus, Search,
 import { useSession } from 'next-auth/react';
 
 export default function BoothsPage() {
-    const { data: session }: any = useSession();
+    const { data: session, status: sessionStatus }: any = useSession();
     const [booths, setBooths] = useState<any[]>([]);
     const [filteredBooths, setFilteredBooths] = useState<any[]>([]);
     const [workers, setWorkers] = useState<any[]>([]);
@@ -33,22 +33,30 @@ export default function BoothsPage() {
         inchargeMobile: ''
     });
 
-    const assemblyId = session?.user?.assemblyId || 1;
+    const userAsm = session?.user?.assemblyId;
+    const assemblyId = userAsm ? parseInt(userAsm.toString(), 10) : 1;
 
     useEffect(() => {
-        if (session) fetchBooths();
-    }, [session]);
+        if (sessionStatus === 'loading') return;
+        fetchBooths();
+    }, [sessionStatus, userAsm]);
 
     async function fetchBooths() {
         setLoading(true);
-        const [bData, wData] = await Promise.all([
-            getBooths(assemblyId),
-            getWorkersInAssembly(assemblyId)
-        ]);
-        setBooths(bData);
-        setFilteredBooths(bData);
-        setWorkers(wData);
-        setLoading(false);
+        try {
+            const currentAssemblyId = userAsm ? parseInt(userAsm.toString(), 10) : 1;
+            const [bData, wData] = await Promise.all([
+                getBooths(currentAssemblyId),
+                getWorkersInAssembly(currentAssemblyId)
+            ]);
+            setBooths(bData || []);
+            setFilteredBooths(bData || []);
+            setWorkers(wData || []);
+        } catch (e) {
+            console.error("Error fetching booths:", e);
+        } finally {
+            setLoading(false);
+        }
     }
 
     useEffect(() => {
