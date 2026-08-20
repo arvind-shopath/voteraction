@@ -73,7 +73,7 @@ export async function createBulkTasks(data: {
     revalidatePath('/worker/tasks');
 }
 
-export async function getWorkersInAssembly(assemblyId: number) {
+export async function getWorkersInAssembly(assemblyIdRaw?: any) {
     const session = await auth();
     const user_s = session?.user as any;
 
@@ -83,21 +83,21 @@ export async function getWorkersInAssembly(assemblyId: number) {
     const effectiveRole = cookieStore.get('effectiveRole')?.value || user_s?.role;
     const effectiveWorkerType = cookieStore.get('effectiveWorkerType')?.value;
 
-    const campaignId = user_s?.campaignId;
     const role = effectiveRole;
     const userId = user_s?.id;
 
+    // Resolve target assembly ID safely as integer
+    let targetAssemblyId = 1;
+    if (assemblyIdRaw !== undefined && assemblyIdRaw !== null && assemblyIdRaw !== '') {
+        targetAssemblyId = parseInt(assemblyIdRaw.toString(), 10) || 1;
+    } else if (user_s?.assemblyId) {
+        targetAssemblyId = parseInt(user_s.assemblyId.toString(), 10) || 1;
+    }
+
     let whereClause: any = {
-        assemblyId,
+        assemblyId: targetAssemblyId,
         deletedAt: null, // Only active workers
     };
-
-    if (campaignId) {
-        whereClause.OR = [
-            { campaignId },
-            { campaignId: null }
-        ];
-    }
 
     // Isolation: If Booth Manager, only see their own booth workers
     if (role === 'WORKER' && userId) {

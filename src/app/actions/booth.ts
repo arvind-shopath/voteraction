@@ -5,7 +5,8 @@ import { revalidatePath } from 'next/cache';
 
 const prisma = prismaClient as any;
 
-export async function getBooths(assemblyId: number) {
+export async function getBooths(assemblyIdRaw: any) {
+    const assemblyId = parseInt((assemblyIdRaw || 1).toString(), 10);
     const booths = await prisma.booth.findMany({
         where: { assemblyId },
         include: {
@@ -139,7 +140,8 @@ export async function updateBooth(id: number, data: {
     revalidatePath('/booths');
 }
 
-export async function getBoothsWithAssignment(assemblyId: number) {
+export async function getBoothsWithAssignment(assemblyIdRaw: any) {
+    const assemblyId = parseInt((assemblyIdRaw || 1).toString(), 10);
     const booths = await prisma.booth.findMany({
         where: { assemblyId },
         include: {
@@ -153,7 +155,8 @@ export async function getBoothsWithAssignment(assemblyId: number) {
     return booths;
 }
 
-export async function getBoothCoverageStats(assemblyId: number) {
+export async function getBoothCoverageStats(assemblyIdRaw: any) {
+    const assemblyId = parseInt((assemblyIdRaw || 1).toString(), 10);
     const totalBooths = await prisma.booth.count({ where: { assemblyId } });
     const assignedBooths = await prisma.worker.groupBy({
         by: ['boothId'],

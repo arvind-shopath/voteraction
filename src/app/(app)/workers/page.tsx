@@ -76,38 +76,40 @@ export default function WorkersPage() {
     const isPannaPramukh = role === 'WORKER' && effectiveWorkerType === 'PANNA_PRAMUKH';
     const canEditWorkers = isAdmin || isCandidate;
 
-    const assemblyId = session?.user?.assemblyId || 1;
+    const userAsmId = (session?.user as any)?.assemblyId;
+    const assemblyId = userAsmId ? parseInt(userAsmId.toString(), 10) : 1;
 
     useEffect(() => {
         // Wait for session to load before fetching — prevents empty assemblyId race condition
         if (sessionStatus === 'loading') return;
         fetchData();
-    }, [sessionStatus, assemblyId]);
+    }, [sessionStatus, userAsmId]);
 
     async function fetchData() {
         setLoading(true);
+        const currentAsmId = (session?.user as any)?.assemblyId ? parseInt((session?.user as any).assemblyId.toString(), 10) : assemblyId;
         if (isBoothManager) {
             const [wData, bData, aData] = await Promise.all([
-                getWorkersInAssembly(assemblyId),
-                getBoothsWithAssignment(assemblyId),
-                getAssemblyInfo(assemblyId)
+                getWorkersInAssembly(currentAsmId),
+                getBoothsWithAssignment(currentAsmId),
+                getAssemblyInfo(currentAsmId)
             ]);
-            setWorkers(wData);
-            setBooths(bData);
+            setWorkers(wData || []);
+            setBooths(bData || []);
             setAssembly(aData);
             if (aData?.electionDate) {
                 setNewElectionDate(new Date(aData.electionDate).toISOString().split('T')[0]);
             }
         } else {
             const [wData, bData, cData, aData, teamStatus] = await Promise.all([
-                getWorkersInAssembly(assemblyId),
-                getBoothsWithAssignment(assemblyId),
-                getBoothCoverageStats(assemblyId),
-                getAssemblyInfo(assemblyId),
-                checkCreativeTeamStatus(assemblyId)
+                getWorkersInAssembly(currentAsmId),
+                getBoothsWithAssignment(currentAsmId),
+                getBoothCoverageStats(currentAsmId),
+                getAssemblyInfo(currentAsmId),
+                checkCreativeTeamStatus(currentAsmId)
             ]);
-            setWorkers(wData);
-            setBooths(bData);
+            setWorkers(wData || []);
+            setBooths(bData || []);
             setCoverage(cData);
             setAssembly(aData);
             setHasCreativeTeam(teamStatus);
