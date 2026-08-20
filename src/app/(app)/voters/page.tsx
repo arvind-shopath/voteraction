@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useView } from '@/context/ViewContext';
 import CandidateVotersView from './CandidateVotersView';
@@ -13,7 +14,7 @@ import WorkerVotersView from './WorkerVotersView';
  * - PANNA_PRAMUKH → WorkerVotersView (Modern glossy cards)
  * - FIELD (Ground Worker) → WorkerVotersView (Modern glossy cards)
  * - BOOTH_MANAGER → CandidateVotersView (Premium dark table)
- * - CANDIDATE/ADMIN → CandidateVotersView (Premium dark table)
+ * - CANDIDATE/ELECTION_MANAGER/ADMIN → CandidateVotersView (Premium dark table)
  */
 export default function VotersPage() {
     const { data: session } = useSession();
@@ -26,9 +27,18 @@ export default function VotersPage() {
     const shouldShowWorkerView = role === 'WORKER' && !isBoothManager;
 
     if (shouldShowWorkerView) {
-        return <WorkerVotersView />;
+        return (
+            <Suspense fallback={
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px', flexDirection: 'column', gap: '16px' }}>
+                    <div className="spinner"></div>
+                    <div style={{ fontWeight: '600', color: '#6B7280' }}>मतदाता सूची लोड हो रही है...</div>
+                </div>
+            }>
+                <WorkerVotersView />
+            </Suspense>
+        );
     }
 
-    // Booth Managers, Candidates, and Admins see premium table view
+    // Booth Managers, Candidates, Election Managers and Admins see premium table view
     return <CandidateVotersView />;
 }
