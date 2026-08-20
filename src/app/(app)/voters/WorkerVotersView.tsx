@@ -562,7 +562,7 @@ export default function WorkerVotersView() {
                                 {isPannaView ? 'मेरे पन्ने (MY PANNA)' : 'मतदाता सूची (VOTER LIST)'}
                             </div>
                             <div style={{ fontSize: isMobile ? '11px' : '13px', fontWeight: '600', color: '#CCFBF1' }}>
-                                सिकटा विधानसभा • बूथ #{assignedBooth?.number || session?.user?.boothNumber || ''}
+                                {options?.assemblyName ? `${options.assemblyName} विधानसभा` : ((session?.user as any)?.assemblyName ? `${(session?.user as any)?.assemblyName} विधानसभा` : 'विधानसभा')} • बूथ #{assignedBooth?.number || session?.user?.boothNumber || ''}
                             </div>
                         </div>
                         <div style={{ fontSize: isMobile ? '40px' : '56px', fontWeight: '900', lineHeight: 1, letterSpacing: '-1px', textShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>

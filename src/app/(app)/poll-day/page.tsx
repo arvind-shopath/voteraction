@@ -24,10 +24,8 @@ export default function PollDayPage() {
     const [candidateName, setCandidateName] = useState('');
     const [selectedAssemblyId, setSelectedAssemblyId] = useState<number | null>(null);
 
-    // Use user's assemblyId if available, otherwise fallback to Assembly ID 13 (सिकटा)
-    // Safety check: If session has stale ID 1 (which doesn't exist), force it to 13
-    const userAssemblyId = session?.user?.assemblyId || 13;
-    const finalAssemblyId = selectedAssemblyId || (userAssemblyId === 1 ? 13 : userAssemblyId);
+    const userAssemblyId = session?.user?.assemblyId;
+    const finalAssemblyId = selectedAssemblyId || userAssemblyId;
 
     const [mounted, setMounted] = useState(false);
     const [isMobile, setIsMobile] = useState(false);

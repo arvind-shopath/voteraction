@@ -248,7 +248,7 @@ export default function CandidateDashboardView({
                                         <button
                                             key={c.id}
                                             onClick={() => {
-                                                const targetAssmId = c.assemblyId || assemblies.find(as => as.name.includes('सिकटा'))?.id || assemblies[0]?.id;
+                                                const targetAssmId = c.assemblyId || assemblies[0]?.id;
                                                 if (targetAssmId) setSelectedAssemblyId(targetAssmId);
                                                 if (c.campaignId) setSelectedCampaignId(c.campaignId);
                                                 setEffectiveRole('CANDIDATE', null, { name: c.name, image: c.image });

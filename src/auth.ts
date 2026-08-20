@@ -26,7 +26,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             { mobile: credentials.mobile as string },
                             { username: credentials.mobile as string }
                         ]
-                    }
+                    },
+                    include: { assembly: true }
                 });
 
                 if (!user || !user.password) return null;
@@ -45,6 +46,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         role: user.role,
                         status: user.status,
                         assemblyId: user.assemblyId,
+                        assemblyName: user.assembly?.nameHindi || user.assembly?.name || null,
+                        assemblyNumber: user.assembly?.number || null,
                         campaignId: user.campaignId,
                         name: user.name,
                         mobile: user.mobile,
@@ -66,6 +69,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async jwt({ token, user, trigger, session }: any) {
             // Run base config jwt first
             const baseResult = await (authConfig.callbacks as any).jwt({ token, user, trigger, session });
+
+            if (baseResult.assemblyId && !baseResult.assemblyName) {
+                try {
+                    const assembly = await prisma.assembly.findUnique({
+                        where: { id: baseResult.assemblyId },
+                        select: { name: true, nameHindi: true, number: true }
+                    });
+                    if (assembly) {
+                        baseResult.assemblyName = assembly.nameHindi || assembly.name;
+                        baseResult.assemblyNumber = assembly.number;
+                    }
+                } catch (e) {
+                    // Silently fail
+                }
+            }
 
             // Periodic DB refresh for WORKERs to catch role changes (every 5 min)
             // This runs in Node.js context (auth.ts), so Prisma is safe here

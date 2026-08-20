@@ -52,9 +52,15 @@ const Header = ({ candidateName, candidateImageUrl, realUserName, realUserImage,
         ? (realUserImage || session?.user?.image)
         : (simulationPersona?.image || (isWorker ? realUserImage : (candidateImageUrl || realUserImage)) || session?.user?.image);
 
+    const userAssemblyName = (session?.user as any)?.assemblyName;
+    const userAssemblyNumber = (session?.user as any)?.assemblyNumber;
+    const assemblyLabel = userAssemblyName
+        ? (userAssemblyNumber ? `${userAssemblyName} (${userAssemblyNumber})` : `${userAssemblyName} विधानसभा`)
+        : 'विधानसभा डैशबोर्ड';
+
     const displaySub = isSimulatingActive
-        ? (effectiveRoleToUse === 'CANDIDATE' ? 'कैंडिडेट डैशबोर्ड' : 'कार्यकर्ता दृश्य')
-        : (isGlobal ? 'सेंट्रल कंट्रोलर' : 'विधानसभा डैशबोर्ड');
+        ? (effectiveRoleToUse === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : 'कार्यकर्ता दृश्य')
+        : (isGlobal ? 'सेंट्रल कंट्रोलर' : assemblyLabel);
 
     const [isMobile, setIsMobile] = React.useState(false);
     React.useEffect(() => {

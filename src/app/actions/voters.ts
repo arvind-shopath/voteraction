@@ -800,9 +800,15 @@ export async function getFilterOptions(assemblyId?: number) {
     const where = assemblyId ? { assemblyId } : {};
 
     let assemblyState = 'National';
+    let assemblyName = '';
+    let assemblyNumber: number | null = null;
     if (assemblyId) {
-        const assembly = await prisma.assembly.findUnique({ where: { id: assemblyId }, select: { state: true } });
-        if (assembly) assemblyState = assembly.state;
+        const assembly = await prisma.assembly.findUnique({ where: { id: assemblyId }, select: { name: true, nameHindi: true, number: true, state: true } });
+        if (assembly) {
+            assemblyState = assembly.state;
+            assemblyName = assembly.nameHindi || assembly.name;
+            assemblyNumber = assembly.number;
+        }
     }
 
     const [casteCategories, castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties, pannaPramukhs, boothManagers, villageBoothPairs] = await Promise.all([
@@ -930,7 +936,9 @@ export async function getFilterOptions(assemblyId?: number) {
             mobile: bm.mobile || bm.user?.mobile || '',
             boothNumber: bm.booth?.number,
             boothName: bm.booth?.name
-        }))
+        })),
+        assemblyName,
+        assemblyNumber
     };
 
 }

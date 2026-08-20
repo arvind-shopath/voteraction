@@ -648,7 +648,9 @@ export default function CandidateVotersView() {
                             <div style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.2)', borderRadius: '20px', fontSize: '10px', fontWeight: '700', letterSpacing: '0.5px', backdropFilter: 'blur(5px)' }}>
                                 मतदाता सूची (VOTER LIST)
                             </div>
-                            <div style={{ fontSize: '14px', fontWeight: '800', color: '#CCFBF1' }}>सिकटा विधानसभा</div>
+                            <div style={{ fontSize: '14px', fontWeight: '800', color: '#CCFBF1' }}>
+                                {options?.assemblyName ? `${options.assemblyName} विधानसभा` : ((session?.user as any)?.assemblyName ? `${(session?.user as any)?.assemblyName} विधानसभा` : 'विधानसभा')}
+                            </div>
                         </div>
                         <div style={{ fontSize: isMobile ? '40px' : '56px', fontWeight: '900', lineHeight: 1, letterSpacing: '-1px', textShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
                             {loading ? <Loader2 className="animate-spin" size={isMobile ? 32 : 48} /> : pagination.totalCount.toLocaleString()}
