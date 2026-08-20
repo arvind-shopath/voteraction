@@ -17,7 +17,13 @@ export default function UsersPage() {
     const [assemblies, setAssemblies] = useState<any[]>([]);
     const [campaigns, setCampaigns] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ 'pending': true });
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+        'pending': true,
+        'admins': true,
+        'candidates': true,
+        'workers': true,
+        'others': true
+    });
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState('ALL');
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -177,18 +183,14 @@ export default function UsersPage() {
 
         const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
 
-        const isMasterContext = u.role === 'ADMIN' || u.role === 'SUPERADMIN' ||
-            u.status === 'Pending' ||
-            !u.assemblyId;
-
-        return matchesSearch && matchesRole && isMasterContext;
+        return matchesSearch && matchesRole;
     });
 
     const pendingUsers = filteredUsers.filter(u => u.status === 'Pending');
     const globalAdmins = filteredUsers.filter(u => (u.role === 'ADMIN' || u.role === 'SUPERADMIN') && u.status !== 'Pending');
-    const creativeSMTeam = filteredUsers.filter(u => ['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && !u.assemblyId && u.status !== 'Pending');
-    const candidatePool = filteredUsers.filter(u => u.role === 'CANDIDATE' && !u.assemblyId && u.status !== 'Pending');
-    const otherUnassigned = filteredUsers.filter(u => !['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR', 'CANDIDATE', 'ADMIN', 'SUPERADMIN'].includes(u.role) && u.status !== 'Pending');
+    const candidates = filteredUsers.filter(u => u.role === 'CANDIDATE' && u.status !== 'Pending');
+    const workers = filteredUsers.filter(u => ['WORKER', 'SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && u.status !== 'Pending');
+    const otherMembers = filteredUsers.filter(u => !['CANDIDATE', 'WORKER', 'SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR', 'ADMIN', 'SUPERADMIN'].includes(u.role) && u.status !== 'Pending');
 
     if (loading) return (
         <div style={{ padding: '80px', textAlign: 'center' }}>
@@ -288,11 +290,11 @@ export default function UsersPage() {
                 />
 
                 <UserGroupSection
-                    title="Candidate Pool (Unassigned)"
+                    title="प्रत्याशी (Candidates)"
                     icon={<Star size={20} color="#F59E0B" />}
-                    users={candidatePool}
-                    id="candidate_pool"
-                    expanded={expandedGroups['candidate_pool']}
+                    users={candidates}
+                    id="candidates"
+                    expanded={expandedGroups['candidates']}
                     onToggle={toggleGroup}
                     onUpdateStatus={handleUpdateStatus}
                     onUpdateRole={handleUpdateRole}
@@ -301,10 +303,26 @@ export default function UsersPage() {
                     onDelete={triggerDelete}
                     onChangePassword={triggerChangePassword}
                 />
+
                 <UserGroupSection
-                    title="Other Members"
-                    icon={<UsersIcon size={20} color="#64748B" />}
-                    users={otherUnassigned}
+                    title="कार्यकर्ता व टीम (Campaign Team)"
+                    icon={<UsersIcon size={20} color="#2563EB" />}
+                    users={workers}
+                    id="workers"
+                    expanded={expandedGroups['workers']}
+                    onToggle={toggleGroup}
+                    onUpdateStatus={handleUpdateStatus}
+                    onUpdateRole={handleUpdateRole}
+                    onAssignAssembly={handleAssignAssembly}
+                    onEditName={triggerUpdateUserName}
+                    onDelete={triggerDelete}
+                    onChangePassword={triggerChangePassword}
+                />
+
+                <UserGroupSection
+                    title="अन्य सदस्य"
+                    icon={<User size={20} color="#64748B" />}
+                    users={otherMembers}
                     id="others"
                     expanded={expandedGroups['others']}
                     onToggle={toggleGroup}
@@ -473,7 +491,14 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                                             <div style={{ width: '36px', height: '36px', background: '#F1F5F9', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}><User size={18} /></div>
                                             <div>
                                                 <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '14px' }}>{u.name}</div>
-                                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '600' }}>{u.mobile}</div>
+                                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                                                    <span>{u.mobile}</span>
+                                                    {u.assembly?.name && (
+                                                        <span style={{ padding: '2px 8px', background: '#F0F9FF', color: '#0284C7', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
+                                                            📍 {u.assembly.nameHindi || u.assembly.name}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
