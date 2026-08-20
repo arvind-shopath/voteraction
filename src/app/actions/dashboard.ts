@@ -681,3 +681,169 @@ export async function getAllBooths(assemblyId: number) {
         orderBy: { number: 'asc' }
     });
 }
+
+export async function getBoothWarRoomDetails(boothNumber: number, assemblyId: number) {
+    const booth = await prisma.booth.findFirst({
+        where: { number: boothNumber, assemblyId },
+        include: {
+            workers: {
+                include: {
+                    user: { select: { id: true, name: true, mobile: true, image: true } }
+                }
+            }
+        }
+    });
+
+    const boothManager = booth?.workers?.find(w => w.type === 'BOOTH_MANAGER') || null;
+    const pannaWorkers = booth?.workers?.filter(w => w.type === 'PANNA_PRAMUKH') || [];
+
+    // Voters in this booth
+    const voters = await prisma.voter.findMany({
+        where: { boothNumber, assemblyId },
+        select: { id: true, isVoted: true, pannaPramukhId: true }
+    });
+
+    const totalVoters = voters.length;
+    const votedCount = voters.filter(v => v.isVoted).length;
+    const pendingCount = totalVoters - votedCount;
+    const turnout = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0;
+
+    // Calculate Panna-wise progress
+    const pannaDetails = pannaWorkers.map(p => {
+        const pannaVoters = voters.filter(v => v.pannaPramukhId === p.id);
+        const pannaTotal = pannaVoters.length;
+        const pannaVoted = pannaVoters.filter(v => v.isVoted).length;
+        const pannaTurnout = pannaTotal > 0 ? Math.round((pannaVoted / pannaTotal) * 100) : 0;
+        return {
+            id: p.id,
+            name: p.name || p.user?.name || 'पन्ना प्रमुख',
+            mobile: p.mobile || p.user?.mobile || '',
+            totalVoters: pannaTotal,
+            votedCount: pannaVoted,
+            pendingCount: pannaTotal - pannaVoted,
+            turnout: pannaTurnout
+        };
+    });
+
+    // Active issues for this booth
+    const boothIssues = await prisma.issue.findMany({
+        where: { boothNumber, assemblyId, category: 'Poll Day' },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+    });
+
+    return {
+        booth: {
+            id: booth?.id,
+            number: boothNumber,
+            name: booth?.nameHi || booth?.name || `बूथ #${boothNumber}`,
+            location: booth?.villageNameHi || booth?.area || booth?.localityMohallaHi || '',
+            inchargeName: boothManager?.name || booth?.inchargeName || null,
+            inchargeMobile: boothManager?.mobile || booth?.inchargeMobile || null,
+            totalVoters,
+            votedCount,
+            pendingCount,
+            turnout,
+            boothStatus: booth?.boothStatus || 'Normal'
+        },
+        boothManager: boothManager ? {
+            id: boothManager.id,
+            name: boothManager.name || boothManager.user?.name,
+            mobile: boothManager.mobile || boothManager.user?.mobile
+        } : (booth?.inchargeName ? {
+            id: 0,
+            name: booth.inchargeName,
+            mobile: booth.inchargeMobile || ''
+        } : null),
+        pannaPramukhs: pannaDetails,
+        issues: boothIssues
+    };
+}
+
+export async function sendWarRoomAlert(data: {
+    assemblyId: number;
+    targetType: string; // 'ALL', 'BOOTH_MANAGERS', 'PANNA_PRAMUKHS', 'BOOTH', 'WORKER'
+    targetId?: number;
+    boothNumber?: number;
+    title: string;
+    message: string;
+    priority: string; // 'Urgent', 'High', 'Medium'
+}) {
+    const { auth } = await import('@/auth');
+    const session = await auth();
+    const reporter = session?.user?.name || 'वार रूम (कैंडिडेट)';
+
+    let desc = data.message;
+    if (data.targetType === 'ALL') {
+        desc = `[पूरी विधानसभा टीम] ${data.message}`;
+    } else if (data.targetType === 'BOOTH_MANAGERS') {
+        desc = `[सभी बूथ मैनेजर्स] ${data.message}`;
+    } else if (data.targetType === 'PANNA_PRAMUKHS') {
+        desc = `[सभी पन्ना प्रमुख] ${data.message}`;
+    } else if (data.targetType === 'BOOTH' && data.boothNumber) {
+        desc = `[बूथ #${data.boothNumber} टीम] ${data.message}`;
+    } else if (data.targetType === 'WORKER' && data.targetId) {
+        desc = `[व्यक्तिगत निर्देश] ${data.message}`;
+    }
+
+    const issue = await prisma.issue.create({
+        data: {
+            title: data.title,
+            description: desc,
+            category: 'Poll Day',
+            priority: data.priority || 'High',
+            status: 'Open',
+            boothNumber: data.boothNumber || null,
+            reportedBy: reporter,
+            assemblyId: data.assemblyId
+        }
+    });
+
+    if (data.targetType === 'WORKER' && data.targetId) {
+        await prisma.task.create({
+            data: {
+                title: `[वॉर रूम अलर्ट] ${data.title}`,
+                description: data.message,
+                status: 'Pending',
+                priority: data.priority || 'High',
+                workerId: data.targetId,
+                assemblyId: data.assemblyId
+            }
+        });
+    } else if (data.targetType === 'BOOTH' && data.boothNumber) {
+        const workers = await prisma.worker.findMany({
+            where: { boothNumber: data.boothNumber, assemblyId: data.assemblyId }
+        });
+        for (const w of workers) {
+            await prisma.task.create({
+                data: {
+                    title: `[बूथ अलर्ट] ${data.title}`,
+                    description: data.message,
+                    status: 'Pending',
+                    priority: data.priority || 'High',
+                    workerId: w.id,
+                    assemblyId: data.assemblyId
+                }
+            });
+        }
+    }
+
+    revalidatePath('/poll-day');
+    revalidatePath('/dashboard');
+    return { success: true, issue };
+}
+
+export async function getAssemblyWorkersList(assemblyId: number) {
+    return await prisma.worker.findMany({
+        where: { assemblyId },
+        select: {
+            id: true,
+            name: true,
+            mobile: true,
+            type: true,
+            boothNumber: true,
+            user: { select: { name: true, mobile: true } }
+        },
+        orderBy: [{ type: 'asc' }, { boothNumber: 'asc' }, { name: 'asc' }]
+    });
+}
