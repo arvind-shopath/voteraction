@@ -16,7 +16,7 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
     const { data: session }: any = useSession();
     const workerType = effectiveWorkerType || session?.user?.workerType;
 
-    const isFieldWorker = workerType === 'FIELD' || workerType === 'GROUND_WORKER';
+    const isFieldWorker = workerType === 'FIELD' || workerType === 'GROUND' || workerType === 'GROUND_WORKER';
     const isPanna = workerType === 'PANNA_PRAMUKH';
 
     const [currentBooth, setCurrentBooth] = useState(boothNumber);

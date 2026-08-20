@@ -203,7 +203,22 @@ export async function getVoters(filters: {
     }
 
     if (casteCategory && casteCategory !== 'सभी वर्ग') {
-        where.casteCategory = casteCategory;
+        // Map Hindi UI values to English DB values (DB stores: OBC, SC, ST, General, Muslim)
+        const casteCategoryMap: Record<string, string[]> = {
+            'ओबीसी': ['OBC', 'ओबीसी'],
+            'एससी': ['SC', 'एससी'],
+            'एसटी': ['ST', 'एसटी'],
+            'सामान्य': ['General', 'सामान्य', 'GENERAL', 'GEN'],
+            'मुस्लिम': ['Muslim', 'मुस्लिम', 'MUSLIM'],
+            'अज्ञात': ['Unknown', 'अज्ञात', 'UNKNOWN'],
+        };
+        const mappedValues = casteCategoryMap[casteCategory];
+        if (mappedValues) {
+            where.casteCategory = { in: mappedValues };
+        } else {
+            // Value might already be English (OBC, SC, etc.) — use as-is
+            where.casteCategory = casteCategory;
+        }
     }
 
     if (caste && caste !== 'सभी जाति') {
@@ -869,7 +884,21 @@ export async function getFilterOptions(assemblyId?: number) {
     }));
 
     return {
-        casteCategories: Array.from(new Set(casteCategories.map(c => c.casteCategory as string).filter(Boolean))),
+        casteCategories: Array.from(new Set(
+            casteCategories
+                .map(c => c.casteCategory as string)
+                .filter(Boolean)
+                .map(cat => {
+                    // Normalize English DB values to Hindi UI labels
+                    const englishToHindi: Record<string, string> = {
+                        'OBC': 'ओबीसी', 'SC': 'एससी', 'ST': 'एसटी',
+                        'General': 'सामान्य', 'GENERAL': 'सामान्य', 'GEN': 'सामान्य',
+                        'Muslim': 'मुस्लिम', 'MUSLIM': 'मुस्लिम',
+                        'Unknown': 'अज्ञात', 'UNKNOWN': 'अज्ञात',
+                    };
+                    return englishToHindi[cat] || cat;
+                })
+        )),
         castes: castes.map(c => ({ caste: c.caste as string, category: c.casteCategory as string })).filter(c => Boolean(c.caste)),
         subCastes: subCastes.map(s => ({ value: s.subCaste as string, parent: s.caste as string })),
         surnames: surnames.map(s => ({ value: s.surname as string, parent: s.subCaste as string })),

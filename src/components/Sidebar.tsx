@@ -118,8 +118,8 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
             ];
         }
 
-        // FIELD WORKER / GROUND WORKER (Worker with type FIELD)
-        if (role === 'WORKER' && workerType === 'FIELD') {
+        // FIELD WORKER / GROUND WORKER (Worker with type FIELD or GROUND)
+        if (role === 'WORKER' && (workerType === 'FIELD' || workerType === 'GROUND')) {
             return [
                 { name: lang === 'hi' ? 'कार्यकर्ता डैशबोर्ड' : 'Ground Worker Dashboard', path: '/dashboard', icon: LayoutDashboard },
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Users },

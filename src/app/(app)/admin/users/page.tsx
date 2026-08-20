@@ -550,7 +550,6 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                                                 <option value="WORKER_GROUND">ग्राउंड कार्यकर्ता (Ground Worker)</option>
                                                 <option value="WORKER_BOOTH">बूथ मैनेजर (Booth Manager)</option>
                                                 <option value="WORKER_PANNA">पन्ना प्रमुख (Panna Pramukh)</option>
-                                                <option value="WORKER_FIELD">कार्यकर्ता (General Worker)</option>
                                             </optgroup>
                                         </select>
                                     </td>
@@ -618,7 +617,6 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                                 <option value="WORKER_GROUND">ग्राउंड कार्यकर्ता (Ground Worker)</option>
                                 <option value="WORKER_BOOTH">बूथ मैनेजर (Booth Manager)</option>
                                 <option value="WORKER_PANNA">पन्ना प्रमुख (Panna Pramukh)</option>
-                                <option value="WORKER_FIELD">कार्यकर्ता (General Worker)</option>
                             </optgroup>
                             <option value="ADMIN">Admin</option>
                         </select>
