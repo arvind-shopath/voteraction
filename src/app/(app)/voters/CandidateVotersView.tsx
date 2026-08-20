@@ -144,12 +144,42 @@ export const formatVoterForEdit = (v: any) => {
     };
 };
 
-const InfoBox = ({ label, value }: any) => (
-    <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{label}</div>
-        <div style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{value || 'N/A'}</div>
-    </div>
-);
+const InfoBox = ({ label, value }: any) => {
+    const isBlank = !value || value === 'N/A' || String(value).trim() === '' || value === 'null' || value === 'undefined';
+    return (
+        <div style={{
+            background: isBlank ? '#FFFBEB' : '#F8FAFC',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            border: isBlank ? '1.5px dashed #F59E0B' : '1px solid #E2E8F0',
+            transition: 'all 0.2s'
+        }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <div style={{ fontSize: '11px', color: isBlank ? '#B45309' : '#64748B', fontWeight: '800', textTransform: 'uppercase' }}>{label}</div>
+                {isBlank && (
+                    <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '2px 6px', borderRadius: '6px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        ⚠️ रिक्त (Blank)
+                    </span>
+                )}
+            </div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: isBlank ? '#D97706' : '#0F172A' }}>
+                {isBlank ? '— (जानकारी उपलब्ध नहीं)' : value}
+            </div>
+        </div>
+    );
+};
+
+const getEditFieldStyle = (val: any) => {
+    const isBlank = !val || String(val).trim() === '';
+    return {
+        ...inputStyle,
+        padding: '10px 12px',
+        background: isBlank ? '#FFFBEB' : '#F8FAFC',
+        border: isBlank ? '1.5px dashed #F59E0B' : '1px solid #CBD5E1',
+        color: isBlank ? '#B45309' : '#1E293B',
+        transition: 'all 0.2s'
+    };
+};
 
 /**
  * 🧡 CANDIDATE VIEW - VOTER LIST
@@ -1859,54 +1889,78 @@ export default function CandidateVotersView() {
                                             ) : (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                                     <div style={{ gridColumn: 'span 2' }}>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>FULL NAME</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.name || ''} onChange={(e) => setEditData({ ...editData, name: e.target.value })} />
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>FULL NAME</label>
+                                                            {!editData.name && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                        </div>
+                                                        <input style={getEditFieldStyle(editData.name)} placeholder="पूरा नाम दर्ज करें..." value={editData.name || ''} onChange={(e) => setEditData({ ...editData, name: e.target.value })} />
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>RELATIVE NAME</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.relativeName || ''} onChange={(e) => setEditData({ ...editData, relativeName: e.target.value })} />
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>RELATIVE NAME</label>
+                                                            {!editData.relativeName && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                        </div>
+                                                        <input style={getEditFieldStyle(editData.relativeName)} placeholder="सम्बन्धी का नाम..." value={editData.relativeName || ''} onChange={(e) => setEditData({ ...editData, relativeName: e.target.value })} />
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>EPIC NUMBER</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.epic || ''} onChange={(e) => setEditData({ ...editData, epic: e.target.value })} />
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>EPIC NUMBER</label>
+                                                            {!editData.epic && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                        </div>
+                                                        <input style={getEditFieldStyle(editData.epic)} placeholder="मतदाता पहचान पत्र संख्या..." value={editData.epic || ''} onChange={(e) => setEditData({ ...editData, epic: e.target.value })} />
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>RELATION</label>
-                                                        <select style={{ ...inputStyle, padding: '10px' }} value={editData.relationType || 'Father'} onChange={(e) => setEditData({ ...editData, relationType: e.target.value })}>
-                                                            <option value="Father">Father</option>
-                                                            <option value="Husband">Husband</option>
-                                                            <option value="Mother">Mother</option>
-                                                            <option value="Other">Other</option>
+                                                        <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', display: 'block', marginBottom: '4px' }}>RELATION</label>
+                                                        <select style={getEditFieldStyle(editData.relationType)} value={editData.relationType || 'Father'} onChange={(e) => setEditData({ ...editData, relationType: e.target.value })}>
+                                                            <option value="Father">Father (पिता)</option>
+                                                            <option value="Husband">Husband (पति)</option>
+                                                            <option value="Mother">Mother (माता)</option>
+                                                            <option value="Other">Other (अन्य)</option>
                                                         </select>
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>AGE</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} type="number" value={editData.age || ''} onChange={(e) => setEditData({ ...editData, age: e.target.value })} />
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>AGE</label>
+                                                            {!editData.age && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                        </div>
+                                                        <input style={getEditFieldStyle(editData.age)} type="number" placeholder="उम्र..." value={editData.age || ''} onChange={(e) => setEditData({ ...editData, age: e.target.value })} />
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>GENDER</label>
-                                                        <select style={{ ...inputStyle, padding: '10px' }} value={editData.gender || 'M'} onChange={(e) => setEditData({ ...editData, gender: e.target.value })}>
-                                                            <option value="M">Male</option>
-                                                            <option value="F">Female</option>
-                                                            <option value="O">Other</option>
+                                                        <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', display: 'block', marginBottom: '4px' }}>GENDER</label>
+                                                        <select style={getEditFieldStyle(editData.gender)} value={editData.gender || 'M'} onChange={(e) => setEditData({ ...editData, gender: e.target.value })}>
+                                                            <option value="M">Male (पुरुष)</option>
+                                                            <option value="F">Female (महिला)</option>
+                                                            <option value="O">Other (अन्य)</option>
                                                         </select>
                                                     </div>
                                                     <div style={{ gridColumn: 'span 2' }}>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>MOBILE NUMBER</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.mobile || ''} onChange={(e) => setEditData({ ...editData, mobile: e.target.value })} />
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>MOBILE NUMBER</label>
+                                                            {!editData.mobile && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त (जरूरी)</span>}
+                                                        </div>
+                                                        <input style={getEditFieldStyle(editData.mobile)} placeholder="मोबाइल नंबर दर्ज करें (उदा. 9876543210)..." value={editData.mobile || ''} onChange={(e) => setEditData({ ...editData, mobile: e.target.value })} />
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>HOUSE NO</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.houseNumber || ''} onChange={(e) => setEditData({ ...editData, houseNumber: e.target.value })} />
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>HOUSE NO</label>
+                                                            {!editData.houseNumber && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                        </div>
+                                                        <input style={getEditFieldStyle(editData.houseNumber)} placeholder="मकान संख्या..." value={editData.houseNumber || ''} onChange={(e) => setEditData({ ...editData, houseNumber: e.target.value })} />
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>VILLAGE/WARD</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.village || ''} onChange={(e) => setEditData({ ...editData, village: e.target.value })} />
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>VILLAGE/WARD</label>
+                                                            {!editData.village && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                        </div>
+                                                        <input style={getEditFieldStyle(editData.village)} placeholder="गांव या वार्ड..." value={editData.village || ''} onChange={(e) => setEditData({ ...editData, village: e.target.value })} />
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>वर्ग (CATEGORY)</label>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>वर्ग (CATEGORY)</label>
+                                                            {!editData.casteCategoryKey && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                        </div>
                                                         <select
-                                                            style={{ ...inputStyle, padding: '10px' }}
+                                                            style={getEditFieldStyle(editData.casteCategoryKey)}
                                                             value={editData.casteCategoryKey || ''}
                                                             onChange={(e) => {
                                                                 const selectedKey = e.target.value;
@@ -1914,19 +1968,22 @@ export default function CandidateVotersView() {
                                                                 setEditData({ ...editData, casteCategoryKey: selectedKey, casteCategory: dbCat, caste: '' });
                                                             }}
                                                         >
-                                                            <option value="">--चुनें--</option>
+                                                            <option value="">--वर्ग चुनें--</option>
                                                             {Object.keys(CASTE_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
                                                         </select>
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>जाति (CASTE)</label>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>जाति (CASTE)</label>
+                                                            {!editData.caste && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                        </div>
                                                         <select
-                                                            style={{ ...inputStyle, padding: '10px' }}
+                                                            style={getEditFieldStyle(editData.caste)}
                                                             value={editData.caste || ''}
                                                             disabled={!editData.casteCategoryKey}
                                                             onChange={(e) => setEditData({ ...editData, caste: e.target.value })}
                                                         >
-                                                            <option value="">--चुनें--</option>
+                                                            <option value="">--जाति चुनें--</option>
                                                             {editData.casteCategoryKey && CASTE_OPTIONS[editData.casteCategoryKey]?.map((c: string) => (
                                                                 <option key={c} value={c}>{c}</option>
                                                             ))}
@@ -1940,11 +1997,89 @@ export default function CandidateVotersView() {
                                         </div>
                                     </div>
 
-                                    {/* Column 2: Operational Data & Family */}
+                                    {/* Column 2: 2. Operational Data & 3. Family */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        {/* SECTION 2: OPERATIONAL DATA */}
                                         <div style={{ background: '#F8FAFC', padding: '24px', borderRadius: '24px', border: '1px solid #E2E8F0' }}>
-                                            <h4 style={{ fontWeight: '800', marginBottom: '16px', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <Users size={16} /> Family ({viewVoter.family?.length || 0})
+                                            <h4 style={{ fontWeight: '800', marginBottom: '16px', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                <Activity size={16} color="#4338CA" /> Operational Data
+                                            </h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', display: 'block', marginBottom: '6px' }}>POLL DAY STATUS</label>
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <button
+                                                            onClick={() => {
+                                                                const newVal = !editData.isVoted;
+                                                                setEditData({ ...editData, isVoted: newVal });
+                                                                if (!isEditing) updateVoter(viewVoter.id, { isVoted: newVal }).catch(e => alert(e.message));
+                                                            }}
+                                                            style={{
+                                                                flex: 1, padding: '12px', borderRadius: '12px', border: 'none', fontWeight: '800', fontSize: '13px',
+                                                                background: editData.isVoted ? '#DCFCE7' : '#FEE2E2',
+                                                                color: editData.isVoted ? '#166534' : '#991B1B',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '6px'
+                                                            }}
+                                                        >
+                                                            {editData.isVoted ? '✅ VOTED (मतदान किया)' : '❌ NOT VOTED (मतदान नहीं किया)'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {!isEditing ? (
+                                                    <>
+                                                        <InfoBox label="Support Status (मतदाता का मूड)" value={viewVoter.supportStatus ? (viewVoter.supportStatus === 'Support' ? '✅ पक्ष (Favor)' : viewVoter.supportStatus === 'Oppose' ? '❌ विपक्ष (Anti)' : '⚪ न्यूट्रल (Neutral)') : ''} />
+                                                        <InfoBox label="Verification Status" value={viewVoter.verificationStatus} />
+                                                        <InfoBox label="Notes (महत्वपूर्ण टिप्पणी)" value={viewVoter.notes} />
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div>
+                                                            <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', display: 'block', marginBottom: '6px' }}>SUPPORT STATUS (मतदाता का मूड)</label>
+                                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                                {['Support', 'Neutral', 'Oppose'].map(s => (
+                                                                    <button
+                                                                        key={s}
+                                                                        type="button"
+                                                                        onClick={() => setEditData({ ...editData, supportStatus: s })}
+                                                                        style={{
+                                                                            flex: 1,
+                                                                            padding: '10px 8px',
+                                                                            borderRadius: '10px',
+                                                                            border: editData.supportStatus === s ? '2px solid' : '1px solid #E2E8F0',
+                                                                            borderColor: editData.supportStatus === s ? (s === 'Support' ? '#22C55E' : s === 'Oppose' ? '#EF4444' : '#64748B') : '#E2E8F0',
+                                                                            background: editData.supportStatus === s ? (s === 'Support' ? '#DCFCE7' : s === 'Oppose' ? '#FEE2E2' : '#F1F5F9') : 'white',
+                                                                            color: editData.supportStatus === s ? (s === 'Support' ? '#166534' : s === 'Oppose' ? '#991B1B' : '#334155') : '#64748B',
+                                                                            fontWeight: '800',
+                                                                            fontSize: '12px',
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    >
+                                                                        {s === 'Support' ? '✅ Favor' : s === 'Oppose' ? '❌ Anti' : '⚪ Neutral'}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                                <label style={{ fontSize: '11px', fontWeight: '800', color: '#64748B' }}>NOTES (महत्वपूर्ण टिप्पणी)</label>
+                                                                {!editData.notes && <span style={{ fontSize: '10px', background: '#FEF3C7', color: '#B45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '800' }}>⚠️ रिक्त</span>}
+                                                            </div>
+                                                            <textarea style={getEditFieldStyle(editData.notes)} placeholder="मतदाता से जुड़ी कोई खास बात या निर्देश लिखें..." value={editData.notes || ''} onChange={(e) => setEditData({ ...editData, notes: e.target.value })} rows={3} />
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* SECTION 3: FAMILY */}
+                                        <div style={{ background: '#F8FAFC', padding: '24px', borderRadius: '24px', border: '1px solid #E2E8F0' }}>
+                                            <h4 style={{ fontWeight: '800', marginBottom: '16px', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                <Users size={16} color="#4338CA" /> Family ({viewVoter.family?.length || 0})
                                             </h4>
 
                                             {/* Family Add Search */}
@@ -1954,7 +2089,7 @@ export default function CandidateVotersView() {
                                                     placeholder="परिवार में सदस्य जोड़ें (नाम/EPIC)..."
                                                     value={familySearch}
                                                     onChange={(e) => handleFamilySearch(e.target.value)}
-                                                    style={{ ...inputStyle, padding: '10px 10px 10px 34px', fontSize: '12px' }}
+                                                    style={{ ...inputStyle, padding: '10px 10px 10px 34px', fontSize: '12px', background: 'white' }}
                                                 />
                                                 {familyResults.length > 0 && (
                                                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', borderRadius: '12px', zIndex: 10, marginTop: '4px', border: '1px solid #E2E8F0', maxHeight: '200px', overflowY: 'auto' }}>
@@ -2009,55 +2144,6 @@ export default function CandidateVotersView() {
                                                     })}
                                                 </div>
                                             )}
-                                        </div>
-
-                                        <div style={{ background: '#F8FAFC', padding: '24px', borderRadius: '24px', border: '1px solid #E2E8F0' }}>
-                                            <h4 style={{ fontWeight: '800', marginBottom: '16px', color: '#334155' }}>Operational Data</h4>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                <div>
-                                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>POLL DAY STATUS</label>
-                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                                                        <button
-                                                            onClick={() => {
-                                                                const newVal = !editData.isVoted;
-                                                                setEditData({ ...editData, isVoted: newVal });
-                                                                if (!isEditing) updateVoter(viewVoter.id, { isVoted: newVal }).catch(e => alert(e.message));
-                                                            }}
-                                                            style={{
-                                                                flex: 1, padding: '10px', borderRadius: '12px', border: 'none', fontWeight: '700', fontSize: '13px',
-                                                                background: editData.isVoted ? '#DCFCE7' : '#F1F5F9',
-                                                                color: editData.isVoted ? '#166534' : '#64748B',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            {editData.isVoted ? '✅ VOTED' : '❌ NOT VOTED'}
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {!isEditing ? (
-                                                    <>
-                                                        <InfoBox label="Support Status" value={viewVoter.supportStatus} />
-                                                        <InfoBox label="Verification" value={viewVoter.verificationStatus} />
-                                                        <InfoBox label="Notes" value={viewVoter.notes} />
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div>
-                                                            <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>SUPPORT STATUS</label>
-                                                            <select style={{ ...inputStyle, padding: '10px' }} value={editData.supportStatus} onChange={(e) => setEditData({ ...editData, supportStatus: e.target.value })}>
-                                                                <option value="Support">Favor</option>
-                                                                <option value="Neutral">Neutral</option>
-                                                                <option value="Oppose">Anti</option>
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>NOTES</label>
-                                                            <textarea style={{ ...inputStyle, padding: '10px', height: '80px', resize: 'none' }} value={editData.notes} onChange={(e) => setEditData({ ...editData, notes: e.target.value })} />
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
