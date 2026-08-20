@@ -691,28 +691,39 @@ export async function assignTeamToAssembly(role: string, assemblyIdRaw: any) {
 export async function getCampaigns(assemblyId?: number) {
     const where = assemblyId ? { assemblyId } : {};
     
-    // Auto-clean orphaned campaigns (e.g. deleted candidate campaigns)
-    const allCampaigns = await prisma.campaign.findMany({
-        where,
-        include: { assembly: true, users: true, _count: { select: { users: true, workers: true } } }
-    });
+    try {
+        const allCampaigns = await prisma.campaign.findMany({
+            where,
+            include: { assembly: true, users: true, _count: { select: { users: true, workers: true } } }
+        });
 
-    const validCampaigns = [];
-    for (const c of allCampaigns) {
-        const isRajesh = (c.name && c.name.includes('राजेश')) || (c.candidateName && c.candidateName.includes('राजेश')) || (c.name && c.name.toLowerCase().includes('rajesh'));
-        const candidateUsers = c.users ? c.users.filter((u: any) => u.role === 'CANDIDATE') : [];
+        const validCampaigns = [];
+        for (const c of allCampaigns) {
+            const isRajesh = (c.name && c.name.includes('राजेश')) || (c.candidateName && c.candidateName.includes('राजेश')) || (c.name && c.name.toLowerCase().includes('rajesh'));
+            const candidateUsers = c.users ? c.users.filter((u: any) => u.role === 'CANDIDATE') : [];
 
-        if (isRajesh || candidateUsers.length === 0) {
-            await prisma.workerSocialTask.deleteMany({ where: { campaignId: c.id } }).catch(() => {});
-            await prisma.campaignMaterial.deleteMany({ where: { campaignId: c.id } }).catch(() => {});
-            await prisma.user.updateMany({ where: { campaignId: c.id }, data: { campaignId: null } }).catch(() => {});
-            await prisma.campaign.delete({ where: { id: c.id } }).catch(() => {});
-        } else {
-            validCampaigns.push(c);
+            if (isRajesh || candidateUsers.length === 0) {
+                await prisma.workerSocialTask.deleteMany({ where: { campaignId: c.id } }).catch(() => {});
+                await prisma.campaignMaterial.deleteMany({ where: { campaignId: c.id } }).catch(() => {});
+                await prisma.user.updateMany({ where: { campaignId: c.id }, data: { campaignId: null } }).catch(() => {});
+                await prisma.campaign.delete({ where: { id: c.id } }).catch(() => {});
+            } else {
+                validCampaigns.push(c);
+            }
         }
-    }
 
-    return validCampaigns;
+        return validCampaigns;
+    } catch (e) {
+        console.error("getCampaigns error, performing auto-repair...", e);
+        const defaultAssembly = await prisma.assembly.findFirst();
+        if (defaultAssembly) {
+            await prisma.$executeRawUnsafe(`UPDATE Campaign SET assemblyId = ${defaultAssembly.id} WHERE assemblyId IS NULL OR assemblyId NOT IN (SELECT id FROM Assembly);`).catch(() => {});
+        }
+        return await prisma.campaign.findMany({
+            where,
+            include: { assembly: true, users: true, _count: { select: { users: true, workers: true } } }
+        }).catch(() => []);
+    }
 }
 
 export async function createCampaign(data: { name: string, assemblyId: number, candidateName?: string }) {
