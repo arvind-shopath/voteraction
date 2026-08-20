@@ -75,6 +75,7 @@ export async function createBulkTasks(data: {
 
 export async function getWorkersInAssembly(assemblyIdRaw?: any) {
     const session = await auth();
+    const user_s = session?.user as any;
     // Support for Simulation: ONLY for SUPERADMIN
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
