@@ -210,14 +210,19 @@ export async function getWorkersInAssembly(assemblyIdRaw?: any) {
 
 import bcrypt from 'bcryptjs';
 
-export async function checkCreativeTeamStatus(assemblyId: number) {
-    const creativeTeam = await prisma.userAssemblyAssignment.findFirst({
-        where: {
-            assemblyId,
-            role: 'SOCIAL_MEDIA'
-        }
-    });
-    return !!creativeTeam;
+export async function checkCreativeTeamStatus(assemblyIdRaw?: any) {
+    try {
+        const assemblyId = await resolveAssemblyId(assemblyIdRaw);
+        const creativeTeam = await prisma.userAssemblyAssignment.findFirst({
+            where: {
+                assemblyId,
+                role: 'SOCIAL_MEDIA'
+            }
+        });
+        return !!creativeTeam;
+    } catch {
+        return false;
+    }
 }
 
 export async function getAssemblyVillages(assemblyIdRaw?: any) {
