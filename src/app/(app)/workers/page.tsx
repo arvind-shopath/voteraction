@@ -66,7 +66,7 @@ export default function WorkersPage() {
     const [filterType, setFilterType] = useState('ALL');
     const [sortBy, setSortBy] = useState('NAME');
     const [loading, setLoading] = useState(true);
-    const { data: session }: any = useSession();
+    const { data: session, status: sessionStatus }: any = useSession();
     const { effectiveRole, effectiveWorkerType } = useView();
     const role = effectiveRole || session?.user?.role;
     const isAdmin = ['ADMIN', 'SUPERADMIN'].includes(role);
@@ -78,8 +78,10 @@ export default function WorkersPage() {
     const assemblyId = session?.user?.assemblyId || 1;
 
     useEffect(() => {
+        // Wait for session to load before fetching — prevents empty assemblyId race condition
+        if (sessionStatus === 'loading') return;
         fetchData();
-    }, []);
+    }, [sessionStatus, assemblyId]);
 
     async function fetchData() {
         setLoading(true);

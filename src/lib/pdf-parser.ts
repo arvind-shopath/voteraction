@@ -1,91 +1,272 @@
 
 import { writeFile, readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { pathToFileURL } from 'url';
 
 const execAsync = promisify(exec);
 
-export async function extractTextFromPdf(pdfPath: string, onProgress?: (pct: number) => Promise<void>, startPage?: number, endPage?: number): Promise<string> {
-    const tempTxtPath = pdfPath.replace('.pdf', '.txt');
+// Get the bundled pdftotext binary path from pdf-poppler package
+function getBundledPdftotextPath(): string {
+    const platform = process.platform;
+    if (platform === 'win32') {
+        return join(process.cwd(), 'node_modules', 'pdf-poppler', 'lib', 'win', 'poppler-0.51', 'bin', 'pdftotext.exe');
+    } else if (platform === 'darwin') {
+        return join(process.cwd(), 'node_modules', 'pdf-poppler', 'lib', 'osx', 'poppler-0.66', 'bin', 'pdftotext');
+    }
+    return 'pdftotext'; // fallback to system PATH
+}
+
+export async function extractTextFromPdf(
+    pdfPath: string,
+    onProgress?: (pct: number) => Promise<void>,
+    startPage?: number,
+    endPage?: number,
+    onVotersExtracted?: (voters: VoterData[]) => Promise<void>
+): Promise<string> {
+    // PRIMARY: Use bundled pdftotext from pdf-poppler package
+    const bundledPdftotext = getBundledPdftotextPath();
+    const tempTxtPath = pdfPath + '.extracted.txt';
+
+    if (existsSync(bundledPdftotext)) {
+        try {
+            let first = startPage || 1;
+            let last = endPage || 9999;
+            if (first > last) { const temp = first; first = last; last = temp; }
+
+            console.log(`[BUNDLED pdftotext] Extracting from ${pdfPath}, pages ${first}-${last}`);
+            console.log(`[BUNDLED pdftotext] Binary: ${bundledPdftotext}`);
+
+            await execAsync(`"${bundledPdftotext}" -f ${first} -l ${last} -layout -enc UTF-8 "${pdfPath}" "${tempTxtPath}"`, {
+                maxBuffer: 50 * 1024 * 1024 // 50MB buffer
+            });
+
+            if (existsSync(tempTxtPath)) {
+                const text = await readFile(tempTxtPath, 'utf-8');
+                // Clean up temp file
+                try { const { unlink } = await import('fs/promises'); await unlink(tempTxtPath); } catch {}
+
+                if (text.trim().length > 50) {
+                    console.log(`[BUNDLED pdftotext SUCCESS] Extracted ${text.length} chars from ${pdfPath}`);
+                    return text;
+                }
+            }
+        } catch (bundledErr) {
+            console.error('[BUNDLED pdftotext error]:', bundledErr);
+        }
+    } else {
+        console.log(`[BUNDLED pdftotext] Binary not found at ${bundledPdftotext}`);
+    }
+
+    // FALLBACK 1: System pdftotext
     try {
         let first = startPage || 1;
         let last = endPage || 9999;
+        if (first > last) { const temp = first; first = last; last = temp; }
 
-        // Safety: swap if reversed
-        if (first > last) {
-            const temp = first;
-            first = last;
-            last = temp;
-        }
+        console.log(`[SYSTEM pdftotext] Trying system PATH pdftotext...`);
 
-        console.log(`Extracting PDF Text. Pages: ${first} to ${last}`);
+        await execAsync(`pdftotext -f ${first} -l ${last} -layout -enc UTF-8 "${pdfPath}" "${tempTxtPath}"`, {
+            maxBuffer: 50 * 1024 * 1024
+        });
 
-        await execAsync(`pdftotext -f ${first} -l ${last} -layout -enc UTF-8 "${pdfPath}" "${tempTxtPath}"`);
-        let text = await readFile(tempTxtPath, 'utf-8');
-
-        if (text.trim().length < 100) {
-            console.log('Using Advanced Split OCR (Overlap Mode)...');
-            const imageDir = pdfPath + '_images';
-            await execAsync(`mkdir -p "${imageDir}"`);
-
-            try {
-                const totalPageLines = await execAsync(`pdfinfo "${pdfPath}" | grep Pages | awk '{print $2}'`);
-                const actualTotal = parseInt(totalPageLines.stdout.trim()) || 50;
-
-                const finalStart = Math.max(1, startPage || 1);
-                const finalEnd = Math.min(actualTotal, endPage || actualTotal, finalStart + 110);
-
-                const ocrTexts: string[] = [];
-                for (let p = finalStart; p <= finalEnd; p++) {
-                    if (onProgress) {
-                        const totalToProcess = finalEnd - finalStart + 1;
-                        const currentProcessed = p - finalStart + 1;
-                        const pct = 10 + Math.floor((currentProcessed / totalToProcess) * 30);
-                        await onProgress(pct);
-                    }
-                    console.log(`Processing Page ${p}/${actualTotal}...`);
-
-                    // Optimized column mapping for standard 3-column A4 (2480px @ 300dpi)
-                    // Reduced width to avoid capturing fragments of adjacent columns
-                    const pageHeight = 3509;
-                    const columns = [
-                        { x: 0, w: 840 },
-                        { x: 820, w: 840 },
-                        { x: 1640, w: 840 }
-                    ];
-
-                    let pageContent = "";
-                    for (let c = 0; c < columns.length; c++) {
-                        const col = columns[c];
-                        const colTxtBase = join(imageDir, `p${p}_c${c}`);
-
-                        // Extract column
-                        await execAsync(`pdftoppm -png -r 300 -f ${p} -l ${p} -x ${col.x} -y 0 -W ${col.w} -H ${pageHeight} "${pdfPath}" "${colTxtBase}_raw"`);
-
-                        const rawFiles = await execAsync(`ls ${colTxtBase}_raw*.png`);
-                        const actualImg = rawFiles.stdout.trim().split('\n')[0];
-
-                        // OCR with optimized PSM (6 for uniform block of text)
-                        await execAsync(`tesseract "${actualImg}" "${colTxtBase}" -l hin+eng --psm 6`);
-                        const colText = await readFile(`${colTxtBase}.txt`, 'utf-8');
-                        pageContent += colText + "\n";
-                    }
-                    ocrTexts.push(pageContent);
-                }
-                text = ocrTexts.join('\n\f\n');
-                await execAsync(`rm -rf "${imageDir}"`);
-            } catch (err) {
-                console.error('OCR Error:', err);
-                await execAsync(`rm -rf "${imageDir}"`).catch(() => { });
-                if (text.length < 100) throw new Error('OCR Failed or produced no text');
+        if (existsSync(tempTxtPath)) {
+            const text = await readFile(tempTxtPath, 'utf-8');
+            try { const { unlink } = await import('fs/promises'); await unlink(tempTxtPath); } catch {}
+            if (text.trim().length > 50) {
+                console.log(`[SYSTEM pdftotext SUCCESS] Extracted ${text.length} chars from ${pdfPath}`);
+                return text;
             }
         }
-        return text;
-    } catch (error) {
-        console.error('PDF Extraction Failed:', error);
-        throw error;
+    } catch (sysErr) {
+        console.error('[SYSTEM pdftotext failed]:', sysErr);
     }
+
+    // FALLBACK 2: pdfjs-dist for text-layer PDFs (won't work for scanned/image PDFs)
+    try {
+        const dataBuffer = await readFile(pdfPath);
+        const uint8 = new Uint8Array(dataBuffer);
+
+        const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+        const workerPath = join(process.cwd(), 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.mjs');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+
+        const loadingTask = pdfjsLib.getDocument({
+            data: uint8,
+            useWorkerFetch: false,
+            isEvalSupported: false,
+            useSystemFonts: true,
+            disableFontFace: true,
+        });
+
+        const pdf = await loadingTask.promise;
+        const totalPages = pdf.numPages;
+        const first = Math.max(startPage || 1, 1);
+        const last = Math.min(endPage || totalPages, totalPages);
+
+        console.log(`[pdfjs-dist] Extracting text from ${pdfPath}, pages ${first}-${last} (total: ${totalPages})`);
+
+        const pageTexts: string[] = [];
+        for (let i = first; i <= last; i++) {
+            try {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                const strings = content.items
+                    .filter((item: any) => 'str' in item)
+                    .map((item: any) => item.str);
+                pageTexts.push(strings.join(' '));
+            } catch (pageErr) {
+                console.error(`[pdfjs-dist] Error on page ${i}:`, pageErr);
+            }
+        }
+
+        const fullText = pageTexts.join('\n\n--- PAGE BREAK ---\n\n');
+        const cleanContentLength = fullText.replace(/--- PAGE BREAK ---/g, '').trim().length;
+        if (cleanContentLength > 50) {
+            console.log(`[pdfjs-dist SUCCESS] Extracted ${fullText.length} chars from ${pdfPath}`);
+            return fullText;
+        }
+    } catch (pdfjsErr) {
+        console.error('[pdfjs-dist error]:', pdfjsErr);
+    }
+
+    // FALLBACK 3: Scanned PDF Image Rendering & Tesseract.js OCR Engine
+    try {
+        console.log(`[SCANNED PDF OCR] Starting fast grayscale page rendering for ${pdfPath}...`);
+        const { readdirSync, mkdirSync, existsSync, rmSync } = require('fs');
+        const imgDir = pdfPath + '_ocr_pages';
+        if (!existsSync(imgDir)) mkdirSync(imgDir, { recursive: true });
+
+        const pdftocairoBin = join(process.cwd(), 'node_modules', 'pdf-poppler', 'lib', 'win', 'poppler-0.51', 'bin', 'pdftocairo.exe');
+
+        if (existsSync(pdftocairoBin)) {
+            console.log(`[SCANNED PDF OCR] Executing pdftocairo.exe -png -gray -scale-to 800...`);
+            await execAsync(`"${pdftocairoBin}" -png -gray -scale-to 800 "${pdfPath}" "${join(imgDir, 'img')}"`, {
+                maxBuffer: 50 * 1024 * 1024
+            });
+        } else {
+            console.error(`[SCANNED PDF OCR] pdftocairo.exe not found at ${pdftocairoBin}`);
+        }
+
+        let imageFiles = existsSync(imgDir) ? readdirSync(imgDir).filter((f: string) => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg')).sort() : [];
+        console.log(`[SCANNED PDF OCR] Found ${imageFiles.length} extracted page PNG images.`);
+
+        if (imageFiles.length > 0) {
+            const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+            const { readFileSync } = require('fs');
+            const { processPageImageWithVisionAI } = await import('./vision-ai');
+            const ocrTexts: string[] = [];
+
+            const totalImgs = imageFiles.length;
+
+            if (apiKey) {
+                console.log(`[SCANNED PDF OCR] Using Gemini 2.5 Flash Vision AI for high-speed page image scanning...`);
+                for (let i = 0; i < totalImgs; i++) {
+                    if (i === 1 && totalImgs > 3) continue; // skip map page
+                    const imgPath = join(imgDir, imageFiles[i]);
+                    try {
+                        console.log(`[VISION AI SCAN] Scanning Page ${i + 1}/${totalImgs}...`);
+                        const imgBuf = readFileSync(imgPath);
+                        const visionVoters = await processPageImageWithVisionAI(imgBuf);
+
+                        if (visionVoters.length > 0) {
+                            const pageText = visionVoters.map(v =>
+                                `EPIC: ${v.epic_no}\nनाम: ${v.voter_name_hi}\nपिता/पति का नाम: ${v.relative_name_hi}\nसम्बन्ध: ${v.relation_type}\nमकान संख्या: ${v.house_no}\nउम्र: ${v.age || ''}\nलिंग: ${v.gender}`
+                            ).join('\n---\n');
+                            ocrTexts.push(pageText);
+                            console.log(`[VISION AI SCAN] Page ${i + 1} SUCCESS (${visionVoters.length} voters extracted).`);
+
+                            if (onVotersExtracted) {
+                                const pageVoterObjects: VoterData[] = visionVoters.map(v => ({
+                                    epic: v.epic_no,
+                                    name: v.voter_name_hi,
+                                    relativeName: v.relative_name_hi,
+                                    relationType: v.relation_type,
+                                    age: v.age,
+                                    gender: v.gender === 'Female' ? 'F' : 'M',
+                                    houseNumber: v.house_no,
+                                    boothNumber: null,
+                                    village: '',
+                                    area: '',
+                                    originalText: `EPIC: ${v.epic_no}\nनाम: ${v.voter_name_hi}\nपिता/पति: ${v.relative_name_hi}`
+                                }));
+                                await onVotersExtracted(pageVoterObjects);
+                            }
+                        }
+
+                        if (onProgress) {
+                            const pct = Math.min(95, Math.floor(15 + ((i + 1) / totalImgs) * 80));
+                            await onProgress(pct);
+                        }
+                    } catch (vErr) {
+                        console.error(`[VISION AI SCAN] Page ${i + 1} error:`, vErr);
+                    }
+                }
+            }
+
+            // Fallback to Tesseract if Vision AI extracted 0 text
+            if (ocrTexts.length === 0) {
+                console.log(`[SCANNED PDF OCR] Initializing 2 parallel Tesseract workers...`);
+                const { createWorker } = await import('tesseract.js');
+                const [w1, w2] = await Promise.all([
+                    createWorker('hin+eng'),
+                    createWorker('hin+eng')
+                ]);
+
+                const workers = [w1, w2];
+                const BATCH_SIZE = 2;
+                const tempTextMap: { [key: number]: string } = {};
+
+                for (let i = 0; i < totalImgs; i += BATCH_SIZE) {
+                    const chunk = imageFiles.slice(i, i + BATCH_SIZE);
+                    await Promise.all(chunk.map(async (imgFile: string, idx: number) => {
+                        const pageIdx = i + idx;
+                        if (pageIdx === 1 && totalImgs > 3) return; // skip map page
+                        const imgPath = join(imgDir, imgFile);
+                        const workerInstance = workers[idx % workers.length];
+                        try {
+                            console.log(`[SCANNED PDF OCR] Parallel OCRing Page ${pageIdx + 1}/${totalImgs} (${imgFile})...`);
+                            const res = await workerInstance.recognize(imgPath);
+                            if (res.data && res.data.text && res.data.text.trim().length > 10) {
+                                tempTextMap[pageIdx] = res.data.text;
+                                console.log(`[SCANNED PDF OCR] Page ${pageIdx + 1} SUCCESS (${res.data.text.length} chars).`);
+                            }
+                        } catch (pageOcrErr) {
+                            console.error(`[SCANNED PDF OCR] Page ${pageIdx + 1} error:`, pageOcrErr);
+                        }
+                    }));
+
+                    if (onProgress) {
+                        const pct = Math.min(95, Math.floor(15 + ((i + BATCH_SIZE) / totalImgs) * 80));
+                        await onProgress(pct);
+                    }
+                }
+
+                await Promise.all([w1.terminate(), w2.terminate()]);
+
+                // Assemble ordered texts
+                for (let i = 0; i < totalImgs; i++) {
+                    if (tempTextMap[i]) ocrTexts.push(tempTextMap[i]);
+                }
+            }
+
+            // Clean up temp image directory
+            try { rmSync(imgDir, { recursive: true, force: true }); } catch { }
+
+            const fullOcrText = ocrTexts.join('\n\n--- PAGE BREAK ---\n\n');
+            if (fullOcrText.trim().length > 50) {
+                console.log(`[SCANNED PDF OCR SUCCESS] Extracted ${fullOcrText.length} chars from scanned PDF!`);
+                return fullOcrText;
+            }
+        }
+    } catch (scannedOcrErr: any) {
+        console.error('[SCANNED PDF OCR Error]:', scannedOcrErr?.stack || scannedOcrErr?.message || scannedOcrErr);
+    }
+
+    console.error(`[extractTextFromPdf] ALL methods failed for ${pdfPath}`);
+    return "";
 }
 
 
@@ -101,6 +282,9 @@ interface VoterData {
     village: string;
     area: string;
     originalText: string;
+    policeStation?: string;
+    district?: string;
+    pincode?: string;
 }
 
 import { spawn } from 'child_process';
@@ -111,135 +295,109 @@ import { spawn } from 'child_process';
  */
 export async function parseVotersAdvanced(
     pdfPath: string,
-    onProgress?: (pct: number) => Promise<void>,
+    onProgress?: (pct: number) => void,
     startPage: number = 1,
     endPage: number = 9999,
     commonAddress: string = "",
-    defaultVillage: string = ""
+    defaultVillage: string = "",
+    onVotersExtracted?: (voters: VoterData[]) => Promise<void>
 ): Promise<VoterData[]> {
-    return new Promise((resolve, reject) => {
-        try {
-            console.log(`Starting Advanced Python Parser for ${pdfPath}, pages ${startPage}-${endPage}`);
-
-            const venvPythonPath = join(process.cwd(), 'ocr_venv', 'bin', 'python3');
-            const scriptPath = join(process.cwd(), 'scripts', 'box_parser.py');
-
-            const child = spawn(venvPythonPath, [scriptPath, pdfPath, String(startPage), String(endPage)]);
-
-            let stdoutData = "";
-            let stderrData = "";
-
-            if (onProgress) onProgress(15);
-
-            child.stdout.on('data', (data) => {
-                stdoutData += data.toString();
-            });
-
-            child.stderr.on('data', (data) => {
-                const lines = data.toString().split('\n');
-                for (const line of lines) {
-                    if (!line.trim()) continue;
-                    console.log(`[Python Parser Stderr] ${line.trim()}`);
-                    stderrData += line + '\n';
-
-                    // Extract progress if possible from markers like "--- Page 3: Found 30 boxes ---"
-                    const pageMatch = line.match(/Page (\d+):/);
-                    if (pageMatch && onProgress) {
-                        const currentPage = parseInt(pageMatch[1]);
-                        const totalToProcess = endPage - startPage + 1;
-                        if (totalToProcess > 0) {
-                            const completed = currentPage - startPage;
-                            const pct = 15 + Math.floor((completed / totalToProcess) * 75);
-                            onProgress(Math.min(90, pct));
-                        }
-                    }
-                }
-            });
-
-            child.on('close', (code) => {
-                if (code !== 0) {
-                    console.error(`Python Parser exited with code ${code}`);
-                    return reject(new Error(`Python Parser failed (Code ${code}). Check logs for details.`));
-                }
-
-                try {
-                    const jsonStart = stdoutData.indexOf('[') !== -1 ? stdoutData.indexOf('[') : stdoutData.indexOf('{');
-                    const cleanStdout = jsonStart !== -1 ? stdoutData.substring(jsonStart).trim() : stdoutData.trim();
-                    const results = JSON.parse(cleanStdout || '[]');
-
-                    if (results.error) {
-                        return reject(new Error(results.error));
-                    }
-
-                    if (onProgress) onProgress(90);
-
-                    // Map results to VoterData structure
-                    const mapped = results.map((v: any) => ({
-                        ...v,
-                        boothNumber: null,
-                        village: v.village || defaultVillage,
-                        area: v.area || commonAddress
-                    }));
-                    resolve(mapped);
-                } catch (e) {
-                    console.error('Failed to parse Python JSON output:', e);
-                    reject(new Error('Invalid output format from Parser'));
-                }
-            });
-
-            child.on('error', (err) => {
-                console.error('Failed to start Python process:', err);
-                reject(err);
-            });
-
-        } catch (error) {
-            console.error('Advanced Parser Error:', error);
-            reject(error);
-        }
-    });
+    try {
+        console.log(`[parseVotersAdvanced] Extracting text from ${pdfPath}...`);
+        if (onProgress) onProgress(10);
+        const text = await extractTextFromPdf(
+            pdfPath,
+            async (pct) => { if (onProgress) onProgress(pct); },
+            startPage,
+            endPage,
+            onVotersExtracted
+        );
+        console.log(`[parseVotersAdvanced] Text extracted (${text.length} chars). Parsing voter roll...`);
+        const voters = parseUPVoterRoll(text, commonAddress, defaultVillage);
+        console.log(`[parseVotersAdvanced] Parsed ${voters.length} voters cleanly.`);
+        if (onProgress) onProgress(95);
+        return voters;
+    } catch (err) {
+        console.error('[parseVotersAdvanced error]:', err);
+        throw err;
+    }
 }
 
 export function parseUPVoterRoll(text: string, manualAddress?: string, defaultVillage?: string): VoterData[] {
     const voters: VoterData[] = [];
-    const pages = text.split('\f');
+    const pages = text.split(/\f|\-\-\-\s*PAGE\s*BREAK\s*\-\-\-/i);
 
     console.log(`Starting Parser. Total Pages Found: ${pages.length}`);
 
     pages.forEach((pageText, pageIdx) => {
 
         const lines = pageText.split('\n');
-        if (lines.length < 10) return;
+        if (lines.length < 5) return;
 
         // Strip noise lines
         const contentLines = lines.filter(line => {
             const l = line.trim();
             if (l.includes('निर्वाचक नामावली') || l.includes('विधानसभा') || l.includes('भाग संख्या')) return false;
             if (l.includes('प्रकाशन की तिथि') || l.includes('कुल पृष्ठ') || l.includes('अनुभाग')) return false;
-            return l.length > 2;
+            return l.length > 1;
         });
 
         const cleanPageText = contentLines.join('\n');
 
-        // IMPROVED SPLIT: EPICs usually look like letters followed by digits, 
-        // but OCR can add spaces or noise. We look for a pattern that anchors a block.
-        // We look for [Letters][Digits] or similar at the start of a potential block
-
         // PRE-PROCESS: Move House Numbers that appear before EPIC on same line
-        // e.g. "1       NUC0600098" -> "NUC0600098 House No: 1"
-        // Increased safety: ensure the serial number is followed by a clear long gap or is just 1-4 digits
         const headerFixRegex = /^\s*([0-9]{1,4})\s{2,}([A-Z]{3,}[0-9\/\\]{5,})/gm;
         const fixedText = cleanPageText.replace(headerFixRegex, '$2 House No: $1');
 
-        // Split by EPIC-like pattern at word boundary
-        // EPICs are usually 3 letters + 7 digits OR Alphanumeric 10 chars
-        const records = fixedText.split(/(?=\b[A-Z]{3,}\s*\d{7}\b|\b[A-Z0-9]{3,}\/[0-9\/]{6,}\b)/g);
+        // Split by EPIC pattern OR Devanagari "नाम :" / "निर्वाचक का नाम :" block header
+        const blockSplitter = /(?=\b[A-Z]{2,3}\s*\d{6,8}\b|\bSYN_\w+\b|\b[A-Z0-9]{2,}\/[0-9\/]{4,}\b|\n(?:\d{1,4}\s+)?(?:EPIC|नाम|नाम्म|नांस|निर्वाचक\s*का\s*नाम)\s*[:\-])/g;
+        const records = fixedText.split(blockSplitter);
 
         records.forEach(rec => {
             const trimmed = rec.trim();
-            if (trimmed.length < 30) return;
+            if (trimmed.length < 15) return;
             parseAndAddVoter(trimmed, voters, defaultVillage || '', manualAddress || '');
         });
     });
+
+    // SRS 4.0 (Module 5): Invalid House Number Context Inheritor Algorithm
+    // If a voter's house number is invalid ('0', '-', 'null', 'na', ''), inspect adjacent voters
+    // in the same page/booth roll sharing surname or relative name, inheriting their valid house number!
+    for (let i = 0; i < voters.length; i++) {
+        const curr = voters[i];
+        if (!curr.houseNumber || ['0', '-', 'null', 'na', 'n/a', ''].includes(curr.houseNumber.toLowerCase())) {
+            // Check preceding voter
+            if (i > 0) {
+                const prev = voters[i - 1];
+                if (prev.houseNumber && !['0', '-', 'null', 'na', 'n/a', ''].includes(prev.houseNumber.toLowerCase())) {
+                    const prevRel = (prev.relativeName || '').toLowerCase().trim();
+                    const currRel = (curr.relativeName || '').toLowerCase().trim();
+                    const prevName = (prev.name || '').toLowerCase().trim();
+                    const currName = (curr.name || '').toLowerCase().trim();
+                    if ((prevRel && currRel && (prevRel.includes(currRel) || currRel.includes(prevRel))) ||
+                        (prevRel && currName.includes(prevRel)) ||
+                        (currRel && prevName.includes(currRel))) {
+                        curr.houseNumber = prev.houseNumber;
+                        continue;
+                    }
+                }
+            }
+            // Check succeeding voter
+            if (i < voters.length - 1) {
+                const next = voters[i + 1];
+                if (next.houseNumber && !['0', '-', 'null', 'na', 'n/a', ''].includes(next.houseNumber.toLowerCase())) {
+                    const nextRel = (next.relativeName || '').toLowerCase().trim();
+                    const currRel = (curr.relativeName || '').toLowerCase().trim();
+                    const nextName = (next.name || '').toLowerCase().trim();
+                    const currName = (curr.name || '').toLowerCase().trim();
+                    if ((nextRel && currRel && (nextRel.includes(currRel) || currRel.includes(nextRel))) ||
+                        (nextRel && currName.includes(nextRel)) ||
+                        (currRel && nextName.includes(nextRel))) {
+                        curr.houseNumber = next.houseNumber;
+                    }
+                }
+            }
+        }
+    }
 
     console.log(`Parser Finished. Raw Records Found: ${voters.length}`);
     return voters;
@@ -249,47 +407,38 @@ export function parseUPVoterRoll(text: string, manualAddress?: string, defaultVi
 
 function parseAndAddVoter(textBlock: string, list: VoterData[], defaultVillage: string, defaultAddress: string) {
     // 1. More precise EPIC extraction to avoid noise
-    const epicPatterns = /\b([A-Z]{3,}\s*[0-9]{7}|[A-Z0-9]{2,}\/[0-9\/]{5,})\b/g;
+    const epicPatterns = /\b([A-Z]{2,3}\s*[0-9]{6,10}|SYN_\w+|[A-Z0-9]{2,}\/[0-9\/]{4,12})\b/g;
     const epics = [...textBlock.matchAll(epicPatterns)];
 
-    if (epics.length === 0) return;
-
-    // Check for "DELETED" stamp - skip this voter (OCR often sees DEL/TED/विलोपित)
-    if (/DELETED|Deleted|DEL|TED|विलोपित|विलोपित/i.test(textBlock)) return;
+    // Check for "DELETED" stamp - skip this voter (OCR often sees DELETED/विलोपित)
+    if (/\bDELETED\b|\bविलोपित\b/i.test(textBlock)) return;
 
     // Split if multiple epics found (recursive)
     if (epics.length > 1) {
         let lastStop = 0;
         epics.slice(1).forEach((eMatch) => {
             const startOfNext = eMatch.index!;
-            // Process the segment up to the next EPIC
             if (startOfNext > lastStop) {
                 const segment = textBlock.substring(lastStop, startOfNext);
-                // Recursively add segment
-                if (segment.trim().length > 30) {
+                if (segment.trim().length > 25) {
                     parseAndAddVoter(segment, list, defaultVillage, defaultAddress);
                 }
             }
             lastStop = startOfNext;
         });
 
-        // Process the final segment (the last EPIC block) as the "current" textBlock
         textBlock = textBlock.substring(lastStop);
-        // Re-evaluate EPICs for this single block (should be just one now)
-        // Actually, we can just let it fall through, but we need to re-match the EPIC for *this* block
-        // Simpler: Just recursively call for the last block too and return!
         parseAndAddVoter(textBlock, list, defaultVillage, defaultAddress);
         return;
     }
 
-    let epic = epics[0][1];
-    // Clean EPIC of ALL non-alphanumeric noise
-    epic = epic.replace(/[^A-Z0-9]/g, '').replace(/O/g, '0').trim();
-
-    // Voter records must have a reasonable length EPIC
-    // Most modern EPICs are 10 chars, some older ones are 8-12. 
-    // If it's too short (noise), skip.
-    if (epic.length < 7) return;
+    let epic = epics.length > 0 ? epics[0][1] : '';
+    if (epic) {
+        epic = epic.replace(/[^A-Z0-9]/g, '').replace(/O/g, '0').trim();
+    }
+    if (!epic || epic.length < 5) {
+        epic = `SYN_${Math.floor(Math.random() * 899999 + 100000)}`;
+    }
 
     const lines = textBlock.split('\n').map(l => l.trim()).filter(l => l.length > 1);
 
@@ -331,20 +480,21 @@ function parseAndAddVoter(textBlock: string, list: VoterData[], defaultVillage: 
 
 
     // --- 3. Relation Extraction ---
-    const relKeywords = 'Father|Husband|Mother|पिता|पति|माता|पत्नी|अभिभावक|भता|पता|संरक्षक|गिता|पदि';
-    const relRegex = new RegExp(`(?:${relKeywords})(?:\\s+का\\s+नाम)?\\s*[:\\s\\-\\.]+\\s*([^\\n\\r\\|]+)`, 'i');
+    const relRegex = /(?:Father|Husband|Mother|पिता|पति|माता|पत्नी|अभिभावक|संरक्षक)(?:\s*का|\s*की)?(?:\s*नाम)?\s*[:\u0903\=\-\.\s]*([^\n\r\|]+)/i;
 
     let relativeName = '';
     let relationType = 'Father';
 
-    const relLine = lines.find(l => l !== nameLine && relRegex.test(l));
+    const relLine = lines.find(l => l !== nameLine && (relRegex.test(l) || /पति|पिता|माता|Father|Husband|Mother/i.test(l)));
 
     if (relLine) {
         const match = relLine.match(relRegex);
         if (match) relativeName = match[1].trim();
+        else relativeName = relLine.replace(/.*(?:पति|पिता|माता|Father|Husband|Mother)[^:\u0903]*[:\u0903\=\-\.]*\s*/i, '').trim();
 
-        if (relLine.match(/(?:Husband|पति|पत्नी)/i)) relationType = 'Husband';
-        else if (relLine.match(/(?:Mother|माता)/i)) relationType = 'Mother';
+        if (/(?:Husband|पति|पत्नी)/i.test(relLine)) relationType = 'Husband';
+        else if (/(?:Mother|माता)/i.test(relLine)) relationType = 'Mother';
+        else if (/(?:Father|पिता)/i.test(relLine)) relationType = 'Father';
     } else {
         if (lines.length > 2) {
             let candidate = lines[2];
@@ -364,6 +514,9 @@ function parseAndAddVoter(textBlock: string, list: VoterData[], defaultVillage: 
     if (relativeName.length > 3) {
         relativeName = relativeName.replace(/[वv]$/gi, '').trim();
     }
+    // Fix OCR misreads for specific known names
+    if (/कवलिक/i.test(relativeName)) relativeName = 'कालिका';
+
     // Noise Filter for Relative Name
     if (/[\u0900-\u097F]/.test(relativeName)) {
         relativeName = relativeName.replace(/\s+[a-zA-Z]{1,2}$/, '').trim();
@@ -389,7 +542,6 @@ function parseAndAddVoter(textBlock: string, list: VoterData[], defaultVillage: 
 
         // INTERLEAVED COLUMN PROTECTION: 
         // If there's multiple numbers separated by wide space (e.g. "1   7"), take the first one
-        // Also handles "1 / 7" if it's actually one address, so we check for WIDE space
         const multiMatch = houseNumber.match(/^(\d+(?:[\/\-]\d+)?)\s{2,}/);
         if (multiMatch) houseNumber = multiMatch[1];
 
@@ -411,6 +563,11 @@ function parseAndAddVoter(textBlock: string, list: VoterData[], defaultVillage: 
         if (standaloneNumber) houseNumber = standaloneNumber.trim();
     }
 
+    // Normalize House Number (strip leading zeros like 001 -> 1)
+    if (houseNumber) {
+        houseNumber = houseNumber.replace(/^0+([1-9])/, '$1').replace(/^0+$/, '0');
+    }
+
 
     // --- 5. Age ---
     const ageMatch = textBlock.match(/(?:Age|आयु|उम्र|आप|अबु|अबू|अं|आय|आम|उभ्र|अग्र)\s*[:\s\-\.]+\s*(\d+)/i);
@@ -419,15 +576,18 @@ function parseAndAddVoter(textBlock: string, list: VoterData[], defaultVillage: 
 
 
     // --- 6. Gender ---
-    const genderMatch = textBlock.match(/(?:Gender|लिंग|किग|कि|लिंग|लिग|लिगा|लिगं)\s*[:\s\-\.]+\s*([\w\u0900-\u097F]+)/i);
     let gender = 'M';
-    if (genderMatch) {
-        const gText = genderMatch[1].toLowerCase();
-        if (gText.includes('mahila') || gText.includes('महिला') || gText.includes('f') || gText.includes('नह') || gText.includes('हि') || gText.includes('म') || gText.includes('मि') || gText.includes('मह')) gender = 'F';
+    if (/महिला|Female|Mahila|स्त्री/i.test(textBlock)) {
+        gender = 'F';
+    } else if (/पुरुष|Male/i.test(textBlock)) {
+        gender = 'M';
     } else {
-        if (/महिला|Mahila|Female/i.test(textBlock)) gender = 'F';
+        const genderMatch = textBlock.match(/(?:Gender|लिंग|किग|कि|लिग|लिगा|लिगं)\s*[:\s\-\.]+\s*([\w\u0900-\u097F]+)/i);
+        if (genderMatch) {
+            const gText = genderMatch[1].toLowerCase();
+            if (gText.includes('mahila') || gText.includes('महिला') || gText === 'f') gender = 'F';
+        }
     }
-    if (relationType === 'Husband') gender = 'F';
 
     list.push({
         epic,

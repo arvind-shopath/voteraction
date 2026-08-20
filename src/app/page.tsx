@@ -225,8 +225,8 @@ export default function LandingPage() {
               },
               {
                 icon: <Globe size={28} color="#14B8A6" />,
-                title: 'मल्टी-यूजर कोलैबोरेशन',
-                desc: 'एक ही विधानसभा पर कई यूजर्स एक साथ काम कर सकते हैं।'
+                title: 'टीम एक्सेस',
+                desc: 'टीम के सदस्यों के लिए सुरक्षित और सुचारू एक्सेस प्रबंधन।'
               },
             ].map((f, i) => (
               <div key={i} style={{
@@ -261,11 +261,11 @@ export default function LandingPage() {
         <div className="footer-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto' }}>
           <div>
             <img src="/logo.png?v=2" alt="Voteraction Logo" style={{ height: '32px', width: 'auto', marginBottom: '12px' }} />
-            <div style={{ color: '#94A3B8', fontSize: '14px' }}>© 2026 Voteraction.creatiav.com | सर्वाधिकार सुरक्षित</div>
+            <div style={{ color: '#94A3B8', fontSize: '14px' }}>© 2026 Voteraction | सर्वाधिकार सुरक्षित</div>
           </div>
           <div style={{ display: 'flex', gap: '24px' }}>
-            <a href="https://creatiav.com" target="_blank" style={{ color: '#475569', textDecoration: 'none', fontWeight: '700', fontSize: '14px' }}>डेवलपर: Creatiav</a>
-            <a href="#" style={{ color: '#475569', textDecoration: 'none', fontWeight: '700', fontSize: '14px' }}>गोपनीयता नीति</a>
+            <Link href="/privacy" style={{ color: '#475569', textDecoration: 'none', fontWeight: '700', fontSize: '14px' }}>गोपनीयता नीति</Link>
+            <Link href="/terms-conditions" style={{ color: '#475569', textDecoration: 'none', fontWeight: '700', fontSize: '14px' }}>नियम और शर्तें</Link>
           </div>
         </div>
       </footer>

@@ -30,6 +30,10 @@ export default function IssuesPage() {
     const { simulationPersona } = useView();
     const assemblyId = (simulationPersona as any)?.assemblyId || (session?.user as any)?.assemblyId || 13;
 
+    const userRole = (simulationPersona as any)?.role || (session?.user as any)?.role || 'CANDIDATE';
+    const isCandidateOrAdmin = ['CANDIDATE', 'ADMIN', 'SUPERADMIN'].includes(userRole);
+    const isWorker = !isCandidateOrAdmin || ['WORKER', 'PANNA_PRAMUKH', 'BOOTH_PRAMUKH'].includes(userRole);
+
 
     useEffect(() => {
         fetchIssues();
@@ -128,11 +132,6 @@ export default function IssuesPage() {
 
     return (
         <div>
-            <div style={{ textAlign: 'center', marginBottom: '32px', padding: '16px', background: '#FEF2F2', borderRadius: '16px', border: '1px solid #FECACA' }}>
-                <p style={{ color: '#DC2626', fontSize: '13px', fontWeight: '800' }}>
-                    📢 ये जगह फाइल स्टोर करने के लिए नहीं हैं.. यहां से आप फोटो और वीडियो सिर्फ भेज सकते हैं.. ये फाइलें 7 दिन में डिलीट हो जाएंगी.. प्लीज अपने पास बैकअप रखे..
-                </p>
-            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                     <h1 style={{ fontSize: '24px', fontWeight: '700' }}>समस्या एवं शिकायत ट्रैकिंग</h1>
@@ -150,26 +149,28 @@ export default function IssuesPage() {
                         ))}
                     </select>
 
-                    <button onClick={() => {
-                        setShowAdd(!showAdd); setEditingId(null); setFormData({
-                            title: '', description: '', category: 'Infrastructure', priority: 'Medium', boothNumber: '',
-                            village: '', area: '', mediaUrls: '', videoUrl: '', status: 'Open'
-                        } as any);
-                    }}
-                        style={{
-                            padding: '8px 16px',
-                            background: 'var(--primary-bg)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            fontWeight: '700'
-                        }}>
-                        <Plus size={18} /> नई शिकायत दर्ज करें
-                    </button>
+                    {isWorker && (
+                        <button onClick={() => {
+                            setShowAdd(!showAdd); setEditingId(null); setFormData({
+                                title: '', description: '', category: 'Infrastructure', priority: 'Medium', boothNumber: '',
+                                village: '', area: '', mediaUrls: '', videoUrl: '', status: 'Open'
+                            } as any);
+                        }}
+                            style={{
+                                padding: '8px 16px',
+                                background: 'var(--primary-bg)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontWeight: '700'
+                            }}>
+                            <Plus size={18} /> नई शिकायत दर्ज करें
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -323,11 +324,13 @@ export default function IssuesPage() {
                                         boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                                         position: 'relative'
                                     }}>
-                                        {/* Edit Button */}
-                                        <button onClick={() => handleEdit(issue)}
-                                            style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                        </button>
+                                        {/* Edit Button (Only for Workers) */}
+                                        {isWorker && (
+                                            <button onClick={() => handleEdit(issue)}
+                                                style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                            </button>
+                                        )}
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', paddingRight: '20px' }}>
                                             <div style={{
@@ -365,11 +368,20 @@ export default function IssuesPage() {
                                                     </span>
                                                 )}
                                             </div>
-                                            {issue.status !== 'Closed' && (
+
+                                            {/* Candidate Action: Solve / Resolve */}
+                                            {isCandidateOrAdmin && issue.status !== 'Closed' && (
                                                 <button onClick={() => handleStatusChange(issue.id, issue.status === 'Open' ? 'InProgress' : 'Closed')}
-                                                    style={{ fontSize: '11px', padding: '4px 8px', background: '#EFF6FF', color: '#1E40AF', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>
-                                                    {issue.status === 'Open' ? 'शुरू करें' : 'पूर्ण करें'}
+                                                    style={{ fontSize: '12px', padding: '6px 12px', background: issue.status === 'Open' ? '#FEF3C7' : '#DCFCE7', color: issue.status === 'Open' ? '#92400E' : '#166534', border: '1px solid ' + (issue.status === 'Open' ? '#FDE68A' : '#BBF7D0'), borderRadius: '8px', cursor: 'pointer', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    {issue.status === 'Open' ? '⚡ कार्रवाई शुरू करें' : '✅ समस्या का समाधान करें'}
                                                 </button>
+                                            )}
+
+                                            {/* Worker View: Readonly status badge */}
+                                            {isWorker && (
+                                                <span style={{ fontSize: '11px', padding: '4px 8px', background: issue.status === 'Closed' ? '#DCFCE7' : issue.status === 'InProgress' ? '#FEF3C7' : '#F3F4F6', color: issue.status === 'Closed' ? '#166534' : issue.status === 'InProgress' ? '#92400E' : '#4B5563', borderRadius: '6px', fontWeight: '700' }}>
+                                                    {issue.status === 'Closed' ? '✅ हल हो गई' : issue.status === 'InProgress' ? '🔄 प्रक्रिया में' : '📋 दर्ज'}
+                                                </span>
                                             )}
                                         </div>
                                     </div>

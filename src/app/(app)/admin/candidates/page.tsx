@@ -166,22 +166,15 @@ export default function CandidatesPage() {
         setAssignModalOpen(true);
     };
 
-    // Filter Logic
+    // Filter Logic: Display ONLY Candidate users (no empty assembly seats)
     const candidates = users.filter(u => u.role === 'CANDIDATE');
 
-    // We want to show:
-    // 1. All actual candidate users
-    // 2. All empty assembly seats (assemblies that have no MANAGER user assigned)
-    const emptySeats = assemblies.filter(a => !users.some(u => u.role === 'CANDIDATE' && u.assemblyId === a.id));
-
-    const displayItems = [
-        ...candidates.map(c => ({ type: 'candidate', data: c })),
-        ...emptySeats.map(s => ({ type: 'seat', data: s }))
-    ].filter(item => {
-        const name = item.type === 'candidate' ? item.data.name : 'खाली सीट';
-        const assemblyName = item.type === 'candidate' ? item.data.assembly?.name : item.data.name;
+    const displayItems = candidates.map(c => ({ type: 'candidate', data: c })).filter(item => {
+        const u = item.data;
+        const name = u.name || '';
+        const assemblyName = u.assembly?.nameHindi || u.assembly?.name || '';
         const searchLower = search.toLowerCase();
-        return (name?.toLowerCase().includes(searchLower) || assemblyName?.toLowerCase().includes(searchLower));
+        return (name.toLowerCase().includes(searchLower) || assemblyName.toLowerCase().includes(searchLower));
     });
 
     return (
@@ -305,21 +298,17 @@ export default function CandidatesPage() {
                                                     {uIsActive ? 'Active' : 'Pending'}
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748B', fontSize: '13px', fontWeight: '700' }}>
-                                                <MapPin size={14} /> {a ? a.name : 'No Assembly Assigned'}
-                                            </div>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2563EB', fontSize: '14px', fontWeight: '800' }}>
+                                                 <MapPin size={15} /> {a ? (a.nameHindi || a.name) : 'विधानसभा असाइन नहीं'}
+                                             </div>
                                             <div style={{ marginTop: '4px', fontSize: '12px', color: '#94A3B8', fontWeight: '600' }}>{u.mobile}</div>
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                                        <div style={{ padding: '16px', background: '#F0F9FF', borderRadius: '24px', border: '1px solid #E0F2FE' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#0369A1', marginBottom: '4px', textTransform: 'uppercase' }}>सोशल सेना</div>
-                                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#0C4A6E' }}>{smCount} <span style={{ fontSize: '12px', fontWeight: '700', color: '#0369A1' }}>सदस्य</span></div>
-                                        </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '24px' }}>
                                         <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '24px', border: '1px solid #F1F5F9' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px', textTransform: 'uppercase' }}>कार्यकर्ता</div>
-                                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#334155' }}>{fieldCount} <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B' }}>फील्ड</span></div>
+                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px', textTransform: 'uppercase' }}>कार्यकर्ता (Workers)</div>
+                                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#334155' }}>{fieldCount} <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B' }}>फील्ड कार्यकर्ता</span></div>
                                         </div>
                                     </div>
 
@@ -333,44 +322,18 @@ export default function CandidatesPage() {
                                         <button
                                             onClick={() => handleTriggerAssign(u)}
                                             style={{ flex: 1, padding: '14px', borderRadius: '18px', background: 'white', border: '1px solid #E2E8F0', color: '#64748B', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                            title="विधानसभा असाइन करें"
                                         >
                                             <Building2 size={18} />
                                         </button>
                                         <button
                                             onClick={() => handleTriggerDelete(u)}
                                             style={{ flex: 1, padding: '14px', borderRadius: '18px', background: 'white', border: '1px solid #FEE2E2', color: '#EF4444', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                            title="कैंडिडेट डिलीट करें"
                                         >
                                             <Trash2 size={18} />
                                         </button>
                                     </div>
-                                </div>
-                            );
-                        } else {
-                            const s = item.data;
-                            return (
-                                <div key={`seat-${s.id}`} style={{
-                                    background: '#FFFFFF',
-                                    border: '2px dashed #E2E8F0',
-                                    borderRadius: '32px',
-                                    padding: '28px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    textAlign: 'center',
-                                    gap: '16px'
-                                }}>
-                                    <div style={{ width: '64px', height: '64px', background: '#F1F5F9', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>
-                                        <Ghost size={32} />
-                                    </div>
-                                    <div>
-                                        <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#64748B' }}>{s.name}</h3>
-                                        <p style={{ fontSize: '13px', color: '#94A3B8', fontWeight: '600' }}>{s.district}, {s.state}</p>
-                                    </div>
-                                    <div style={{ padding: '8px 16px', background: '#FFF7ED', color: '#D97706', borderRadius: '12px', fontSize: '11px', fontWeight: '800', border: '1px solid #FFEDD5' }}>कैंडिडेट असाइन नहीं है</div>
-                                    <button style={{ marginTop: '8px', padding: '12px 24px', borderRadius: '16px', background: 'white', border: '1px solid #E2E8F0', color: '#0F172A', fontWeight: '800', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}>
-                                        <UserPlus size={16} /> कैंडिडेट जोड़ें
-                                    </button>
                                 </div>
                             );
                         }
@@ -513,54 +476,17 @@ function ManageTeamModal({ candidate, campaigns, users, onAssign, onClose }: any
 
                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-                    {/* Social Access Toggle */}
-                    <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: '20px', border: '1px solid #DBEAFE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#1E40AF' }}>सोशल सेना एक्सेस (All Access)</h4>
-                            <p style={{ fontSize: '11px', color: '#60A5FA', fontWeight: '600' }}>कैंडिडेट को विधानसभा की पूरी सोशल टीम असाइन करें (Shared Mode)</p>
-                        </div>
-                        <button
-                            onClick={handleToggleSocialAccess}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: socialAccess ? '#2563EB' : '#94A3B8' }}
-                        >
-                            {socialAccess ? <ToggleRight size={40} fill="#2563EB" color="white" /> : <ToggleLeft size={40} />}
-                        </button>
-                    </div>
-
-
-                    {/* Current Team Sections */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                        <div>
-                            <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em' }}>
-                                सोशल सेना टीम ({currentSocialSena.length})
-                            </h4>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '120px', overflowY: 'auto' }}>
-                                {currentSocialSena.map((u: any) => (
-                                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'white', borderRadius: '12px', border: u.campaignId ? '1px solid #2563EB' : '1px dashed #93C5FD' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E40AF' }}>{u.name}</span>
-                                        {/* Allow removal ONLY if directly assigned. If inherited, show lock */}
-                                        {u.campaignId === candidate.campaignId ? (
-                                            <button onClick={() => onAssign(u.id, null)} style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: '2px' }}><X size={14} /></button>
-                                        ) : (
-                                            <Lock size={12} color="#93C5FD" />
-                                        )}
-                                    </div>
-                                ))}
-                                {currentSocialSena.length === 0 && <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>कोई सोशल सेना सदस्य नहीं (एक्सेस बंद है या टीम खाली है)</p>}
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em' }}>लोकल टीम ({currentLocalTeam.length})</h4>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '120px', overflowY: 'auto' }}>
-                                {currentLocalTeam.map((u: any) => (
-                                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: '#F1F5F9', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B' }}>{u.name}</span>
-                                        <button onClick={() => onAssign(u.id, null)} style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: '2px' }}><X size={14} /></button>
-                                    </div>
-                                ))}
-                                {currentLocalTeam.length === 0 && <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>कोई लोकल सदस्य नहीं</p>}
-                            </div>
+                    {/* Current Team Section */}
+                    <div>
+                        <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em' }}>कैम्पेन कार्यकर्ता टीम ({currentLocalTeam.length})</h4>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '150px', overflowY: 'auto' }}>
+                            {currentLocalTeam.map((u: any) => (
+                                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: '#F1F5F9', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B' }}>{u.name}</span>
+                                    <button onClick={() => onAssign(u.id, null)} style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: '2px' }}><X size={14} /></button>
+                                </div>
+                            ))}
+                            {currentLocalTeam.length === 0 && <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>कोई टीम सदस्य नहीं जोड़ा गया है</p>}
                         </div>
                     </div>
 

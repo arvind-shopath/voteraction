@@ -30,13 +30,14 @@ export async function POST(req: NextRequest) {
         const savedPath = await saveFile(file);
         console.log("PDF Saved to:", savedPath);
 
-        // Call Python Script for OpenCV Layout Analysis & Tesseract OCR
-        // Use absolute path to bypass Turbopack symlink check
-        const venvPython = "/var/www/voteraction/ocr_venv/bin/python";
+        const isWin = process.platform === 'win32';
+        const winVenv = path.join(process.cwd(), "ocr_venv", "Scripts", "python.exe");
+        const linVenv = "/var/www/voteraction/ocr_venv/bin/python";
         const scriptPath = path.join(process.cwd(), "scripts", "box_parser.py");
 
-        // Check if venv python exists, else use system python
-        const pythonCmd = fs.existsSync(venvPython) ? venvPython : "python3";
+        let pythonCmd = isWin ? "python" : "python3";
+        if (fs.existsSync(winVenv)) pythonCmd = winVenv;
+        else if (fs.existsSync(linVenv)) pythonCmd = linVenv;
 
         return new Promise((resolve, reject) => {
             const cmd = `${pythonCmd} "${scriptPath}" "${savedPath}"`;

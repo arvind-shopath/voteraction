@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Upload, FileType, AlertTriangle, CheckCircle, Info, Tent, RefreshCw, Trash2, Clock, Loader2, Filter, Settings, X } from 'lucide-react';
+import { Upload, FileType, AlertTriangle, CheckCircle, Info, Tent, RefreshCw, Trash2, Clock, Loader2, Filter, Settings, X, Edit2 } from 'lucide-react';
 import { getAssemblies } from '@/app/actions/admin';
 
 export default function ImportVotersPage() {
@@ -29,6 +29,12 @@ export default function ImportVotersPage() {
     const [editBoothName, setEditBoothName] = useState('');
     const [editCommonAddress, setEditCommonAddress] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
+
+    // Village Renaming State
+    const [renamingVillageJob, setRenamingVillageJob] = useState<any>(null);
+    const [oldVillageName, setOldVillageName] = useState('');
+    const [newVillageName, setNewVillageName] = useState('');
+    const [isRenaming, setIsRenaming] = useState(false);
 
     useEffect(() => {
         async function fetchAssemblies() {
@@ -205,6 +211,37 @@ export default function ImportVotersPage() {
             alert('Error: ' + e.message);
         } finally {
             setIsUpdating(false);
+        }
+    };
+
+    const handleRenameVillage = async () => {
+        if (!renamingVillageJob || !oldVillageName || !newVillageName) return;
+        setIsRenaming(true);
+        try {
+            const res = await fetch('/api/voters/data-import/queue/job/rename-village', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jobId: renamingVillageJob.id,
+                    oldName: oldVillageName,
+                    newName: newVillageName
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                alert(data.message || 'Success');
+                setRenamingVillageJob(null);
+                setNewVillageName('');
+                setOldVillageName('');
+                fetchQueue();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Rename failed');
+            }
+        } catch (e: any) {
+            alert('Error: ' + e.message);
+        } finally {
+            setIsRenaming(false);
         }
     };
 
@@ -674,8 +711,17 @@ export default function ImportVotersPage() {
                                                 <div style={{ color: '#94A3B8', fontSize: '11px', fontWeight: '600', marginBottom: '6px' }}>DETECTION SUMMARY</div>
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                                     {job.detectedVillages.map((v: any, idx: number) => (
-                                                        <div key={idx} style={{ fontSize: '11px', color: '#059669', background: '#ECFDF5', padding: '2px 8px', borderRadius: '6px', border: '1px solid #A7F3D0', fontWeight: '700' }}>
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setRenamingVillageJob(job);
+                                                                setOldVillageName(v.name);
+                                                                setNewVillageName(v.name);
+                                                            }}
+                                                            style={{ fontSize: '11px', color: '#059669', background: '#ECFDF5', padding: '4px 10px', borderRadius: '6px', border: '1px solid #A7F3D0', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                                        >
                                                             {v.name}: {v.count}
+                                                            <Edit2 size={10} style={{ opacity: 0.6 }} />
                                                         </div>
                                                     ))}
                                                 </div>
@@ -782,8 +828,17 @@ export default function ImportVotersPage() {
                                                             </span>
                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                                                 {job.detectedVillages?.map((v: any, i: number) => (
-                                                                    <span key={i} style={{ fontSize: '10px', color: '#166534', fontWeight: '600' }}>
+                                                                    <span
+                                                                        key={i}
+                                                                        onClick={() => {
+                                                                            setRenamingVillageJob(job);
+                                                                            setOldVillageName(v.name);
+                                                                            setNewVillageName(v.name);
+                                                                        }}
+                                                                        style={{ fontSize: '10px', color: '#166534', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#F0FDF4', padding: '2px 6px', borderRadius: '4px' }}
+                                                                    >
                                                                         • {v.name} ({v.count})
+                                                                        <Edit2 size={8} />
                                                                     </span>
                                                                 ))}
                                                             </div>
@@ -934,6 +989,69 @@ export default function ImportVotersPage() {
                     </div>
                 )}
             </div>
+            {/* Rename Village Modal */}
+            {renamingVillageJob && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
+                    <div style={{ background: 'white', padding: '24px', borderRadius: '16px', width: '90%', maxWidth: '450px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ fontSize: '18px', fontWeight: '800' }}>गांव का नाम बदलें (Rename Village)</h2>
+                            <button onClick={() => setRenamingVillageJob(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+                        </div>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '8px' }}>
+                                जॉब: <strong>{renamingVillageJob.fileName}</strong>
+                            </p>
+                            <label style={{ fontSize: '14px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>पुराना नाम (Old Name)</label>
+                            <input
+                                type="text"
+                                value={oldVillageName}
+                                disabled
+                                style={{ width: '100%', padding: '10px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#F8FAFC', color: '#94A3B8' }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ fontSize: '14px', fontWeight: '700', display: 'block', marginBottom: '8px' }}>नया नाम (New Name)</label>
+                            <input
+                                type="text"
+                                value={newVillageName}
+                                onChange={(e) => setNewVillageName(e.target.value)}
+                                placeholder="नया नाम यहाँ लिखें..."
+                                style={{ width: '100%', padding: '10px', border: '1px solid #E2E8F0', borderRadius: '8px' }}
+                            />
+                            <p style={{ fontSize: '11px', color: '#64748B', marginTop: '6px' }}>
+                                * यह इस जॉब के उन सभी मतदाताओं का नाम अपडेट कर देगा जिनका गांव अभी "{oldVillageName}" है।
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => setRenamingVillageJob(null)}
+                                style={{ flex: 1, padding: '12px', border: '1px solid #E2E8F0', borderRadius: '8px', fontWeight: '700', background: 'white' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleRenameVillage}
+                                disabled={isRenaming || !newVillageName || newVillageName === oldVillageName}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    fontWeight: '700',
+                                    background: isRenaming ? '#94A3B8' : 'var(--primary-bg)',
+                                    color: 'white',
+                                    border: 'none',
+                                    cursor: (isRenaming || !newVillageName) ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {isRenaming ? 'Renaming...' : 'Update Name'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

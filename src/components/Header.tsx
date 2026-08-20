@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LogOut, User, Search, Bell, Menu, Smartphone, Shield } from 'lucide-react';
+import { LogOut, User, Search, Bell, Menu, Smartphone, Shield, Settings } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useView } from '@/context/ViewContext';
 import { getNotifications, markAllAsRead } from '@/app/actions/notifications';
@@ -12,9 +12,12 @@ import Link from 'next/link';
 interface HeaderProps {
     candidateName?: string;
     candidateImageUrl?: string | null;
+    realUserName?: string;
+    realUserImage?: string | null;
+    isWorker?: boolean;
 }
 
-const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
+const Header = ({ candidateName, candidateImageUrl, realUserName, realUserImage, isWorker }: HeaderProps) => {
     const { data: session }: any = useSession();
     const { effectiveRole, effectiveWorkerType, setEffectiveRole, isSimulating, simulationPersona } = useView();
     const { toggleSidebar } = useLayout();
@@ -34,33 +37,24 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
     }, [session]);
 
     const userRole = session?.user?.role || 'CANDIDATE';
-    const workerType = effectiveWorkerType || session?.user?.workerType;
-    const isCentralSocial = effectiveRole === 'SOCIAL_MEDIA' && (workerType === 'SOCIAL_CENTRAL' || workerType?.startsWith('CENTRAL_'));
-
-    const centralRoleName = workerType === 'CENTRAL_MANAGER' ? 'सोशल सेना कैंडिडेट' :
-        workerType === 'CENTRAL_DESIGNER' ? 'सोशल सेना डिजाइनर' :
-            workerType === 'CENTRAL_EDITOR' ? 'सोशल सेना वीडियो एडिटर' :
-                workerType === 'CENTRAL_MONITOR' ? 'सोशल सेना मॉनिटर' : 'सोशल सेना सदस्य';
-
     const realRole = (session?.user as any)?.role || 'CANDIDATE';
     const isActuallyGlobal = realRole === 'ADMIN' || realRole === 'SUPERADMIN';
     const isSimulatingActive = isSimulating || !!simulationPersona;
-
-    // Profile Info (The person currently logged in - ALWAYS show real user for Admin)
-    const displayName = isActuallyGlobal
-        ? (session?.user?.name || (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन'))
-        : (simulationPersona?.name || session?.user?.name || 'यूजर');
-
-    const userName = displayName;
-    const userImage = isActuallyGlobal ? session?.user?.image : (simulationPersona?.image || session?.user?.image);
-
     const isGlobal = isActuallyGlobal;
     const effectiveRoleToUse = effectiveRole || userRole;
 
-    // Display role/designation
-    const displaySub = isCentralSocial ? centralRoleName : (isSimulatingActive
+    const displayName = isActuallyGlobal
+        ? (realUserName || session?.user?.name || (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन'))
+        : (simulationPersona?.name || (isWorker ? realUserName : (candidateName || realUserName)) || session?.user?.name || 'यूजर');
+
+    const userName = displayName;
+    const userImage = isActuallyGlobal
+        ? (realUserImage || session?.user?.image)
+        : (simulationPersona?.image || (isWorker ? realUserImage : (candidateImageUrl || realUserImage)) || session?.user?.image);
+
+    const displaySub = isSimulatingActive
         ? (effectiveRoleToUse === 'CANDIDATE' ? 'कैंडिडेट डैशबोर्ड' : 'कार्यकर्ता दृश्य')
-        : (isGlobal ? 'सेंट्रल कंट्रोलर' : 'विधानसभा डैशबोर्ड'));
+        : (isGlobal ? 'सेंट्रल कंट्रोलर' : 'विधानसभा डैशबोर्ड');
 
     const [isMobile, setIsMobile] = React.useState(false);
     React.useEffect(() => {
@@ -73,18 +67,7 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
     return (
         <header className="header" style={{ padding: isMobile ? '12px 16px' : '12px 32px', background: 'white', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '20px' }}>
-                <button
-                    onClick={toggleSidebar}
-                    className="mobile-menu-btn"
-                    style={{ background: 'transparent', border: 'none', color: '#64748B', display: 'none', cursor: 'pointer', padding: 0 }}
-                >
-                    <Menu size={24} />
-                </button>
-                <style jsx>{`
-                    @media (max-width: 768px) {
-                        .mobile-menu-btn { display: block !important; }
-                    }
-                `}</style>
+
 
                 {!isMobile && isSimulatingActive && (
                     <span className="phase-indicator" style={{ background: '#FFF7ED', padding: '6px 16px', borderRadius: '100px', fontSize: '12px', border: '1px solid #FFEDD5', color: '#C2410C', fontWeight: '800' }}>
@@ -97,15 +80,7 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
                     </span>
                 )}
 
-                <div className="desktop-search" style={{ position: 'relative' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-                    <input suppressHydrationWarning type="text" placeholder="खोजें..." style={{ padding: '8px 16px 8px 40px', borderRadius: '12px', border: '1px solid #E2E8F0', background: '#F8FAFC', width: isMobile ? '120px' : '220px', fontSize: '14px' }} />
-                </div>
-                <style jsx>{`
-                    @media (max-width: 768px) {
-                        .desktop-search { display: ${isMobile ? 'none' : 'block'} !important; }
-                    }
-                `}</style>
+
             </div>
 
             <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '24px' }}>
@@ -187,6 +162,25 @@ const Header = ({ candidateName, candidateImageUrl }: HeaderProps) => {
                         <Smartphone size={isMobile ? 20 : 16} /> {!isMobile && 'डाउनलोड एप्प'}
                     </Link>
                 )}
+
+                <Link
+                    href="/profile"
+                    style={{
+                        background: '#F1F5F9',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: isMobile ? '36px' : '40px',
+                        height: isMobile ? '36px' : '40px',
+                        color: '#64748B',
+                        transition: 'all 0.2s',
+                        border: 'none',
+                    }}
+                    title="प्रोफाइल सेटिंग"
+                >
+                    <Settings size={20} />
+                </Link>
 
                 <button
                     suppressHydrationWarning

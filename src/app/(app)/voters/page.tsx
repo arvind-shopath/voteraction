@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import { useSession } from 'next-auth/react';
 import { useView } from '@/context/ViewContext';
 import CandidateVotersView from './CandidateVotersView';
 import WorkerVotersView from './WorkerVotersView';
@@ -16,10 +16,14 @@ import WorkerVotersView from './WorkerVotersView';
  * - CANDIDATE/ADMIN → CandidateVotersView (Premium dark table)
  */
 export default function VotersPage() {
+    const { data: session } = useSession();
     const { effectiveRole, effectiveWorkerType } = useView();
-    
+    const role = effectiveRole || (session?.user as any)?.role;
+    const workerType = effectiveWorkerType || (session?.user as any)?.workerType;
+
     // Workers (except Booth Managers) see modern card-based view
-    const shouldShowWorkerView = effectiveRole === 'WORKER' && effectiveWorkerType !== 'BOOTH_MANAGER';
+    const isBoothManager = workerType === 'BOOTH_MANAGER';
+    const shouldShowWorkerView = role === 'WORKER' && !isBoothManager;
 
     if (shouldShowWorkerView) {
         return <WorkerVotersView />;

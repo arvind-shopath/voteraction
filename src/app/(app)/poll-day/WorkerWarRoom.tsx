@@ -5,6 +5,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Search, Loader2, CheckCircle2, AlertOctagon, User, Phone, MapPin, TrendingUp, ChevronDown, RefreshCw } from 'lucide-react';
 import { getVoters, updateVoterVotedStatus } from '@/app/actions/voters';
 import { reportBoothIncident, updateBoothPollingData, getAllBooths, getMyReportedIssues } from '@/app/actions/dashboard';
@@ -12,8 +13,11 @@ import { useView } from '@/context/ViewContext';
 
 export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber: number, assemblyId: number }) {
     const { effectiveWorkerType } = useView();
-    const isFieldWorker = (effectiveWorkerType as string) === 'FIELD' || (effectiveWorkerType as string) === 'GROUND_WORKER';
-    const isPanna = effectiveWorkerType === 'PANNA_PRAMUKH';
+    const { data: session }: any = useSession();
+    const workerType = effectiveWorkerType || session?.user?.workerType;
+
+    const isFieldWorker = workerType === 'FIELD' || workerType === 'GROUND_WORKER';
+    const isPanna = workerType === 'PANNA_PRAMUKH';
 
     const [currentBooth, setCurrentBooth] = useState(boothNumber);
     const [boothList, setBoothList] = useState<any[]>([]);

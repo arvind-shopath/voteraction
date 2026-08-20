@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getAssemblies, createAssembly, updateAssembly, getCampaigns, createCampaign, deleteAssembly, getParties } from '@/app/actions/admin';
-import { Tent, Plus, MapPin, Loader2, X, Filter, Users, UserPlus, Trash2, Palette } from 'lucide-react';
+import { Tent, Plus, MapPin, Loader2, X, Filter, Users, UserPlus, Trash2, CheckCircle2, FolderOpen, Zap, Upload, FileArchive } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PARTIES, PARTY_CONFIG } from '@/lib/constants';
 
@@ -20,17 +20,75 @@ export default function AssembliesPage() {
     const [campaignName, setCampaignName] = useState('');
     const [candidateName, setCandidateName] = useState('');
     const [dbParties, setDbParties] = useState<any[]>([]);
+    const [bulkImporting, setBulkImporting] = useState<{ [id: number]: boolean }>({});
+    const [uploadingZip, setUploadingZip] = useState<{ [id: number]: boolean }>({});
+    const [zipFiles, setZipFiles] = useState<{ [id: number]: File | null }>({});
+    const [bulkMsg, setBulkMsg] = useState<{ [id: number]: string }>({});
     const router = useRouter();
+
+    const handleZipUpload = async (assembly: any) => {
+        const file = zipFiles[assembly.id];
+        if (!file) {
+            alert('कृपया पहले एक .zip फ़ाइल चुनें।');
+            return;
+        }
+
+        setUploadingZip(prev => ({ ...prev, [assembly.id]: true }));
+        setBulkMsg(prev => ({ ...prev, [assembly.id]: 'ZIP अपलोड और अनजिप हो रही है...' }));
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('assemblyId', assembly.id.toString());
+
+            const res = await fetch('/api/assembly/upload-zip', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                setBulkMsg(prev => ({ ...prev, [assembly.id]: data.message }));
+                setZipFiles(prev => ({ ...prev, [assembly.id]: null }));
+                fetchAssemblies();
+            } else {
+                setBulkMsg(prev => ({ ...prev, [assembly.id]: 'Error: ' + data.error }));
+            }
+        } catch (e: any) {
+            setBulkMsg(prev => ({ ...prev, [assembly.id]: 'Upload Error: ' + e.message }));
+        } finally {
+            setUploadingZip(prev => ({ ...prev, [assembly.id]: false }));
+        }
+    };
+
+    const handleBulkImport = async (assembly: any) => {
+        setBulkImporting(prev => ({ ...prev, [assembly.id]: true }));
+        setBulkMsg(prev => ({ ...prev, [assembly.id]: 'PDF फ़ोल्डर स्कैन हो रहा है...' }));
+        try {
+            const res = await fetch('/api/assembly/bulk-queue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assemblyId: assembly.id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setBulkMsg(prev => ({ ...prev, [assembly.id]: data.message }));
+            } else {
+                setBulkMsg(prev => ({ ...prev, [assembly.id]: 'Error: ' + data.error }));
+            }
+        } catch (e: any) {
+            setBulkMsg(prev => ({ ...prev, [assembly.id]: 'Error: ' + e.message }));
+        } finally {
+            setBulkImporting(prev => ({ ...prev, [assembly.id]: false }));
+        }
+    };
 
     const [formData, setFormData] = useState<any>({
         number: '',
-        name: '',
+        nameHindi: '',
+        nameEnglish: '',
         district: '',
         state: 'Uttar Pradesh',
-        party: PARTIES[0],
-        themeColor: PARTY_CONFIG[PARTIES[0]].color,
-        candidateName: '',
-        candidateImageUrl: null,
         lastElectionDate: null,
         nextElectionDate: null,
         historicalResults: '[]',
@@ -43,6 +101,11 @@ export default function AssembliesPage() {
 
     useEffect(() => {
         fetchAssemblies();
+        // Live progress updates polling every 3 seconds
+        const timer = setInterval(() => {
+            getAssemblies().then(data => setAssemblies(data)).catch(() => { });
+        }, 3000);
+        return () => clearInterval(timer);
     }, []);
 
     async function fetchAssemblies() {
@@ -51,7 +114,6 @@ export default function AssembliesPage() {
             const data = await getAssemblies();
             setAssemblies(data);
 
-            // Also fetch initial parties
             const pData = await getParties();
             setDbParties(pData);
         } catch (e) {
@@ -61,7 +123,6 @@ export default function AssembliesPage() {
         }
     }
 
-    // Fetch parties when state changes
     useEffect(() => {
         if (formData.state) {
             getParties(formData.state).then(setDbParties);
@@ -69,25 +130,16 @@ export default function AssembliesPage() {
     }, [formData.state]);
 
     const uniqueStates = Array.from(new Set(assemblies.map(a => a.state))).sort();
-
-    // Default to 'All State' if no filter is set
-    useEffect(() => {
-        // No longer forcing a state filter to allow 'All State' to work
-    }, [uniqueStates]);
-
     const filteredAssemblies = filterState ? assemblies.filter(a => a.state === filterState) : assemblies;
 
     const handleEdit = (assembly: any) => {
         setEditingAssembly(assembly);
         setFormData({
-            number: assembly.number.toString(),
-            name: assembly.name,
-            district: assembly.district,
-            state: assembly.state,
-            party: assembly.party || PARTIES[0],
-            themeColor: assembly.themeColor || PARTY_CONFIG[assembly.party || PARTIES[0]]?.color || '#1E3A8A',
-            candidateName: assembly.candidateName || '',
-            candidateImageUrl: assembly.candidateImageUrl || null,
+            number: assembly.number?.toString() || '',
+            nameHindi: assembly.nameHindi || assembly.name || '',
+            nameEnglish: assembly.nameEnglish || assembly.name || '',
+            district: assembly.district || '',
+            state: assembly.state || 'Uttar Pradesh',
             lastElectionDate: assembly.lastElectionDate || null,
             nextElectionDate: assembly.nextElectionDate || null,
             historicalResults: assembly.historicalResults || '[]',
@@ -106,15 +158,14 @@ export default function AssembliesPage() {
         e.preventDefault();
         setSaving(true);
         try {
+            const displayName = formData.nameHindi || formData.nameEnglish || `विधानसभा ${formData.number}`;
             const payload = {
                 number: parseInt(formData.number),
-                name: formData.name,
+                name: displayName,
+                nameHindi: formData.nameHindi || displayName,
+                nameEnglish: formData.nameEnglish || displayName,
                 district: formData.district,
                 state: formData.state,
-                party: formData.party,
-                themeColor: formData.themeColor,
-                candidateName: formData.candidateName,
-                candidateImageUrl: formData.candidateImageUrl,
                 lastElectionDate: formData.lastElectionDate,
                 nextElectionDate: formData.nextElectionDate,
                 historicalResults: formData.historicalResults,
@@ -130,20 +181,15 @@ export default function AssembliesPage() {
             setShowModal(false);
             setEditingAssembly(null);
             setFormData({
-                number: '', name: '', district: '',
+                number: '', nameHindi: '', nameEnglish: '', district: '',
                 state: filterState || 'Uttar Pradesh',
-                party: dbParties[0]?.name || 'Independent',
-                themeColor: dbParties[0]?.color || '#1E3A8A',
-                candidateName: '',
-                candidateImageUrl: null,
-                lastElectionDate: null,
-                nextElectionDate: null,
+                lastElectionDate: null, nextElectionDate: null,
                 historicalResults: '[]', casteEquation: [], electionHistory: []
             });
             fetchAssemblies();
-        } catch (e) {
+        } catch (e: any) {
             console.error('Save error:', e);
-            alert('Error saving assembly. Please check console for details.');
+            alert('Error saving assembly: ' + (e?.message || e));
         } finally {
             setSaving(false);
         }
@@ -152,14 +198,9 @@ export default function AssembliesPage() {
     const openAddModal = () => {
         setEditingAssembly(null);
         setFormData({
-            number: '', name: '', district: '',
+            number: '', nameHindi: '', nameEnglish: '', district: '',
             state: filterState || 'Uttar Pradesh',
-            party: dbParties[0]?.name || 'Independent',
-            themeColor: dbParties[0]?.color || '#1E3A8A',
-            candidateName: '',
-            candidateImageUrl: null,
-            lastElectionDate: null,
-            nextElectionDate: null,
+            lastElectionDate: null, nextElectionDate: null,
             historicalResults: '[]', casteEquation: [], electionHistory: []
         });
         setActiveTab('basic');
@@ -292,30 +333,17 @@ export default function AssembliesPage() {
                         </div>
 
                         <form onSubmit={handleSubmit}>
+                            {/* BASIC TAB: Strict 5 fields only (State, District, Hindi Name, English Name, Number) */}
                             {activeTab === 'basic' && (
                                 <>
                                     <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>विधानसभा नंबर</label>
-                                        <input required type="number" value={formData.number} onChange={e => setFormData({ ...formData, number: e.target.value })}
-                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }} placeholder="जैसे: 148" />
-                                    </div>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>विधानसभा का नाम</label>
-                                        <input required type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }} placeholder="जैसे: लहरपुर" />
-                                    </div>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>जिला</label>
-                                        <input required type="text" value={formData.district} onChange={e => setFormData({ ...formData, district: e.target.value })}
-                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px' }} placeholder="जैसे: सीतापुर" />
-                                    </div>
-                                    <div style={{ marginBottom: '16px' }}>
-                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>राज्य</label>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#334155' }}>1. राज्य (State) <span style={{ color: 'red' }}>*</span></label>
                                         <input
+                                            required
                                             list="states-list"
                                             value={formData.state}
                                             onChange={e => setFormData({ ...formData, state: e.target.value })}
-                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', background: 'white' }}
+                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', background: 'white', fontWeight: '600' }}
                                             placeholder="राज्य चुनें या टाइप करें..."
                                         />
                                         <datalist id="states-list">
@@ -331,8 +359,35 @@ export default function AssembliesPage() {
                                         </datalist>
                                     </div>
 
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#334155' }}>2. जिला (District) <span style={{ color: 'red' }}>*</span></label>
+                                        <input required type="text" value={formData.district} onChange={e => setFormData({ ...formData, district: e.target.value })}
+                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600' }} placeholder="जैसे: सीतापुर" />
+                                    </div>
 
-                                    {/* Election Dates */}
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#334155' }}>3. विधानसभा का नाम हिन्दी (Hindi) <span style={{ color: 'red' }}>*</span></label>
+                                        <input required type="text" value={formData.nameHindi} onChange={e => setFormData({ ...formData, nameHindi: e.target.value })}
+                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600' }} placeholder="जैसे: लहरपुर" />
+                                    </div>
+
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#334155' }}>4. विधानसभा का नाम इ्ंग्लिश (English) <span style={{ color: 'red' }}>*</span></label>
+                                        <input required type="text" value={formData.nameEnglish} onChange={e => setFormData({ ...formData, nameEnglish: e.target.value })}
+                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600' }} placeholder="जैसे: Laharpur" />
+                                    </div>
+
+                                    <div style={{ marginBottom: '24px' }}>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: '#334155' }}>5. विधानसभा नंबर (Assembly No.) <span style={{ color: 'red' }}>*</span></label>
+                                        <input required type="number" value={formData.number} onChange={e => setFormData({ ...formData, number: e.target.value })}
+                                            style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600' }} placeholder="जैसे: 148" />
+                                    </div>
+                                </>
+                            )}
+
+                            {/* HISTORY TAB: Election Dates Moved Here as per Requirement */}
+                            {activeTab === 'historical' && (
+                                <div style={{ marginBottom: '24px' }}>
                                     <div style={{ background: '#FEF3C7', padding: '20px', borderRadius: '12px', marginBottom: '24px', border: '2px solid #F59E0B' }}>
                                         <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#92400E', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             🗳️ चुनाव की तारीखें (Election Dates)
@@ -346,9 +401,6 @@ export default function AssembliesPage() {
                                                 onChange={e => setFormData({ ...formData, lastElectionDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
                                                 style={{ width: '100%', padding: '12px', border: '2px solid #F59E0B', borderRadius: '8px', background: 'white', fontWeight: '600' }}
                                             />
-                                            <div style={{ marginTop: '4px', fontSize: '11px', color: '#92400E', fontWeight: '600' }}>
-                                                📅 Format: DD/MM/YYYY (जैसे: 15/02/2022)
-                                            </div>
                                         </div>
 
                                         <div>
@@ -359,23 +411,9 @@ export default function AssembliesPage() {
                                                 onChange={e => setFormData({ ...formData, nextElectionDate: e.target.value ? new Date(e.target.value).toISOString() : null })}
                                                 style={{ width: '100%', padding: '12px', border: '2px solid #F59E0B', borderRadius: '8px', background: 'white', fontWeight: '600' }}
                                             />
-                                            <div style={{ marginTop: '4px', fontSize: '11px', color: '#92400E', fontWeight: '600' }}>
-                                                📅 Format: DD/MM/YYYY (जैसे: 07/03/2027)
-                                            </div>
-                                            <div style={{ marginTop: '8px', fontSize: '11px', color: '#78350F', fontWeight: '600' }}>
-                                                ⚠️ यह तारीख सेट करने पर मतदान वार रूम एक्टिव हो जाएगा
-                                            </div>
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'none' }}>
-                                        <input type="text" value={formData.candidateName} onChange={e => setFormData({ ...formData, candidateName: e.target.value })} />
-                                    </div>
-                                </>
-                            )}
-
-                            {activeTab === 'historical' && (
-                                <div style={{ marginBottom: '24px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                         <h3 style={{ fontSize: '15px', fontWeight: '800' }}>{lang === 'hi' ? 'चुनाव परिणाम (History)' : 'Election Results'}</h3>
                                         <button type="button" onClick={addYearToHistory} style={{ padding: '6px 14px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>+ नया साल जोड़ें</button>
@@ -401,17 +439,10 @@ export default function AssembliesPage() {
                                                         return (
                                                             <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) 1.2fr 100px 40px', gap: '8px', alignItems: 'center' }}>
                                                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                                    <div style={{ position: 'absolute', left: '8px', width: '20px', height: '20px', borderRadius: '4px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                                                                        {dbParties.find(p => p.name === item.partyName)?.logo ? (
-                                                                            <img src={dbParties.find(p => p.name === item.partyName).logo} style={{ width: '14px', height: '14px', objectFit: 'contain' }} alt="" />
-                                                                        ) : (
-                                                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: dbParties.find(p => p.name === item.partyName)?.color || '#94A3B8' }}></div>
-                                                                        )}
-                                                                    </div>
                                                                     <select
                                                                         value={item.partyName}
                                                                         onChange={e => updateHistoryItem(idx, 'partyName', e.target.value)}
-                                                                        style={{ width: '100%', padding: '10px 10px 10px 36px', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '12px', background: 'white', fontWeight: '700' }}
+                                                                        style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '10px', fontSize: '12px', background: 'white', fontWeight: '700' }}
                                                                     >
                                                                         {dbParties.map(p => (
                                                                             <option key={p.id} value={p.name}>{p.name}</option>
@@ -465,133 +496,226 @@ export default function AssembliesPage() {
                             )}
 
                             <button type="submit" disabled={saving} style={{ width: '100%', padding: '14px', background: 'var(--primary-bg)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                                {saving ? 'सेव हो रहा है...' : 'सुरक्षित करें (Save All)'}
+                                {saving ? 'सेव हो रहा है...' : 'सुरक्षित करें और वोटर लिस्ट इंपोर्ट शुरू करें (Save & Trigger)'}
                             </button>
                         </form>
                     </div>
                 </div>
-            )
-            }
+            )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-                {filteredAssemblies.map((assembly: any) => (
-                    <div key={assembly.id} className="card" style={{ background: 'white', transition: 'transform 0.2s', borderTop: `6px solid ${assembly.themeColor || 'var(--primary-bg)'}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                            <div>
-                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>सीट नं. {assembly.number}</div>
-                                <div style={{ fontSize: '20px', fontWeight: '800', color: '#1E293B' }}>{assembly.name}</div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (confirm(`Warning: Deleting ${assembly.name} will delete ALL associated data (Voters, Booths, Users)! Are you sure?`)) {
-                                            await deleteAssembly(assembly.id);
-                                            fetchAssemblies();
-                                        }
-                                    }}
-                                    style={{ padding: '10px', background: '#FEF2F2', borderRadius: '10px', border: '1px solid #FECACA', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                    <Trash2 size={20} />
-                                </button>
-                                <div style={{ padding: '10px', background: '#F0F7FF', borderRadius: '10px' }}>
-                                    <Tent size={24} color={assembly.themeColor || "#2563EB"} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                {filteredAssemblies.map((assembly: any) => {
+                    const jobs = assembly.importJobs || [];
+                    const completedJobs = jobs.filter((j: any) => j.status === 'COMPLETED' || j.status === 'VERIFIED');
+                    const processingJob = jobs.find((j: any) => j.status === 'PROCESSING');
+                    const pendingJobs = jobs.filter((j: any) => j.status === 'PENDING');
+                    const activeJob = processingJob || pendingJobs[0];
+                    const totalExtractedVotersFromJobs = jobs.reduce((sum: number, j: any) => sum + (j.totalVoters || 0), 0);
+
+                    const votersCount = Math.max(assembly._count?.voters || 0, assembly.totalVoters || 0, totalExtractedVotersFromJobs);
+                    const boothsCount = Math.max(assembly._count?.booths || 0, assembly.totalBooths || 0, completedJobs.length);
+
+                    const hasRunningJob = jobs.some((j: any) => j.status === 'PROCESSING' || j.status === 'PENDING');
+                    const isComplete = votersCount > 0 || (jobs.length > 0 && jobs.every((j: any) => j.status === 'COMPLETED' || j.status === 'VERIFIED'));
+
+                    const progressPct = jobs.length > 0
+                        ? Math.round((completedJobs.length / jobs.length) * 100)
+                        : (votersCount > 0 ? 100 : 0);
+
+                    return (
+                        <div key={assembly.id} className="card" style={{ background: 'white', transition: 'transform 0.2s', borderTop: `6px solid ${assembly.themeColor || 'var(--primary-bg)'}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>सीट नं. {assembly.number}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#1E293B' }}>
+                                            {assembly.nameHindi || assembly.name}
+                                        </div>
+                                        {assembly.nameEnglish && (
+                                            <div style={{ fontSize: '14px', fontWeight: '600', color: '#64748B' }}>
+                                                ({assembly.nameEnglish})
+                                            </div>
+                                        )}
+                                        {isComplete && (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#DCFCE7', color: '#166534', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '800', border: '1px solid #BBF7D0' }}>
+                                                <CheckCircle2 size={15} color="#16A34A" /> इंपोर्ट पूर्ण
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (confirm(`Warning: Deleting ${assembly.name} will delete ALL associated data (Voters, Booths, Users)! Are you sure?`)) {
+                                                await deleteAssembly(assembly.id);
+                                                fetchAssemblies();
+                                            }
+                                        }}
+                                        style={{ padding: '10px', background: '#FEF2F2', borderRadius: '10px', border: '1px solid #FECACA', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+                                    <div style={{ padding: '10px', background: '#F0F7FF', borderRadius: '10px' }}>
+                                        <Tent size={24} color={assembly.themeColor || "#2563EB"} />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-
-                        <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                            <MapPin size={14} /> {assembly.district}, {assembly.state}
-                        </div>
-
-                        <div style={{ fontSize: '12px', color: '#059669', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Palette size={14} /> पार्टी: {assembly.party || 'Independent'}
-                        </div>
-
-                        {/* Candidates Section */}
-                        <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '12px', marginBottom: '16px', border: '1px solid #F1F5F9' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                <Users size={14} color="#059669" />
-                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B' }}>साझा कैंडिडेट्स:</span>
+                            <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+                                <MapPin size={14} /> {assembly.district}, {assembly.state}
                             </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {assembly.users?.filter((u: any) => u.role === 'CANDIDATE').map((u: any) => (
-                                    <div key={u.id} style={{ padding: '4px 10px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '11px', fontWeight: '700', color: '#475569' }}>
-                                        {u.name}
+
+                            {/* Live Import Detailed Status & Progress Panel */}
+                            {(hasRunningJob || jobs.length > 0) && (
+                                <div style={{ margin: '14px 0', background: '#EFF6FF', padding: '14px', borderRadius: '12px', border: '1px solid #BFDBFE' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '800', color: '#1E40AF', marginBottom: '6px' }}>
+                                        <span>⚡ वोटर लिस्ट इंपोर्ट प्रोग्रेस</span>
+                                        <span>{progressPct}% ({completedJobs.length}/{jobs.length} PDFs पूर्ण)</span>
                                     </div>
-                                ))}
-                                {assembly.users?.filter((u: any) => u.role === 'CANDIDATE').length === 0 && (
-                                    <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>कोई कैंडिडेट नहीं</div>
-                                )}
-                            </div>
-                        </div>
+                                    <div style={{ background: '#DBEAFE', borderRadius: '100px', height: '10px', overflow: 'hidden', marginBottom: '10px' }}>
+                                        <div style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #2563EB, #059669)', height: '100%', transition: 'width 0.4s ease' }} />
+                                    </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', borderTop: '1px solid #F1F5F9', paddingTop: '20px' }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>मतदाता</div>
-                                <div style={{ fontWeight: '800', fontSize: '15px' }}>{assembly._count?.voters?.toLocaleString('hi-IN') || 0}</div>
-                            </div>
-                            <div style={{ textAlign: 'center', borderLeft: '1px solid #F1F5F9' }}>
-                                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>बूथ</div>
-                                <div style={{ fontWeight: '800', fontSize: '15px' }}>{assembly._count?.booths || 0}</div>
-                            </div>
-                            <div style={{ textAlign: 'center', borderLeft: '1px solid #F1F5F9' }}>
-                                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>कैंडिडेट्स</div>
-                                <div style={{ fontWeight: '800', fontSize: '15px', color: '#059669' }}>{assembly.users?.filter((u: any) => u.role === 'CANDIDATE').length || 0}</div>
-                            </div>
-                        </div>
-
-                        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button onClick={() => handleEdit(assembly)} style={{ flex: 1, padding: '10px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '13px', fontWeight: '700', color: '#475569', cursor: 'pointer' }}>एडिट करें</button>
-                                <button onClick={() => openCampaignModal(assembly)} style={{ flex: 1, padding: '10px', background: '#ECFDF5', border: '1px solid #059669', color: '#059669', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                    <Users size={14} /> अभियान ({assembly._count?.campaigns || 0})
-                                </button>
-                            </div>
-                            <button onClick={() => handleViewData(assembly.id)} style={{ width: '100%', padding: '12px', background: 'white', border: '1px solid #2563EB', color: '#2563EB', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>वोटर डेटा देखें</button>
-                        </div>
-                    </div >
-                ))
-                }
-            </div >
-
-            {
-                showCampaignModal && (
-                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-                        <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '32px', position: 'relative' }}>
-                            <button onClick={() => setShowCampaignModal(false)} style={{ position: 'absolute', right: '24px', top: '24px', background: 'none', border: 'none', color: '#64748B', cursor: 'pointer' }}><X size={24} /></button>
-
-                            <h2 style={{ fontSize: '20px', fontWeight: '800', marginBottom: '8px' }}>कैंडिडेट्स (Campaigns)</h2>
-                            <p style={{ color: '#64748B', marginBottom: '24px', fontSize: '14px' }}>{selectedAssembly?.name} विधानसभा के लिए सक्रिय अभियान</p>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px', maxHeight: '300px', overflowY: 'auto' }}>
-                                {loadingCampaigns ? <p>लोड हो रहा है...</p> : campaigns.map(c => (
-                                    <div key={c.id} style={{ padding: '12px 16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <div style={{ fontWeight: '800', color: '#1E293B' }}>{c.candidateName || 'Unnamed Candidate'}</div>
-                                            <div style={{ fontSize: '11px', color: '#64748B' }}>{c.name}</div>
+                                    {activeJob ? (
+                                        <div style={{ background: 'white', padding: '10px 12px', borderRadius: '10px', border: '1px solid #93C5FD', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '800', color: '#0F172A' }}>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    📄 <code style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px', color: '#2563EB', fontSize: '11px' }}>{activeJob.fileName}</code>
+                                                </span>
+                                                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: activeJob.status === 'PROCESSING' ? '#FEF3C7' : '#F1F5F9', color: activeJob.status === 'PROCESSING' ? '#92400E' : '#64748B', fontWeight: '800' }}>
+                                                    {activeJob.status === 'PROCESSING' ? '🔄 एक्सट्रैक्ट हो रहा है...' : '⏳ प्रतीक्षा (Queue)'}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: '#475569', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '2px' }}>
+                                                <span>📍 <strong>बूथ:</strong> {activeJob.boothNumber ? `बूथ नं. ${activeJob.boothNumber}` : 'स्कैनिंग जारी'} {activeJob.boothName ? `(${activeJob.boothName})` : ''}</span>
+                                                <span style={{ color: '#059669', fontWeight: '800' }}>👥 <strong>निकले मतदाता:</strong> {activeJob.totalVoters ? `${activeJob.totalVoters} मतदाता` : (activeJob.status === 'PROCESSING' ? 'पढ़ा जा रहा है...' : 'प्रतीक्षारत')}</span>
+                                            </div>
                                         </div>
-                                        <UserPlus size={18} color="#94A3B8" />
-                                    </div>
-                                ))}
-                                {campaigns.length === 0 && !loadingCampaigns && <p style={{ textAlign: 'center', color: '#94A3B8', padding: '20px' }}>कोई अभियान नहीं मिला।</p>}
+                                    ) : (
+                                        <div style={{ fontSize: '11px', color: '#059669', fontWeight: '800', textAlign: 'center', background: '#ECFDF5', padding: '6px 12px', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
+                                            ✓ कुल {completedJobs.length} PDFs सफलतापूर्वक प्रोसेस हो चुकी हैं ({totalExtractedVotersFromJobs.toLocaleString('hi-IN')} मतदाता)
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', borderTop: '1px solid #F1F5F9', paddingTop: '16px', marginTop: '12px' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>मतदाता</div>
+                                    <div style={{ fontWeight: '800', fontSize: '15px' }}>{votersCount.toLocaleString('hi-IN')}</div>
+                                </div>
+                                <div style={{ textAlign: 'center', borderLeft: '1px solid #F1F5F9' }}>
+                                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>बूथ</div>
+                                    <div style={{ fontWeight: '800', fontSize: '15px' }}>{boothsCount}</div>
+                                </div>
+                                <div style={{ textAlign: 'center', borderLeft: '1px solid #F1F5F9' }}>
+                                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>कैंडिडेट्स</div>
+                                    <div style={{ fontWeight: '800', fontSize: '15px', color: '#059669' }}>{assembly.users?.filter((u: any) => u.role === 'CANDIDATE').length || 0}</div>
+                                </div>
                             </div>
 
-                            <form onSubmit={handleCreateCampaign} style={{ borderTop: '1px solid #F1F5F9', paddingTop: '20px' }}>
-                                <h3 style={{ fontSize: '14px', fontWeight: '800', marginBottom: '12px' }}>नया कैंडिडेट जोड़ें</h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <input required placeholder="कैंडिडेट का नाम" value={candidateName} onChange={e => setCandidateName(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }} />
-                                    <input required placeholder="अभियान का नाम (जैसे: चुनाव 2026)" value={campaignName} onChange={e => setCampaignName(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }} />
-                                    <button type="submit" disabled={saving} style={{ width: '100%', padding: '12px', background: '#059669', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
-                                        {saving ? 'सेव हो रहा है...' : 'कैंडिडेट जोड़ें'}
+                            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {/* ZIP UPLOAD BOX — VPS & Cloud Ready */}
+                                <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1.5px dashed #CBD5E1', textAlign: 'center' }}>
+                                    <label htmlFor={`zip-input-${assembly.id}`} style={{ cursor: 'pointer', display: 'block' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '13px', fontWeight: '800', color: '#1E293B', marginBottom: '4px' }}>
+                                            <FileArchive size={18} color="#2563EB" />
+                                            {zipFiles[assembly.id] ? zipFiles[assembly.id]?.name : 'वोटर PDFs की ZIP फाइल अपलोड करें'}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#64748B' }}>
+                                            {zipFiles[assembly.id] ? 'चेंज करने के लिए क्लिक करें' : 'क्लिक करके .zip फाइल चुनें (सभी PDF युक्त)'}
+                                        </div>
+                                    </label>
+                                    <input
+                                        id={`zip-input-${assembly.id}`}
+                                        type="file"
+                                        accept=".zip"
+                                        style={{ display: 'none' }}
+                                                onChange={(e) => {
+                                            if (e.target.files && e.target.files[0]) {
+                                                setZipFiles(prev => ({ ...prev, [assembly.id]: e.target.files![0] }));
+                                            }
+                                        }}
+                                    />
+                                    {zipFiles[assembly.id] && (
+                                        <button
+                                            onClick={() => handleZipUpload(assembly)}
+                                            disabled={!!uploadingZip[assembly.id]}
+                                            style={{
+                                                marginTop: '10px', width: '100%', padding: '11px', borderRadius: '8px', border: 'none',
+                                                background: 'linear-gradient(135deg, #059669, #10B981)', color: 'white', fontWeight: '800', fontSize: '13px',
+                                                cursor: uploadingZip[assembly.id] ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                            }}
+                                        >
+                                            {uploadingZip[assembly.id]
+                                                ? <><Loader2 size={16} className="animate-spin" /> अपलोड व अनजिप हो रहा है...</>
+                                                : <><Upload size={16} /> ZIP अपलोड और ऑटो-इम्पोर्ट</>
+                                            }
+                                        </button>
+                                    )}
+                                </div>
+
+                                {hasRunningJob && (
+                                    <div style={{ background: '#ECFDF5', padding: '10px 14px', borderRadius: '8px', border: '1px solid #A7F3D0', color: '#065F46', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                        <Loader2 size={16} className="animate-spin" /> बैकग्राउंड में ऑटो-इम्पोर्ट चल रहा है ({progressPct}%)
+                                    </div>
+                                )}
+
+                                {/* Bulk import result message */}
+                                {bulkMsg[assembly.id] && (
+                                    <div style={{ background: '#FEF3C7', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', color: '#92400E', border: '1px solid #FDE68A', wordBreak: 'break-word' }}>
+                                        {bulkMsg[assembly.id]}
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button onClick={() => handleEdit(assembly)} style={{ flex: 1, padding: '10px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '13px', fontWeight: '700', color: '#475569', cursor: 'pointer' }}>एडिट करें</button>
+                                    <button onClick={() => openCampaignModal(assembly)} style={{ flex: 1, padding: '10px', background: '#ECFDF5', border: '1px solid #059669', color: '#059669', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                        <Users size={14} /> अभियान ({assembly._count?.campaigns || 0})
                                     </button>
                                 </div>
-                            </form>
+                                <button onClick={() => handleViewData(assembly.id)} style={{ width: '100%', padding: '12px', background: 'white', border: '1px solid #2563EB', color: '#2563EB', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>वोटर डेटा देखें</button>
+                            </div>
                         </div>
+                    );
+                })}
+            </div>
+
+            {showCampaignModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '32px', position: 'relative' }}>
+                        <button onClick={() => setShowCampaignModal(false)} style={{ position: 'absolute', right: '24px', top: '24px', background: 'none', border: 'none', color: '#64748B', cursor: 'pointer' }}><X size={24} /></button>
+
+                        <h2 style={{ fontSize: '20px', fontWeight: '800', marginBottom: '8px' }}>कैंडिडेट्स (Campaigns)</h2>
+                        <p style={{ color: '#64748B', marginBottom: '24px', fontSize: '14px' }}>{selectedAssembly?.name} विधानसभा के लिए सक्रिय अभियान</p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px', maxHeight: '300px', overflowY: 'auto' }}>
+                            {loadingCampaigns ? <p>लोड हो रहा है...</p> : campaigns.map(c => (
+                                <div key={c.id} style={{ padding: '12px 16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <div style={{ fontWeight: '800', color: '#1E293B' }}>{c.candidateName || 'Unnamed Candidate'}</div>
+                                        <div style={{ fontSize: '11px', color: '#64748B' }}>{c.name}</div>
+                                    </div>
+                                    <UserPlus size={18} color="#94A3B8" />
+                                </div>
+                            ))}
+                            {campaigns.length === 0 && !loadingCampaigns && <p style={{ textAlign: 'center', color: '#94A3B8', padding: '20px' }}>कोई अभियान नहीं मिला।</p>}
+                        </div>
+
+                        <form onSubmit={handleCreateCampaign} style={{ borderTop: '1px solid #F1F5F9', paddingTop: '20px' }}>
+                            <h3 style={{ fontSize: '14px', fontWeight: '800', marginBottom: '12px' }}>नया कैंडिडेट जोड़ें</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <input required placeholder="कैंडिडेट का नाम" value={candidateName} onChange={e => setCandidateName(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }} />
+                                <input required placeholder="अभियान का नाम (जैसे: चुनाव 2026)" value={campaignName} onChange={e => setCampaignName(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '8px' }} />
+                                <button type="submit" disabled={saving} style={{ width: '100%', padding: '12px', background: '#059669', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
+                                    {saving ? 'सेव हो रहा है...' : 'कैंडिडेट जोड़ें'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                )
-            }
-        </div >
+                </div>
+            )}
+        </div>
     );
 }

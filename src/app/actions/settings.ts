@@ -127,6 +127,7 @@ export async function updateAssemblySettings(assemblyId: number, data: {
     if (candidateUserId) {
         const userData: any = {};
         if (updateData.candidateName) userData.name = updateData.candidateName;
+        if (updateData.candidateImageUrl) userData.image = updateData.candidateImageUrl;
         if (facebookUrl !== undefined) userData.facebookUrl = facebookUrl;
         if (instagramUrl !== undefined) userData.instagramUrl = instagramUrl;
         if (twitterUrl !== undefined) userData.twitterUrl = twitterUrl;
@@ -140,6 +141,8 @@ export async function updateAssemblySettings(assemblyId: number, data: {
     } else {
         // Fallback for bulk if no specific user ID is known
         const userData: any = {};
+        if (updateData.candidateName) userData.name = updateData.candidateName;
+        if (updateData.candidateImageUrl) userData.image = updateData.candidateImageUrl;
         if (facebookUrl !== undefined) userData.facebookUrl = facebookUrl;
         if (instagramUrl !== undefined) userData.instagramUrl = instagramUrl;
         if (twitterUrl !== undefined) userData.twitterUrl = twitterUrl;

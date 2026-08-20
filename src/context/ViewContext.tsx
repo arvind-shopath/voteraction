@@ -44,7 +44,8 @@ export function ViewProvider({ children }: { children: React.ReactNode }) {
                 .find(row => row.startsWith('simulationPersona='))
                 ?.split('=')[1];
 
-            if (cookieValue && (realRole === 'SUPERADMIN' || realRole === 'ADMIN')) {
+            // SIMULATION IS SUPERADMIN-ONLY: Only restore simulation cookies for SUPERADMIN
+            if (realRole === 'SUPERADMIN' && cookieValue) {
                 setEffectiveRoleState(cookieValue);
                 setEffectiveWorkerTypeState(workerTypeCookie || null);
                 if (personaCookie) {
@@ -52,10 +53,15 @@ export function ViewProvider({ children }: { children: React.ReactNode }) {
                 }
                 setIsSimulating(cookieValue !== realRole || !!(workerTypeCookie && workerTypeCookie !== realWorkerType) || !!personaCookie);
             } else {
+                // For ALL non-SUPERADMIN users, always use their real role
                 setEffectiveRoleState(realRole);
                 setEffectiveWorkerTypeState(realWorkerType || null);
                 setSimulationPersona(undefined);
                 setIsSimulating(false);
+                // Clear any stale simulation cookies
+                document.cookie = `effectiveRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+                document.cookie = `effectiveWorkerType=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+                document.cookie = `simulationPersona=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
             }
         }
     }, [realRole, realWorkerType]);

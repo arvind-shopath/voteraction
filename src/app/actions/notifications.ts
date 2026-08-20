@@ -10,7 +10,7 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY!;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
 
 webpush.setVapidDetails(
-    'mailto:support@creatiav.com',
+    'mailto:support@voteraction.com',
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY
 );

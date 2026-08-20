@@ -1,297 +1,495 @@
+"""
+VoterAction PDF Parser v2 - ECI Electoral Roll Parser
+======================================================
+Cover Page Parser (Module 2 from SRS):
+  - Page 1 से Part Number, Booth Name, Address extract करना
 
-import cv2
-import numpy as np
-import pytesseract
-from pdf2image import convert_from_path
+Voter Card Parser (Module 3 from SRS):
+  - Page 2+ से voter cards parse करना
+
+Primary Method: pdfplumber (no OCR needed for text-layer ECI PDFs)
+Fallback: pytesseract OCR (for scanned image PDFs)
+"""
+
 import sys
 import json
 import re
 import os
-import fitz
 
-# Set Tesseract config
-custom_config_body = r'--oem 3 --psm 6 -l hin+eng'
-custom_config_header = r'--oem 3 --psm 11 -l eng' 
+# ---- DEPENDENCY LOADER ----
+try:
+    import pdfplumber
+    HAS_PDFPLUMBER = True
+except ImportError:
+    HAS_PDFPLUMBER = False
+    sys.stderr.write("[FATAL] pdfplumber not installed! Run: pip install pdfplumber\n")
+    sys.exit(1)
+
+try:
+    import fitz  # PyMuPDF
+    HAS_FITZ = True
+except ImportError:
+    HAS_FITZ = False
+
+try:
+    import pytesseract
+    from PIL import Image
+    import cv2
+    import numpy as np
+    from pdf2image import convert_from_path
+    HAS_OCR = True
+    if sys.platform == 'win32':
+        for tpath in [
+            r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+            r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+        ]:
+            if os.path.exists(tpath):
+                pytesseract.pytesseract.tesseract_cmd = tpath
+                break
+except ImportError:
+    HAS_OCR = False
+
+
+# ================================================================
+# MODULE 2: COVER PAGE PARSER
+# SRS: Page 1 से पोलिंग बूथ का पूरा address निकालना
+# ================================================================
+
+def parse_cover_page(pdf_path):
+    """
+    ECI PDF के Page 1 (Cover Page) से निकालें:
+    - part_no (भाग संख्या)
+    - assembly_no (विधानसभा संख्या)
+    - assembly_name (विधानसभा नाम)
+    - booth_name (मतदान केंद्र का नाम व भवन)
+    - area_locality (मुख्य ग्राम / मोहल्ला)
+    - police_station (थाना)
+    - tehsil (तहसील)
+    - pincode (पिन कोड)
+    - district (जिला)
+    """
+    booth_info = {
+        "part_no": None,
+        "assembly_no": None,
+        "assembly_name": "",
+        "booth_name": "",
+        "area_locality": "",        # मुख्य ग्राम/नगर (primary locality)
+        "village_list": [],         # कवर पेज पर सभी अनुभागों की सूची
+        "police_station": "",
+        "tehsil": "",
+        "pincode": "",
+        "district": ""
+    }
+
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            if len(pdf.pages) == 0:
+                return booth_info
+
+            # Read Page 1 (Cover Page)
+            cover = pdf.pages[0]
+            text = cover.extract_text(x_tolerance=3, y_tolerance=3) or ""
+
+            if len(text.strip()) < 30:
+                sys.stderr.write("--- Cover page: No text layer found ---\n")
+                return booth_info
+
+            sys.stderr.write(f"--- Cover Page text (first 300 chars): {text[:300]} ---\n")
+
+            # ---- 1. Part Number (भाग संख्या / Part No.) ----
+            part_patterns = [
+                r'(?:भाग\s*संख्या|Part\s*No\.?|भाग\s*क्र\.?|Part\s*Number)\s*[:\-–]?\s*(\d+)',
+                r'(?:क्रमांक|Sl\.?\s*No\.?)\s*[:\-–]?\s*(\d+)',
+                r'\bPart\s*[:\-]\s*(\d+)\b',
+                r'(\d+)\s*(?:भाग|Part)',
+            ]
+            for pat in part_patterns:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    booth_info['part_no'] = int(m.group(1))
+                    break
+
+            # ---- 2. Assembly Number + Name (विधानसभा क्षेत्र) ----
+            asm_patterns = [
+                r'(?:विधानसभा\s*(?:क्षेत्र|निर्वाचन\s*क्षेत्र)|Assembly\s*(?:Constituency|Segment)?)\s*[:\-–]?\s*(\d+)\s*[-–\s]*([^\n\|]{3,60})',
+                r'(\d+)\s*[-–]\s*([^\n\|]{3,50})\s*(?:विधानसभा|Assembly)',
+            ]
+            for pat in asm_patterns:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    booth_info['assembly_no'] = int(m.group(1))
+                    booth_info['assembly_name'] = m.group(2).strip()
+                    break
+
+            # ---- 3. Booth Name (मतदान केंद्र का नाम व भवन) ----
+            booth_patterns = [
+                r'(?:मतदान\s*केंद्र\s*का\s*नाम|Polling\s*Station\s*Name|मतदान\s*केन्द्र\s*का\s*नाम\s*व\s*पता|Name\s*of\s*Polling\s*Station)\s*[:\-–]?\s*([^\n]{5,150})',
+                r'(?:मतदान\s*स्थल|Polling\s*Booth|Booth\s*Name)\s*[:\-–]?\s*([^\n]{5,100})',
+            ]
+            for pat in booth_patterns:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    booth_info['booth_name'] = m.group(1).strip()
+                    # Clean up multi-line pollution
+                    booth_info['booth_name'] = re.sub(r'\s+', ' ', booth_info['booth_name'])[:200]
+                    break
+
+            # ---- 4. Village Extraction — 3 Methods ----
+
+            # METHOD A: "मुख्य ग्राम / नगर" — सबसे precise field
+            # SRS: "मुख्य ग्राम / नगर:" के आगे का नाम
+            main_village_pats = [
+                r'(?:मुख्य\s*ग्राम\s*[\/]\s*नगर|Main\s*Village|मुख्य\s*ग्राम|मुख्य\s*नगर)\s*[:\-–]?\s*([^\n\|]{2,80})',
+                r'(?:मु\.?\s*ग्रा\.?|मु\.?\s*न\.?)\s*[:\-–]?\s*([^\n\|]{2,60})',
+            ]
+            for pat in main_village_pats:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    val = m.group(1).strip()
+                    val = re.sub(r'\s+', ' ', val)
+                    val = re.sub(r'(?:पुलिस|थाना|जिला|Police|District|तहसील).*', '', val).strip()
+                    if len(val) > 1 and not re.match(r'^[\d\s]+$', val):
+                        booth_info['area_locality'] = val[:100]
+                        break
+
+            # METHOD B: "अनुभागों की संख्या और नाम" — numbered village list
+            # SRS: "1. रामपुर (गांव)\n2. नया पुरवा\n3. कबीर नगर"
+            village_list = []
+
+            # Find the section block containing the list
+            section_block_m = re.search(
+                r'(?:अनुभागों\s*की\s*संख्या\s*(?:और|एवं|व)\s*नाम|'
+                r'अनुभाग\s*(?:संख्या|नाम)|'
+                r'Section\s*(?:No\.?\s*and\s*)?Name|'
+                r'भाग\s*(?:का\s*)?विवरण)\s*[:\-–]?\s*\n((?:.*\n){1,20})',
+                text, re.IGNORECASE
+            )
+            if section_block_m:
+                block = section_block_m.group(1)
+                # Extract numbered items: "1. रामपुर" or "1- रामपुर"
+                items = re.findall(r'\d+\s*[.\-–]\s*([^\n\d][^\n]{1,60})', block)
+                village_list = [re.sub(r'\s+', ' ', s.strip()) for s in items if len(s.strip()) > 1]
+
+            if not village_list:
+                # Fallback: find numbered list anywhere in cover text after "अनुभाग" keyword
+                items = re.findall(
+                    r'(?:^|\n)\s*\d+\s*[.\-–]\s*([^\n\d][^\n]{1,60})',
+                    text
+                )
+                village_list = [re.sub(r'\s+', ' ', s.strip()) for s in items
+                                if len(s.strip()) > 1 and not re.search(r'(?:पेज|page|भाग|part|\d{4,})', s, re.IGNORECASE)]
+
+            # Clean & deduplicate
+            seen = set()
+            clean_village_list = []
+            for v in village_list:
+                v_clean = re.sub(r'[^\w\u0900-\u097F\s\(\)\-\/]', '', v).strip()
+                if v_clean and v_clean not in seen and len(v_clean) > 1:
+                    seen.add(v_clean)
+                    clean_village_list.append(v_clean)
+
+            booth_info['village_list'] = clean_village_list[:30]  # max 30 villages
+
+            # If main village not found, use first from list
+            if not booth_info['area_locality'] and clean_village_list:
+                booth_info['area_locality'] = clean_village_list[0]
+
+            sys.stderr.write(f"--- Village List ({len(clean_village_list)}): {clean_village_list[:5]} ---\n")
+
+
+            # ---- 5. Police Station (थाना) ----
+            ps_patterns = [
+                r'(?:थाना|Police\s*Station|पुलिस\s*थाना)\s*[:\-–]?\s*([^\n\|]{3,80})',
+            ]
+            for pat in ps_patterns:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    booth_info['police_station'] = m.group(1).strip()[:80]
+                    break
+
+            # ---- 6. Tehsil (तहसील) ----
+            tehsil_patterns = [
+                r'(?:तहसील|Tehsil|Taluka)\s*[:\-–]?\s*([^\n\|]{3,60})',
+            ]
+            for pat in tehsil_patterns:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    booth_info['tehsil'] = m.group(1).strip()[:60]
+                    break
+
+            # ---- 7. Pincode (पिन कोड) ----
+            pin_match = re.search(r'(?:पिन\s*(?:कोड)?|PIN\s*(?:Code)?)\s*[:\-–]?\s*(\d{6})', text, re.IGNORECASE)
+            if not pin_match:
+                # Fallback: any 6-digit number
+                pin_match = re.search(r'\b(\d{6})\b', text)
+            if pin_match:
+                booth_info['pincode'] = pin_match.group(1)
+
+            # ---- 8. District (जिला) ----
+            dist_patterns = [
+                r'(?:जिला|District|ज़िला)\s*[:\-–]?\s*([^\n\|\d]{3,60})',
+            ]
+            for pat in dist_patterns:
+                m = re.search(pat, text, re.IGNORECASE)
+                if m:
+                    val = m.group(1).strip()
+                    if len(val) > 2:
+                        booth_info['district'] = val[:60]
+                        break
+
+    except Exception as e:
+        sys.stderr.write(f"--- Cover Page Parse Error: {e} ---\n")
+
+    sys.stderr.write(f"--- Cover Page Result: Part={booth_info['part_no']}, Booth={booth_info['booth_name'][:50]} ---\n")
+    return booth_info
+
+
+# ================================================================
+# MODULE 3: VOTER CARD TEXT CLEANER
+# ================================================================
 
 def clean_val(text):
     if not text: return ""
-    # Remove leading/trailing non-alphanumeric junk
-    # But keep Hindi characters (\u0900-\u097F)
-    text = re.sub(r'^[^\w\u0900-\u097F]+', '', text)
-    text = re.sub(r'[^\w\u0900-\u097F\s\-\/]+', '', text)
-    return text.strip()
+    text = re.sub(r'\s+', ' ', text.strip())
+    return text[:200]
 
-def fix_broken_hindi(text):
+def fix_hindi(text):
     if not text: return ""
-    # Join Matras that got separated by space (e.g. "क ु मार" -> "कुमार")
-    text = re.sub(r'\s+([\u093E-\u094F\u0901-\u0903])', r'\1', text)
-    # Restore some spaces between words if they are clearly separate tokens
+    text = re.sub(r'\s+([ािीुूेैोौंःृ़])', r'\1', text)
     return clean_val(text)
 
 def clean_epic(text):
     if not text: return "Unknown"
-    text = text.upper().replace(' ', '')
-    # Remove junk chars often found in EPIC line
-    text = re.sub(r'[^A-Z0-9/]', '', text)
-    # Standard EPIC is 3 letters + 7 digits or similar
-    match = re.search(r'([A-Z]{1,4}[0-9]{4,10}|[A-Z0-9]{2,}/[0-9/]{4,})', text)
-    if match:
-        return match.group(1)
-    if len(text) >= 6: return text[:12]
+    text = text.upper().replace(' ', '').replace('\n', '')
+    m = re.search(r'([A-Z]{2,4}[0-9]{5,10})', text)
+    if m: return m.group(1)
+    m2 = re.search(r'([A-Z]{2,3}\/[0-9]{4,})', text)
+    if m2: return m2.group(1)
+    if len(text) >= 7 and re.match(r'^[A-Z0-9]{7,12}$', text):
+        return text[:12]
     return "Unknown"
 
-def get_contours_logic(image):
-    img_np = np.array(image)
-    gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-    thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
-    # Detect Lines
-    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (60, 1))
-    detect_horizontal = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
-    vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 60))
-    detect_vertical = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, vertical_kernel, iterations=2)
-    
-    grid = cv2.addWeighted(detect_horizontal, 0.5, detect_vertical, 0.5, 0)
-    grid = cv2.dilate(grid, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)), iterations=3)
-    
-    cnts = cv2.findContours(grid, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-    
-    h_img, w_img = img_np.shape[:2]
-    min_area = (w_img * h_img) / 150 
-    max_area = (w_img * h_img) / 5
-    
-    valid_boxes = []
-    for c in cnts:
-        x, y, w, h = cv2.boundingRect(c)
-        if min_area < w*h < max_area:
-             valid_boxes.append((x, y, w, h))
-             
-    if not valid_boxes: return [], img_np
-    
-    valid_boxes.sort(key=lambda b: b[1])
-    rows = []
-    current_row = [valid_boxes[0]]
-    last_y = valid_boxes[0][1]
-    row_threshold = h_img / 40
-    
-    for i in range(1, len(valid_boxes)):
-        box = valid_boxes[i]
-        if abs(box[1] - last_y) < row_threshold:
-             current_row.append(box)
-        else:
-             current_row.sort(key=lambda b: b[0])
-             rows.append(current_row)
-             current_row = [box]
-             last_y = box[1]
-    
-    if current_row:
-        current_row.sort(key=lambda b: b[0])
-        rows.append(current_row)
-        
-    final_sorted_boxes = []
-    for r in rows:
-        final_sorted_boxes.extend(r)
-        
-    return final_sorted_boxes, img_np
+# ================================================================
+# MODULE 3: VOTER CARD PARSER
+# SRS: EPIC, Name, Relative Name, House No, Age, Gender
+# ================================================================
 
-def parse_box_text(text):
-    # Check for Deletion FIRST with more precise regex
-    if re.search(r'(विलोपित|विलोभित|Deleted|वि लो पित|लोपित)', text):
-        # Additional check to ensure it's not part of a name
-        if not re.search(r'(नाम|निर्वाचक)\s*[:\-]*\s*(विलोपित|विलोभित)', text):
-            return None
+def parse_voter_block(text, page_village="", booth_info=None):
+    """Parse a single voter card text block."""
+    if not text or len(text.strip()) < 15:
+        return None
+    if re.search(r'(विलोपित|Deleted)', text, re.IGNORECASE):
+        return None
 
-    data = {"epic": "Unknown", "name": "Unknown", "relativeName": "", "relationType": "Father", "houseNumber": "", "age": "", "gender": "M", "originalText": text}
-    
-    # 1. EPIC Recovery (often top line)
-    lines = text.split('\n')
-    header_block = " ".join(lines[:2])
-    epic_match = re.search(r'([A-Z]{2,3}[A-Z0-9\/\-\.I§\}\{\]\[\(\)\#]{3,15}|[A-Z]{2,}\/[0-9\/]{3,})', header_block.replace(' ', ''))
-    if epic_match:
-         data['epic'] = clean_epic(epic_match.group(1))
+    data = {
+        "epic": "Unknown",
+        "name": "",
+        "relativeName": "",
+        "relationType": "Father",
+        "houseNumber": "",
+        "age": 0,
+        "gender": "M",
+        "village": page_village,
+        "boothName": booth_info.get('booth_name', '') if booth_info else '',
+        "areaLocality": booth_info.get('area_locality', '') if booth_info else '',
+        "policeStation": booth_info.get('police_station', '') if booth_info else '',
+        "tehsil": booth_info.get('tehsil', '') if booth_info else '',
+        "pincode": booth_info.get('pincode', '') if booth_info else '',
+        "district": booth_info.get('district', '') if booth_info else '',
+        "partNo": booth_info.get('part_no') if booth_info else None,
+    }
 
-    # 2. Field Extraction using multi-line blobs
     blob = text.replace('\n', '  ')
-    
-    # Name extraction
-    name_re = re.search(r'(?:निर्वाचक|र्चक|चक|चक)\s*(?:का)?\s*नाम\s*[:\-\.]*\s*(.+?)(?=\s*(?:पिता|पति|माता|Relative|Father|Husband|Mother|पीटो|Photo|मकान|House|उम्र|Age))', blob)
-    if name_re:
-        data['name'] = fix_broken_hindi(name_re.group(1))
-    elif "नाम" in blob:
-        parts = re.split(r'नाम\s*[:\-\.]*', blob)
-        if len(parts) > 1:
-            val = re.split(r'(?:पिता|पति|माता|Relative|Father|Husband|Mother|पीटो|मकान|उम्र)', parts[1])[0]
-            data['name'] = fix_broken_hindi(val)
 
-    # Relative Name
-    rel_re = re.search(r'(?:पिता|पति|माता|Father|Husband|Mother)\s*(?:का|की)?\s*(?:नाम|नास|दाम|तान)?\s*[:\-\.]*\s*(.+?)(?=\s*(?:मकान|House|Makan|पीटो|Photo|उम्र|Age|आयु|संख्या))', blob)
-    if rel_re:
-        label_text = rel_re.group(0)
-        if any(x in label_text for x in ('पति', 'Husband')):
-            data['relationType'] = 'Husband'
-            data['gender'] = 'F'
-        elif any(x in label_text for x in ('माता', 'Mother')):
-            data['relationType'] = 'Mother'
-        data['relativeName'] = fix_broken_hindi(rel_re.group(1))
+    # 1. EPIC Number
+    epic_m = re.search(r'\b([A-Z]{2,4}[0-9]{5,10})\b', text.replace(' ', ''))
+    if epic_m:
+        data['epic'] = epic_m.group(1)
+    else:
+        epic_m2 = re.search(r'([A-Z]{2,3}\/[0-9]{5,8})', text.replace(' ', ''))
+        if epic_m2:
+            data['epic'] = epic_m2.group(1)
 
-    # House No
-    house_re = re.search(r'(?:मकान|House|संख्या)\s*(?:संख्या|सं)?\s*[:\-\.]*\s*([A-Z0-9\-\/\$]+)', blob)
-    if house_re:
-        data['houseNumber'] = house_re.group(1).strip()
+    # 2. Voter Name
+    name_pats = [
+        r'(?:निर्वाचक\s*का\s*नाम|Elector[\'s]*\s*Name)\s*[:\-\.]*\s*(.+?)(?=\s*(?:पिता|पति|माता|Father|Husband|Mother|मकान|House|उम्र|Age|\d{2,}))',
+        r'नाम\s*[:\-\.]*\s*(.+?)(?=\s*(?:पिता|पति|माता|मकान|उम्र|आयु|\d{2,}))',
+        r'Name\s*[:\-\.]*\s*(.+?)(?=\s*(?:Father|Husband|Mother|House|Age|\d{2,}))'
+    ]
+    for pat in name_pats:
+        m = re.search(pat, blob, re.IGNORECASE)
+        if m:
+            data['name'] = fix_hindi(m.group(1))
+            break
 
-    # Age
-    age_re = re.search(r'(?:उम्र|Age|आयु|उप्र)\s*[:\-\.]*\s*(\d+)', blob)
-    if age_re:
-        data['age'] = age_re.group(1)
+    # 3. Relative Name (पिता/पति/माता)
+    rel_pats = [
+        (r'(?:पति|Husband)\s*(?:का|की)?\s*(?:नाम)?\s*[:\u0903\-\.\s]*\s*(.+?)(?=\s*(?:मकान|House|उम्र|Age|आयु|\d{2,}|$))', 'Husband'),
+        (r'(?:माता|Mother)\s*(?:का|की)?\s*(?:नाम)?\s*[:\u0903\-\.\s]*\s*(.+?)(?=\s*(?:मकान|House|उम्र|Age|आयु|\d{2,}|$))', 'Mother'),
+        (r'(?:पिता|Father)\s*(?:का|की)?\s*(?:नाम)?\s*[:\u0903\-\.\s]*\s*(.+?)(?=\s*(?:मकान|House|उम्र|Age|आयु|\d{2,}|$))', 'Father'),
+    ]
+    for pat, rel_type in rel_pats:
+        m = re.search(pat, blob, re.IGNORECASE)
+        if m:
+            data['relativeName'] = fix_hindi(m.group(1))
+            data['relationType'] = rel_type
+            break
 
-    # Gender
-    if any(x in blob for x in ('महिला', 'Female', 'Fem')): data['gender'] = 'F'
-    elif any(x in blob for x in ('पुरुष', 'Male', 'Mal')): data['gender'] = 'M'
-    
-    return data
+    # 4. House Number (मकान संख्या) - SRS field
+    house_m = re.search(
+        r'(?:मकान\s*(?:संख्या|सं\.?|नं\.?)|House\s*(?:No\.?|Number)?)\s*[:\u0903\-\.]*\s*([A-Z0-9\-\/\.]+)',
+        blob, re.IGNORECASE
+    )
+    if house_m:
+        data['houseNumber'] = house_m.group(1).strip()
+        data['houseNumber'] = re.sub(r'^0+([1-9])', r'\1', data['houseNumber'])
 
-import gc
+    # 5. Age (उम्र / आयु) - SRS field
+    age_m = re.search(r'(?:उम्र|आयु|Age)\s*[:\-\.]*\s*(\d{1,3})', blob, re.IGNORECASE)
+    if age_m:
+        val = int(age_m.group(1))
+        if 1 <= val <= 120:
+            data['age'] = val
+
+    # 6. Gender (लिंग) - SRS field
+    if re.search(r'(?:महिला|Female|स्त्री)', blob, re.IGNORECASE): data['gender'] = 'F'
+    elif re.search(r'(?:पुरुष|Male)\b', blob, re.IGNORECASE): data['gender'] = 'M'
+    elif re.search(r'(?:तृतीय|Third)', blob, re.IGNORECASE): data['gender'] = 'T'
+
+    if data['name'] or data['epic'] != 'Unknown':
+        return data
+    return None
+
+
+# ================================================================
+# MODULE 2+3: MAIN pdfplumber PARSER
+# ================================================================
+
+def parse_with_pdfplumber(pdf_path, start_page=1, end_page=9999):
+    voters = []
+
+    # STEP 1: Parse Cover Page (Module 2)
+    sys.stderr.write("--- MODULE 2: Parsing Cover Page ---\n")
+    booth_info = parse_cover_page(pdf_path)
+
+    with pdfplumber.open(pdf_path) as pdf:
+        total = len(pdf.pages)
+        sys.stderr.write(f"--- Total pages: {total} ---\n")
+        actual_end = min(end_page, total)
+
+        current_village = booth_info.get('area_locality', '')
+        voter_start = max(1, start_page)
+        for p_idx in range(voter_start - 1, actual_end):
+            page = pdf.pages[p_idx]
+            p_num = p_idx + 1
+
+            try:
+                text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+
+                if len(text.strip()) < 30:
+                    sys.stderr.write(f"--- Page {p_num}: No text layer ---\n")
+                    continue
+
+                # Check if page header has an explicit section header (e.g., "अनुभाग संख्या व नाम: 1- रामपुर")
+                sec_header_match = re.search(
+                    r'(?:अनुभाग\s*(?:संख्या\s*(?:और|व|एवं)\s*नाम|संख्या|नाम)|Section\s*(?:No\.?\s*and\s*Name|Name)?)\s*[:\-–]?\s*(?:\d+[\-–\s]*)?([^\n\|०-९0-9]{2,60})',
+                    text[:500], re.IGNORECASE
+                )
+                if sec_header_match:
+                    found_sec = clean_val(sec_header_match.group(1))
+                    if found_sec and len(found_sec) > 1 and not re.search(r'(?:पेज|page|भाग|part)', found_sec, re.IGNORECASE):
+                        current_village = found_sec
+
+                # Split into voter blocks using multiple strategies
+                blocks = []
+
+                # Strategy A: Split by क्र.सं. (serial number)
+                blocks = re.split(
+                    r'(?=(?:क्र\.?\s*सं\.?|Sr\.?\s*No\.?|क्रम\s*संख्या)\s*\d+)',
+                    text
+                )
+
+                if len(blocks) <= 2:
+                    # Strategy B: Split by EPIC number pattern
+                    blocks = re.split(r'(?=\b[A-Z]{2,4}[0-9]{5,10}\b)', text)
+
+                if len(blocks) <= 2:
+                    # Strategy C: Split every ~10-12 lines
+                    lines = text.split('\n')
+                    blocks = ['\n'.join(lines[i:i+12]) for i in range(0, len(lines), 10)]
+
+                page_count = 0
+                for block in blocks:
+                    if len(block.strip()) < 20:
+                        continue
+
+                    # Check if block itself contains an inline Section Header update
+                    block_sec_m = re.search(
+                        r'(?:अनुभाग\s*(?:संख्या|नाम)|Section\s*Name)\s*[:\-–]?\s*(?:\d+[\-–\s]*)?([^\n\|]{2,60})',
+                        block, re.IGNORECASE
+                    )
+                    if block_sec_m:
+                        b_sec = clean_val(block_sec_m.group(1))
+                        if b_sec and len(b_sec) > 1:
+                            current_village = b_sec
+
+                    voter = parse_voter_block(block, current_village, booth_info)
+                    if voter:
+                        voter['pageNumber'] = p_num
+                        voters.append(voter)
+                        page_count += 1
+
+                sys.stderr.write(f"--- Page {p_num}: {page_count} voters (Village: '{current_village}') ---\n")
+
+            except Exception as e:
+                sys.stderr.write(f"--- Page {p_num} Error: {e} ---\n")
+                continue
+
+    return voters, booth_info
+
+
+# ================================================================
+# MAIN
+# ================================================================
 
 if __name__ == "__main__":
-    try:
-        pdf_path = sys.argv[1]
-        start_page = int(sys.argv[2]) if len(sys.argv) > 2 else 1
-        end_page = int(sys.argv[3]) if len(sys.argv) > 3 else 9999
-        
-        all_voters = []
-        
-        # Open PDF for text extraction (for Village Name accuracy)
-        doc = None
-        try:
-            doc = fitz.open(pdf_path)
-            # Validate page count
-            clean_end_page = min(end_page, doc.page_count)
-        except:
-            clean_end_page = end_page
-            pass
-
-        # Loop through pages ONE BY ONE to save RAM
-        for p_num in range(start_page, clean_end_page + 1):
-            try:
-                # Convert only ONE page
-                # Reverting to 400 DPI since we are one-by-one, memory should be safe (~50-100MB per page)
-                page_images = convert_from_path(pdf_path, dpi=400, first_page=p_num, last_page=p_num, thread_count=1)
-                
-                if not page_images: continue
-                
-                img = page_images[0] # The single image
-                img_np = np.array(img)
-                h_page, w_page = img_np.shape[:2]
-                
-                page_village = ""
-                
-                # 1. Try PDF Text Layer First (Fast & Accurate)
-                if doc:
-                    try:
-                        page_text = doc[p_num-1].get_text()
-                        
-                        # Pattern 1: Standard Name/नाम (Section or Ward)
-                        v_match = re.search(r'(?:अनुभाग|Section|वार्ड|Ward|अनुमाग).*?(?:नाम|Name|नराम)\s*[:\-]*\s*(?:\d+)?\s*[-\s]*([^\n\r]{2,60})', page_text, re.IGNORECASE)
-                        if v_match:
-                            val = v_match.group(1).strip()
-                            page_village = clean_val(re.sub(r'^[-\s]+', '', val))
-                        
-                        # Pattern 2: Just after अनुभाग/वार्ड if name failed
-                        if not page_village:
-                             v_match = re.search(r'(?:अनुभाग|Section|वार्ड|Ward|अनुमाग)\s*(?:\d+)?\s*[-\s]*([^\n\r]{2,60})', page_text, re.IGNORECASE)
-                             if v_match:
-                                 val = v_match.group(1).strip()
-                                 if not re.match(r'^[0-9\s/]+$', val):
-                                     page_village = clean_val(re.sub(r'^[-\s]+', '', val))
-                    except:
-                        pass
-                
-                # 2. Fallback to OCR if Text Layer failed
-                if not page_village:
-                    top_roi = img_np[0:int(h_page * 0.15), :]
-                    top_text = pytesseract.image_to_string(top_roi, lang='hin', config='--psm 6')
-                    
-                    v_match = re.search(r'(?:अनुभाग|Section|वार्ड|Ward|अनुमाग).*?(?:नाम|Name|नराम)\s*[:\-]*\s*(?:\d+)?\s*[-\s]*([^\n]+)', top_text, re.IGNORECASE)
-                    if v_match:
-                        val = v_match.group(1).strip()
-                        page_village = clean_val(re.sub(r'^[-\s]+', '', val))
-                    elif any(x in top_text for x in ("अनुभाग", "वार्ड")):
-                        v_match = re.search(r'(?:अनुभाग|वार्ड)\s*(?:\d+)?\s*[-\s]*([^\n]+)', top_text)
-                        if v_match:
-                             val = v_match.group(1).strip()
-                             if not re.match(r'^[0-9\s/]+$', val):
-                                 page_village = clean_val(val)
-
-                # Final Cleanup
-                if page_village:
-                    # Remove assembly name or part info if it leaked in
-                    page_village = re.sub(r'(?:भाग|विधानसभा|निर्वाचन|संख्या|क्षेत्र).*', '', page_village).strip()
-                    page_village = re.sub(r'[0-9]{2,}.*', '', page_village).strip()
-                    page_village = re.sub(r'^[0-9\-\s/]+', '', page_village).strip()
-                
-                sys.stderr.write(f"--- Page {p_num}: Detected Village: '{page_village}' ---\n")
-
-                boxes, _ = get_contours_logic(img)
-                sys.stderr.write(f"--- Page {p_num}: Found {len(boxes)} candidate boxes ---\n")
-                
-                page_voters_count = 0
-                for idx, (x, y, w, h) in enumerate(boxes):
-                    px, py = 15, 15
-                    roi = img_np[max(0, y-py):min(h_page, y+h+py), max(0, x-px):min(w_page, x+w+px)]
-                    
-                    # Pre-process ROI
-                    enlarged = cv2.resize(roi, None, fx=2.5, fy=2.5, interpolation=cv2.INTER_CUBIC)
-                    gray = cv2.cvtColor(enlarged, cv2.COLOR_BGR2GRAY)
-                    
-                    # Pass 1: Global Otsu
-                    thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-                    text = pytesseract.image_to_string(thresh, config=custom_config_body)
-                    
-                    voter = parse_box_text(text)
-                    
-                    # Pass 2 Rescue: Missing vital info
-                    if voter and (voter['epic'] == "Unknown" or voter['name'] == "Unknown"):
-                        adap = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 10)
-                        text_alt = pytesseract.image_to_string(adap, config=custom_config_body)
-                        voter_alt = parse_box_text(text_alt)
-                        if voter_alt:
-                            if voter['epic'] == "Unknown": voter['epic'] = voter_alt['epic']
-                            if voter['name'] == "Unknown": voter['name'] = voter_alt['name']
-                    
-                    # Final EPIC Targeted Pass
-                    if voter and voter['epic'] == "Unknown":
-                        header_roi = gray[0:int(gray.shape[0]*0.4), :]
-                        header_roi = cv2.threshold(header_roi, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-                        header_text = pytesseract.image_to_string(header_roi, config=custom_config_header)
-                        rescued_epic = clean_epic(header_text)
-                        if rescued_epic != "Unknown":
-                            voter['epic'] = rescued_epic
-                            
-                    if voter:
-                        voter['boxIndex'] = idx + 1
-                        voter['pageNumber'] = p_num
-                        voter['village'] = page_village 
-                        if voter['name'] != "Unknown" or voter['epic'] != "Unknown":
-                            all_voters.append(voter)
-                            page_voters_count += 1
-                
-                sys.stderr.write(f"--- Page {p_num}: Successfully parsed {page_voters_count} voters ---\n")
-                
-                # Explicit cleanup
-                img.close()
-                del img
-                del img_np
-                del page_images
-                gc.collect() # Force garbage collection
-                
-            except Exception as page_err:
-                sys.stderr.write(f"Page {p_num} Error: {str(page_err)}\n")
-                continue
-        
-        if doc: doc.close()
-        print(json.dumps(all_voters))
-        
-    except Exception as e:
-        sys.stderr.write(f"Error: {str(e)}")
+    if len(sys.argv) < 2:
+        sys.stderr.write("Usage: python box_parser.py <pdf_path> [start_page] [end_page]\n")
         sys.exit(1)
+
+    pdf_path = sys.argv[1]
+    start_page = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+    end_page = int(sys.argv[3]) if len(sys.argv) > 3 else 9999
+
+    if not os.path.exists(pdf_path):
+        sys.stderr.write(f"[ERROR] File not found: {pdf_path}\n")
+        sys.exit(1)
+
+    sys.stderr.write(f"--- VoterAction Parser v2 ---\n")
+    sys.stderr.write(f"--- File: {os.path.basename(pdf_path)} (pages {start_page}-{end_page}) ---\n")
+
+    all_voters = []
+    booth_info = {}
+
+    if HAS_PDFPLUMBER:
+        try:
+            all_voters, booth_info = parse_with_pdfplumber(pdf_path, start_page, end_page)
+        except Exception as e:
+            sys.stderr.write(f"--- pdfplumber error: {e} ---\n")
+
+    if len(all_voters) == 0:
+        sys.stderr.write("[WARN] No voters found via pdfplumber.\n")
+        if not HAS_PDFPLUMBER:
+            sys.stderr.write("[FATAL] pdfplumber not installed. Run: pip install pdfplumber\n")
+        sys.exit(1)
+
+    # Output JSON: { voters: [...], booth_info: {...} }
+    output = {
+        "voters": all_voters,
+        "booth_info": booth_info,
+        "total": len(all_voters)
+    }
+
+    sys.stderr.write(f"--- TOTAL: {len(all_voters)} voters, Part={booth_info.get('part_no')}, Booth={booth_info.get('booth_name', '')[:40]} ---\n")
+    print(json.dumps(output, ensure_ascii=False))

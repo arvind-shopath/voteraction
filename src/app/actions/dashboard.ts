@@ -152,9 +152,11 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
 }
 
 export async function getBoothDashboardStats(userId: number, assemblyId?: number) {
-    if (!userId) return null;
+    const uId = Number(userId);
+    const aId = assemblyId ? Number(assemblyId) : undefined;
+    if (!uId) return null;
     let worker = await prisma.worker.findUnique({
-        where: { userId },
+        where: { userId: uId },
         include: {
             booth: true,
             assignedVoters: true
@@ -162,10 +164,10 @@ export async function getBoothDashboardStats(userId: number, assemblyId?: number
     });
 
     // Support for Admin Simulation: If no worker record or different assembly requested
-    if (!worker || !worker.booth || (assemblyId && worker.assemblyId !== assemblyId)) {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (user && ['ADMIN', 'SUPERADMIN'].includes(user.role)) {
-            const targetAssemblyId = assemblyId || user.assemblyId || 1;
+    if (!worker || !worker.booth || (aId && worker.assemblyId !== aId)) {
+        const user = await prisma.user.findUnique({ where: { id: uId } });
+        if (user && ['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(user.role)) {
+            const targetAssemblyId = aId || user.assemblyId || 1;
             const firstBooth = await prisma.booth.findFirst({
                 where: { assemblyId: targetAssemblyId },
                 orderBy: { number: 'asc' }
@@ -243,9 +245,11 @@ async function getStatsForBooth(booth: any, assemblyId: number, workerId: number
 }
 
 export async function getPannaDashboardStats(userId: number, assemblyId?: number) {
-    if (!userId) return null;
+    const uId = Number(userId);
+    const aId = assemblyId ? Number(assemblyId) : undefined;
+    if (!uId) return null;
     let worker = await prisma.worker.findUnique({
-        where: { userId },
+        where: { userId: uId },
         include: {
             assignedVoters: {
                 select: {
@@ -263,10 +267,10 @@ export async function getPannaDashboardStats(userId: number, assemblyId?: number
     });
 
     // Support for Admin Simulation
-    if (!worker || (assemblyId && worker.assemblyId !== assemblyId)) {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (user && ['ADMIN', 'SUPERADMIN'].includes(user.role)) {
-            const targetAssemblyId = assemblyId || user.assemblyId || 1;
+    if (!worker || (aId && worker.assemblyId !== aId)) {
+        const user = await prisma.user.findUnique({ where: { id: uId } });
+        if (user && ['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(user.role)) {
+            const targetAssemblyId = aId || user.assemblyId || 1;
             worker = await prisma.worker.findFirst({
                 where: { assemblyId: targetAssemblyId, type: 'PANNA_PRAMUKH' },
                 include: {
@@ -326,8 +330,42 @@ export async function getPannaDashboardStats(userId: number, assemblyId?: number
         take: 3
     });
 
+    // Fetch assembly branding data for ID card
+    const workerAssemblyId = worker.assemblyId || aId;
+    const assembly = workerAssemblyId ? await prisma.assembly.findUnique({
+        where: { id: workerAssemblyId },
+        select: {
+            id: true,
+            name: true,
+            themeColor: true,
+            candidateName: true,
+            candidateImageUrl: true,
+            party: true,
+            logoUrl: true
+        }
+    }) : null;
+
+    // Also fetch booth details for worker
+    const booth = worker.boothId ? await prisma.booth.findUnique({
+        where: { id: worker.boothId },
+        select: { id: true, number: true, name: true }
+    }) : null;
+
+    // Fetch worker user info (name, mobile, image)
+    const workerUser = await prisma.user.findUnique({
+        where: { id: worker.userId },
+        select: { name: true, mobile: true, image: true }
+    });
+
     return {
-        worker,
+        worker: {
+            ...worker,
+            booth: booth || worker.booth,
+            name: workerUser?.name || worker.name,
+            mobile: workerUser?.mobile || worker.mobile,
+            image: workerUser?.image || worker.image
+        },
+        assembly,
         stats: {
             totalVoters: voters.length,
             completedTasks: await prisma.task.count({ where: { workerId: worker.id, status: 'Completed' } }),

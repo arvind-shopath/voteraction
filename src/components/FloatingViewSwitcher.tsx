@@ -24,10 +24,6 @@ export default function FloatingViewSwitcher() {
         { label: 'Booth Manager View', role: 'WORKER', worker: 'BOOTH_MANAGER', path: '/dashboard' },
         { label: 'Panna Pramukh View', role: 'WORKER', worker: 'PANNA_PRAMUKH', path: '/dashboard' },
         { label: 'Ground Worker View', role: 'WORKER', worker: 'FIELD', path: '/dashboard' },
-        { label: 'Candidate Social Team', role: 'SOCIAL_MEDIA', worker: null, path: '/social/local-team' },
-        { label: 'Central Team: Manager', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_MANAGER', path: '/social-sena' },
-        { label: 'Central Team: Designer', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_DESIGNER', path: '/social-sena/designer' },
-        { label: 'Central Team: Video Editor', role: 'SOCIAL_MEDIA', worker: 'CENTRAL_EDITOR', path: '/social-sena/video-editor' },
     ];
 
     const handleSwitch = (opt: any) => {

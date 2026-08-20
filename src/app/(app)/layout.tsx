@@ -15,30 +15,55 @@ export default async function AppLayout({
     children: React.ReactNode;
 }) {
     const session = await auth();
-    const userRole = (session?.user as any)?.role;
-    const assemblyId = (session?.user as any)?.assemblyId;
+    const prisma = prismaInstance as any;
+
+    // Fetch latest user data from DB to ensure we have current assemblyId and name
+    let dbUser: any = null;
+    const sessionUserId = parseInt((session?.user as any)?.id);
+    if (session?.user && !isNaN(sessionUserId)) {
+        try {
+            dbUser = await prisma.user.findUnique({
+                where: { id: sessionUserId }
+            });
+        } catch (e) {
+            console.error('Layout User Fetch Error:', e);
+        }
+    }
+
+    const userRole = dbUser?.role || (session?.user as any)?.role;
+    const assemblyId = dbUser?.assemblyId || (session?.user as any)?.assemblyId;
+
+    // SOURCE OF TRUTH: Database first, then session
+    const realUserName = dbUser?.name || session?.user?.name || 'यूजर';
+    const realUserImage = dbUser?.image || (session?.user as any)?.image;
 
     const cookieStore = await cookies();
-    const effectiveRole = cookieStore.get('effectiveRole')?.value;
+    const effectiveRoleCookie = cookieStore.get('effectiveRole')?.value;
+    const effectiveWorkerType = cookieStore.get('effectiveWorkerType')?.value;
     const personaCookie = cookieStore.get('simulationPersona')?.value;
+
+    // SIMULATION IS SUPERADMIN ONLY — ignore cookies for all other roles
+    const isSuperAdmin = userRole === 'SUPERADMIN';
+    const effectiveRole = isSuperAdmin ? effectiveRoleCookie : undefined;
+
     let simulatedPersona = null;
-    if (personaCookie) {
+    if (isSuperAdmin && personaCookie) {
         try { simulatedPersona = JSON.parse(decodeURIComponent(personaCookie)); } catch (e) { }
     }
 
-    const isSimulatingActive = (effectiveRole && effectiveRole !== userRole) || !!simulatedPersona;
-    const isGlobalView = (userRole === 'ADMIN' || userRole === 'SUPERADMIN') && !isSimulatingActive;
+    const isSimulatingActive = isSuperAdmin && ((effectiveRole && effectiveRole !== userRole) || !!simulatedPersona);
+    const isGlobalView = (userRole === 'SUPERADMIN') && !isSimulatingActive;
+
+    const isWorker = effectiveRole === 'WORKER' || userRole === 'WORKER';
 
     let branding = {
         themeColor: '#1E3A8A',
-        candidateName: simulatedPersona?.name || 'उम्मीदवार',
-        candidateImageUrl: simulatedPersona?.image || null,
+        candidateName: simulatedPersona?.name || realUserName || 'उम्मीदवार',
+        candidateImageUrl: simulatedPersona?.image || realUserImage || null,
         logoUrl: null
     };
 
     try {
-        const prisma = prismaInstance as any;
-
         // If it's a global view for Admin/SuperAdmin, don't fetch a default assembly branding
         const shouldFetchBranding = assemblyId || !isGlobalView;
 
@@ -51,6 +76,21 @@ export default async function AppLayout({
         if (assembly) {
             let logoUrl = assembly.logoUrl;
 
+            // For WORKER role, always use their real name, not assembly's candidate name
+            const nameToUse = isWorker
+                ? realUserName
+                : (simulatedPersona?.name || assembly.candidateName || realUserName);
+            const imgToUse = isWorker
+                ? (realUserImage || assembly.candidateImageUrl)
+                : (simulatedPersona?.image || assembly.candidateImageUrl || realUserImage);
+
+            branding = {
+                themeColor: assembly.themeColor || '#1E3A8A',
+                candidateName: nameToUse,
+                candidateImageUrl: imgToUse,
+                logoUrl: logoUrl
+            };
+
             // If assembly.logoUrl is missing, try fetching from Party table
             if (!logoUrl && assembly.party) {
                 const party = await prisma.party.findUnique({
@@ -62,8 +102,8 @@ export default async function AppLayout({
 
             branding = {
                 themeColor: assembly.themeColor || '#1E3A8A',
-                candidateName: assembly.candidateName || 'उम्मीदवार',
-                candidateImageUrl: assembly.candidateImageUrl,
+                candidateName: nameToUse,
+                candidateImageUrl: imgToUse,
                 logoUrl: logoUrl
             };
         }
@@ -71,8 +111,7 @@ export default async function AppLayout({
         console.error('Branding fetch failed:', error);
     }
 
-    const effectiveWorkerType = cookieStore.get('effectiveWorkerType')?.value;
-    const isCentralSocial = effectiveRole === 'SOCIAL_MEDIA' && (effectiveWorkerType === 'SOCIAL_CENTRAL' || effectiveWorkerType?.startsWith('CENTRAL_'));
+
 
     return (
         <LayoutProvider>
@@ -98,11 +137,17 @@ export default async function AppLayout({
                     candidateName={branding.candidateName}
                     candidateImageUrl={branding.candidateImageUrl}
                     partyLogoUrl={branding.logoUrl}
+                    realUserName={realUserName}
+                    realUserImage={realUserImage}
+                    isWorker={isWorker}
                 />
                 <div className="main-container">
                     <Header
                         candidateName={branding.candidateName}
                         candidateImageUrl={branding.candidateImageUrl}
+                        realUserName={realUserName}
+                        realUserImage={realUserImage}
+                        isWorker={isWorker}
                     />
                     <main className="content">
                         {children}

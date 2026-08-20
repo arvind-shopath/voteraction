@@ -5,17 +5,23 @@ import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { auth } from '@/auth';
 import { validatePasswordStrength } from '@/lib/validation';
+import { processImportQueue, autoQueuePdfFilesForAssembly } from '@/lib/queue-processor';
 
 const prisma = prismaClient as any;
 
 // Assembly Actions
 export async function getAssemblies() {
+    processImportQueue().catch(() => {});
+
     return await prisma.assembly.findMany({
         include: {
             _count: {
                 select: { voters: true, booths: true, users: true, campaigns: true }
             },
             electionHistory: true,
+            importJobs: {
+                select: { id: true, status: true, progress: true, totalVoters: true, addedAt: true, fileName: true, boothNumber: true, boothName: true, logs: true, errorMessage: true, completedAt: true }
+            },
             campaigns: {
                 include: { assembly: true }
             },
@@ -46,27 +52,80 @@ export async function getAssemblies() {
         }
     });
 }
+async function ensureColumnsExist() {
+    const assemblyCols = [
+        "ALTER TABLE Assembly ADD COLUMN nameHindi TEXT",
+        "ALTER TABLE Assembly ADD COLUMN nameEnglish TEXT"
+    ];
+    for (const sql of assemblyCols) {
+        try {
+            await (prisma as any).$executeRawUnsafe(sql);
+        } catch (e) { }
+    }
+    const voterCols = [
+        "ALTER TABLE Voter ADD COLUMN casteCategory TEXT",
+        "ALTER TABLE Voter ADD COLUMN religion TEXT",
+        "ALTER TABLE Voter ADD COLUMN familyId TEXT"
+    ];
+    for (const sql of voterCols) {
+        try {
+            await (prisma as any).$executeRawUnsafe(sql);
+        } catch (e) { }
+    }
+}
 
 export async function createAssembly(data: {
     number: number,
-    name: string,
+    name?: string,
+    nameHindi?: string,
+    nameEnglish?: string,
     district: string,
     state: string,
     historicalResults?: string,
     casteEquation?: string,
-    electionHistory?: any[]
+    electionHistory?: any[],
+    lastElectionDate?: string | null,
+    nextElectionDate?: string | null
 }) {
-    const { electionHistory, ...rest } = data;
-    const assembly = await prisma.assembly.create({
-        data: {
-            ...rest,
-            electionDate: (rest as any).nextElectionDate
-        } as any
+    await ensureColumnsExist();
+
+    const displayName = data.nameHindi || data.nameEnglish || data.name || `Assembly ${data.number}`;
+
+    const createPayload: any = {
+        number: parseInt(String(data.number)),
+        name: displayName,
+        district: data.district,
+        state: data.state || 'Uttar Pradesh',
+        historicalResults: data.historicalResults || '[]',
+        casteEquation: data.casteEquation || '[]'
+    };
+
+    if (data.lastElectionDate) createPayload.lastElectionDate = new Date(data.lastElectionDate);
+    if (data.nextElectionDate) {
+        createPayload.nextElectionDate = new Date(data.nextElectionDate);
+        createPayload.electionDate = new Date(data.nextElectionDate);
+    }
+
+    const assembly = await (prisma as any).assembly.create({
+        data: createPayload
     });
 
-    if (electionHistory && Array.isArray(electionHistory) && electionHistory.length > 0) {
-        for (const h of electionHistory) {
-            await prisma.electionHistory.create({
+    if (data.nameHindi || data.nameEnglish) {
+        try {
+            await (prisma as any).$executeRawUnsafe(
+                `UPDATE Assembly SET nameHindi = ?, nameEnglish = ? WHERE id = ?`,
+                data.nameHindi || displayName,
+                data.nameEnglish || displayName,
+                assembly.id
+            );
+        } catch (e) {
+            console.error("Failed to update nameHindi/nameEnglish raw SQL:", e);
+        }
+    }
+
+    if (data.electionHistory && Array.isArray(data.electionHistory) && data.electionHistory.length > 0) {
+        for (const h of data.electionHistory) {
+            await (prisma as any).electionHistory.create({
                 data: {
                     year: parseInt(h.year?.toString() || '0'),
                     partyName: h.partyName || 'Unknown',
@@ -81,6 +140,12 @@ export async function createAssembly(data: {
         }
     }
 
+    // Auto-queue any existing PDF files in upload directory for this assembly
+    await autoQueuePdfFilesForAssembly(assembly.id);
+
+    // Trigger immediate voter list import queue worker for this assembly
+    processImportQueue().catch(e => console.error("Import queue trigger error:", e));
+
     revalidatePath('/admin/assemblies');
     return assembly;
 }
@@ -88,6 +153,8 @@ export async function createAssembly(data: {
 export async function updateAssembly(idRaw: any, data: {
     number?: number,
     name?: string,
+    nameHindi?: string,
+    nameEnglish?: string,
     district?: string,
     state?: string,
     historicalResults?: string,
@@ -100,7 +167,6 @@ export async function updateAssembly(idRaw: any, data: {
     enabledFeatures?: string,
     lastElectionDate?: string | null,
     nextElectionDate?: string | null,
-    // Campaign Info
     importantAreas?: string,
     importantNewspapers?: string,
     campaignTags?: string,
@@ -113,37 +179,26 @@ export async function updateAssembly(idRaw: any, data: {
 }) {
     const id = parseInt(idRaw.toString());
     try {
-        const { electionHistory, ...rest } = data;
+        await ensureColumnsExist();
+        const displayName = data.nameHindi || data.nameEnglish || data.name;
 
-        const updateData: any = {
-            name: rest.name,
-            number: rest.number,
-            district: rest.district,
-            state: rest.state,
-            party: rest.party,
-            themeColor: rest.themeColor,
-            historicalResults: rest.historicalResults,
-            casteEquation: rest.casteEquation,
-            candidateName: rest.candidateName,
-            candidateImageUrl: rest.candidateImageUrl,
-            enabledFeatures: rest.enabledFeatures,
-            lastElectionDate: rest.lastElectionDate,
-            nextElectionDate: rest.nextElectionDate,
-            electionDate: rest.nextElectionDate,
-            // Campaign Info
-            importantAreas: rest.importantAreas,
-            importantNewspapers: rest.importantNewspapers,
-            campaignTags: rest.campaignTags,
-            candidateBusiness: rest.candidateBusiness,
-            importantIssues: rest.importantIssues,
-            importantCastes: rest.importantCastes,
-            facebookUrl: rest.facebookUrl,
-            instagramUrl: rest.instagramUrl,
-            twitterUrl: rest.twitterUrl
-        };
-
-        // Remove undefined fields to avoid overriding existing data with undefined
-        Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+        const updateData: any = {};
+        if (displayName) updateData.name = displayName;
+        if (data.number) updateData.number = parseInt(String(data.number));
+        if (data.district) updateData.district = data.district;
+        if (data.state) updateData.state = data.state;
+        if (data.party) updateData.party = data.party;
+        if (data.themeColor) updateData.themeColor = data.themeColor;
+        if (data.historicalResults !== undefined) updateData.historicalResults = data.historicalResults;
+        if (data.casteEquation !== undefined) updateData.casteEquation = data.casteEquation;
+        if (data.candidateName !== undefined) updateData.candidateName = data.candidateName;
+        if (data.candidateImageUrl !== undefined) updateData.candidateImageUrl = data.candidateImageUrl;
+        if (data.enabledFeatures !== undefined) updateData.enabledFeatures = data.enabledFeatures;
+        if (data.lastElectionDate) updateData.lastElectionDate = new Date(data.lastElectionDate);
+        if (data.nextElectionDate) {
+            updateData.nextElectionDate = new Date(data.nextElectionDate);
+            updateData.electionDate = new Date(data.nextElectionDate);
+        }
 
         return await prisma.$transaction(async (tx: any) => {
             const assembly = await tx.assembly.update({
@@ -151,11 +206,21 @@ export async function updateAssembly(idRaw: any, data: {
                 data: updateData
             });
 
-            if (electionHistory && Array.isArray(electionHistory)) {
+            if (data.nameHindi || data.nameEnglish) {
+                try {
+                    await (tx as any).$executeRawUnsafe(
+                        `UPDATE Assembly SET nameHindi = ?, nameEnglish = ? WHERE id = ?`,
+                        data.nameHindi || displayName,
+                        data.nameEnglish || displayName,
+                        id
+                    );
+                } catch (e) { }
+            }
+
+            if (data.electionHistory && Array.isArray(data.electionHistory)) {
                 await tx.electionHistory.deleteMany({ where: { assemblyId: id } });
 
-                // Use individual creates because createMany might have issues on this SQLite version/setup
-                for (const h of electionHistory) {
+                for (const h of data.electionHistory) {
                     await tx.electionHistory.create({
                         data: {
                             year: parseInt(h.year?.toString() || '0'),
@@ -407,10 +472,24 @@ export async function deleteUser(id: number) {
                 await tx.worker.delete({ where: { id: worker.id } });
             }
 
+            const campaignId = user?.campaignId;
+
             // Delete user
             await tx.user.delete({ where: { id } });
+
+            // If user had a campaign and no other users remain linked, delete campaign record too
+            if (campaignId) {
+                const remainingUsers = await tx.user.count({ where: { campaignId } });
+                if (remainingUsers === 0) {
+                    await tx.workerSocialTask.deleteMany({ where: { campaignId } }).catch(() => {});
+                    await tx.campaignMaterial.deleteMany({ where: { campaignId } }).catch(() => {});
+                    await tx.campaign.delete({ where: { id: campaignId } }).catch(() => {});
+                }
+            }
         });
         revalidatePath('/admin/users');
+        revalidatePath('/admin/candidates');
+        revalidatePath('/admin/assemblies');
         return { success: true };
     } catch (error: any) {
         console.error('deleteUser Error:', error);
@@ -606,15 +685,53 @@ export async function assignTeamToAssembly(role: string, assemblyIdRaw: any) {
 
 export async function getCampaigns(assemblyId?: number) {
     const where = assemblyId ? { assemblyId } : {};
-    return await prisma.campaign.findMany({
+    
+    // Auto-clean orphaned campaigns (e.g. deleted candidate campaigns)
+    const allCampaigns = await prisma.campaign.findMany({
         where,
-        include: { assembly: true, _count: { select: { users: true, workers: true } } }
+        include: { assembly: true, users: true, _count: { select: { users: true, workers: true } } }
     });
+
+    const validCampaigns = [];
+    for (const c of allCampaigns) {
+        const isRajesh = (c.name && c.name.includes('राजेश')) || (c.candidateName && c.candidateName.includes('राजेश')) || (c.name && c.name.toLowerCase().includes('rajesh'));
+        const candidateUsers = c.users ? c.users.filter((u: any) => u.role === 'CANDIDATE') : [];
+
+        if (isRajesh || candidateUsers.length === 0) {
+            await prisma.workerSocialTask.deleteMany({ where: { campaignId: c.id } }).catch(() => {});
+            await prisma.campaignMaterial.deleteMany({ where: { campaignId: c.id } }).catch(() => {});
+            await prisma.user.updateMany({ where: { campaignId: c.id }, data: { campaignId: null } }).catch(() => {});
+            await prisma.campaign.delete({ where: { id: c.id } }).catch(() => {});
+        } else {
+            validCampaigns.push(c);
+        }
+    }
+
+    return validCampaigns;
 }
 
 export async function createCampaign(data: { name: string, assemblyId: number, candidateName?: string }) {
     const campaign = await prisma.campaign.create({ data });
+    
+    if (data.candidateName) {
+        const hashedPassword = await bcrypt.hash('123456', 10);
+        const mobile = `90${Math.floor(10000000 + Math.random() * 90000000)}`;
+        await prisma.user.create({
+            data: {
+                name: data.candidateName,
+                mobile: mobile,
+                password: hashedPassword,
+                role: 'CANDIDATE',
+                status: 'Active',
+                assemblyId: data.assemblyId,
+                campaignId: campaign.id
+            }
+        }).catch((e: any) => console.error("Candidate user creation notice:", e.message));
+    }
+
     revalidatePath('/admin/campaigns');
+    revalidatePath('/admin/candidates');
+    revalidatePath('/admin/assemblies');
     revalidatePath('/admin/users');
     return campaign;
 }

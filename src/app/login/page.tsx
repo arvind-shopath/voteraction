@@ -317,7 +317,7 @@ export default function LoginPage() {
 
                     <div style={{ marginTop: '40px', textAlign: 'center' }}>
                         <p style={{ fontSize: '13px', color: '#94A3B8', fontWeight: '600' }}>
-                            तकनीकी सहायता: <a href="#" style={{ color: '#2563EB', textDecoration: 'none' }}>CreatiAV सपोर्ट टीम</a>
+                            तकनीकी सहायता: <a href="#" style={{ color: '#2563EB', textDecoration: 'none' }}>Voteraction सपोर्ट टीम</a>
                         </p>
                     </div>
                 </div>

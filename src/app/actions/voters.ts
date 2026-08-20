@@ -18,7 +18,7 @@ export async function getVoters(filters: {
     familySize?: string;
     ageFilter?: string;
     assemblyId?: number;
-    pannaId?: number;
+    pannaId?: number | string;
     pannaOnly?: boolean;
     verificationStatus?: string;
     eciStatus?: string;
@@ -47,46 +47,76 @@ export async function getVoters(filters: {
     const effectiveRole = cookieStore.get('effectiveRole')?.value || user?.role;
     const effectiveWorkerType = cookieStore.get('effectiveWorkerType')?.value;
 
-    const userRole = effectiveRole;
+    const userRole = effectiveRole || user?.role;
+    const workerType = effectiveWorkerType || user?.workerType;
+    const isAdmin = ['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(userRole);
     const workerBoothId = user?.boothId;
     const workerId = user?.workerId;
+    const workerBoothNumber = user?.boothNumber;
 
     if (assemblyId) {
-        where.assemblyId = assemblyId;
+        const parsedAssemId = parseInt(String(assemblyId));
+        if (!isNaN(parsedAssemId)) {
+            const targetAssem = await prisma.assembly.findFirst({
+                where: { OR: [{ id: parsedAssemId }, { number: parsedAssemId }] },
+                select: { id: true }
+            });
+            if (targetAssem) {
+                where.assemblyId = targetAssem.id;
+            } else {
+                where.assemblyId = parsedAssemId;
+            }
+        }
     }
 
     // Role-based restrictions
-    if (userRole === 'WORKER' && (effectiveWorkerType === 'BOOTH_MANAGER' || effectiveWorkerType === 'PANNA_PRAMUKH')) {
-        let worker = await prisma.worker.findUnique({
-            where: { userId: parseInt(user.id) },
-            include: { booth: true }
-        });
+    if (userRole === 'WORKER') {
+        let worker: any = null;
 
-        // Simulation Support: If Admin simulating, pick first matching worker as reference
-        if (!worker && ['ADMIN', 'SUPERADMIN'].includes(user?.role)) {
-            worker = await prisma.worker.findFirst({
-                where: {
-                    assemblyId: assemblyId || user?.assemblyId || 1,
-                    type: effectiveWorkerType as any
-                },
+        // If we don't have booth in session, we MUST fetch from DB
+        const isActuallyAdmin = ['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(user?.role);
+        if (!workerBoothNumber || (isActuallyAdmin && effectiveWorkerType)) {
+            worker = await prisma.worker.findUnique({
+                where: { userId: parseInt(user.id) },
                 include: { booth: true }
             });
+
+            // Simulation Support
+            if (!worker && isActuallyAdmin) {
+                worker = await prisma.worker.findFirst({
+                    where: {
+                        assemblyId: assemblyId || user?.assemblyId || 1,
+                        type: workerType as any
+                    },
+                    include: { booth: true }
+                });
+            }
         }
 
-        if (worker?.boothId) {
-            where.boothNumber = worker.booth?.number;
+        // Enforce booth restriction
+        const boothToUse = workerBoothNumber || worker?.booth?.number;
+        if (boothToUse) {
+            where.boothNumber = boothToUse;
         }
 
-        if (pannaOnly && worker?.id) {
-            where.pannaPramukhId = worker.id;
+        if (workerType === 'PANNA_PRAMUKH') {
+            // ONLY restrict to assigned voters if explicitly requested (Your Panna view)
+            if (pannaOnly || booth === 'my-panna') {
+                where.pannaPramukhId = workerId || worker?.id;
+            }
         }
     }
 
     if (search) {
         where.OR = [
             { name: { contains: search } },
+            { nameEn: { contains: search } },
+            { nameHi: { contains: search } },
             { epic: { contains: search } },
             { relativeName: { contains: search } },
+            { relativeNameEn: { contains: search } },
+            { relativeNameHi: { contains: search } },
+            { houseNumber: { contains: search } },
             { mobile: { contains: search } }
         ];
     }
@@ -133,6 +163,13 @@ export async function getVoters(filters: {
     if (filters.isHead === 'true') where.isHead = true;
     if (filters.isPwD === 'true') where.isPwD = true;
     if (filters.isImportant === 'true') where.isImportant = true;
+
+    if (filters.pannaId && filters.pannaId !== 'सभी पन्ना प्रमुख') {
+        const pId = parseInt(filters.pannaId.toString());
+        if (!isNaN(pId)) {
+            where.pannaPramukhId = pId;
+        }
+    }
 
     if (filters.isVoted) {
         if (filters.isVoted === 'true' || filters.isVoted === 'Yes') where.isVoted = true;
@@ -640,14 +677,23 @@ export async function getVoterWithFamily(voterId: number) {
         updatedByName: (feedback_v as any)?.updatedByName ?? (voter as any).updatedByName,
     };
 
-    // Find family members (shared houseNumber and village/area)
+    // Find family members using familyId or tight booth+house+relative match
+    const familyWhere: any = { assemblyId: voter.assemblyId };
+    if (voter.familyId) {
+        familyWhere.familyId = voter.familyId;
+    } else if (voter.houseNumber && voter.village) {
+        familyWhere.houseNumber = voter.houseNumber;
+        familyWhere.village = voter.village;
+        familyWhere.boothNumber = voter.boothNumber;
+        if (voter.relativeName) {
+            familyWhere.relativeName = voter.relativeName;
+        }
+    } else {
+        familyWhere.id = voter.id;
+    }
+
     const family = await (prisma.voter as any).findMany({
-        where: {
-            houseNumber: voter.houseNumber,
-            village: voter.village,
-            area: voter.area,
-            assemblyId: voter.assemblyId
-        },
+        where: familyWhere,
         include: campaignId ? {
             feedbacks: { where: { campaignId } }
         } : undefined,
@@ -696,7 +742,7 @@ export async function getFilterOptions(assemblyId?: number) {
         if (assembly) assemblyState = assembly.state;
     }
 
-    const [castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties] = await Promise.all([
+    const [castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties, pannaPramukhs] = await Promise.all([
         prisma.voter.findMany({
             select: { caste: true },
             distinct: ['caste'],
@@ -738,11 +784,33 @@ export async function getFilterOptions(assemblyId?: number) {
                 { sortOrder: 'asc' },
                 { name: 'asc' }
             ]
+        }),
+        prisma.worker.findMany({
+            where: { ...where, type: 'PANNA_PRAMUKH', deletedAt: null },
+            select: { id: true, name: true, booth: { select: { number: true } } }
         })
     ]);
 
     // Create a map of registered booths for quick lookup
-    const boothNameMap = new Map(registeredBooths.map(b => [b.number, b.name]));
+    const boothNameMap = new Map();
+    registeredBooths.forEach(b => {
+        const bName = b.nameHi || b.name || b.nameEn;
+        if (bName && !bName.startsWith('Booth No.')) {
+            boothNameMap.set(b.number, bName);
+        }
+    });
+
+    if (assemblyId) {
+        const importJobs = await (prisma as any).importJob.findMany({
+            where: { assemblyId, boothName: { not: null } },
+            select: { boothNumber: true, boothName: true }
+        });
+        importJobs.forEach((ij: any) => {
+            if (ij.boothNumber && ij.boothName && !boothNameMap.has(ij.boothNumber)) {
+                boothNameMap.set(ij.boothNumber, ij.boothName);
+            }
+        });
+    }
 
     // Combine both sources to ensure all booths with voters or registrations are shown
     const allBoothNumbers = Array.from(new Set([
@@ -752,7 +820,7 @@ export async function getFilterOptions(assemblyId?: number) {
 
     const booths = allBoothNumbers.map(num => ({
         number: num,
-        name: boothNameMap.get(num) || null
+        name: boothNameMap.get(num) || (registeredBooths.find(b => b.number === num)?.villageNameHi || null)
     }));
 
     return {
@@ -761,7 +829,8 @@ export async function getFilterOptions(assemblyId?: number) {
         surnames: surnames.map(s => ({ value: s.surname as string, parent: s.subCaste as string })),
         villages: villages.map(v => v.village as string).filter(Boolean),
         booths: booths || [],
-        parties: parties || []
+        parties: parties || [],
+        pannaPramukhs: pannaPramukhs.map(p => ({ id: p.id, name: p.name, boothNumber: p.booth?.number }))
     };
 }
 export async function getUnassignedVoters(assemblyId: number, boothNumber: number) {

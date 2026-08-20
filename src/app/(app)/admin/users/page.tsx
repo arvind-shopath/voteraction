@@ -256,12 +256,7 @@ export default function UsersPage() {
                     <option value="ALL">सभी रोल्स</option>
                     <option value="ADMIN">एडमिन</option>
                     <option value="CANDIDATE">कैंडिडेट</option>
-                    <optgroup label="सोशल सेना">
-                        <option value="SOCIAL_MEDIA">सोशल सेना (General)</option>
-                        <option value="SM_MANAGER">सोशल सेना मैनेजर</option>
-                        <option value="DESIGNER">डिजाइनर</option>
-                        <option value="EDITOR">वीडियो एडिटर</option>
-                    </optgroup>
+                    <option value="WORKER">कार्यकर्ता</option>
                 </select>
             </div>
 
@@ -291,20 +286,7 @@ export default function UsersPage() {
                     onChangePassword={triggerChangePassword}
                     onDelete={triggerDelete}
                 />
-                <UserGroupSection
-                    title="Social Sena"
-                    icon={<Share2 size={20} color="#EF4444" />}
-                    users={creativeSMTeam}
-                    id="sm_team"
-                    expanded={expandedGroups['sm_team']}
-                    onToggle={toggleGroup}
-                    onUpdateStatus={handleUpdateStatus}
-                    onUpdateRole={handleUpdateRole}
-                    onAssignAssembly={handleAssignAssembly}
-                    onEditName={triggerUpdateUserName}
-                    onChangePassword={triggerChangePassword}
-                    onDelete={triggerDelete}
-                />
+
                 <UserGroupSection
                     title="Candidate Pool (Unassigned)"
                     icon={<Star size={20} color="#F59E0B" />}

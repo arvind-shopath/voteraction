@@ -11,6 +11,8 @@ model Assembly {
   id                    Int                      @id @default(autoincrement())
   number                Int                      @unique
   name                  String
+  nameHindi             String?
+  nameEnglish           String?
   district              String
   state                 String                   @default("Uttar Pradesh")
   candidateName         String?
@@ -196,44 +198,60 @@ model SystemLog {
 }
 
 model Voter {
-  id             Int             @id @default(autoincrement())
-  name           String
-  age            Int?
-  gender         String?
-  relativeName   String?
-  relationType   String?
-  houseNumber    String?
-  familySize     Int             @default(1)
-  epic           String?         @unique
-  boothNumber    Int?
-  village        String?
-  area           String?
-  caste          String?
-  subCaste       String?
-  surname        String?
-  supportStatus  String          @default("Neutral")
-  notes          String?
-  mobile         String?
-  isVoted        Boolean         @default(false)
-  isHead         Boolean         @default(false)
-  isPwD          Boolean         @default(false)
-  isImportant    Boolean         @default(false)
+  id                 Int             @id @default(autoincrement())
+  name               String
+  nameEn             String?
+  nameHi             String?
+  age                Int?
+  gender             String?
+  relativeName       String?
+  relativeNameEn     String?
+  relativeNameHi     String?
+  relationType       String?
+  houseNumber        String?
+  houseNoRaw         String?
+  houseNoClean       String?
+  fullAddressEn      String?
+  fullAddressHi      String?
+  serialNo           Int?
+  familySize         Int             @default(1)
+  epic               String?         @unique
+  boothNumber        Int?
+  village            String?
+  villageEn          String?
+  villageHi          String?
+  area               String?
+  caste              String?
+  subCaste           String?
+  surname            String?
+  casteCategory      String?
+  religion           String?
+  familyId           String?
+  supportStatus      String          @default("Neutral")
+  notes              String?
+  mobile             String?
+  isVoted            Boolean         @default(false)
+  isHead             Boolean         @default(false)
+  isPwD              Boolean         @default(false)
+  isImportant        Boolean         @default(false)
+  dataQualityScore   Int             @default(100)
+  parsingLayer       String          @default("OCR_PRIMARY")
   verificationStatus String          @default("VERIFIED")
   eciStatus          String          @default("IN_LIST")
-  status         String          @default("Active")
-  updatedByName  String?
-  assemblyId     Int
-  importJobId    Int?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  pannaPramukhId Int?
-  votedSentiment String?         // Legacy: for Support/Oppose/Neutral
-  votedPartyId   Int?            // New: Link to specific Party
-  importJob      ImportJob?      @relation(fields: [importJobId], references: [id])
-  assembly       Assembly        @relation(fields: [assemblyId], references: [id])
-  pannaPramukh   Worker?         @relation("PannaPramukhVoters", fields: [pannaPramukhId], references: [id])
-  votedParty     Party?          @relation(fields: [votedPartyId], references: [id])
-  feedbacks      VoterFeedback[]
+  status             String          @default("Active")
+  updatedByName      String?
+  assemblyId         Int
+  importJobId        Int?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  pannaPramukhId     Int?
+  votedSentiment     String?         // Legacy: for Support/Oppose/Neutral
+  votedPartyId       Int?            // New: Link to specific Party
+  importJob          ImportJob?      @relation(fields: [importJobId], references: [id])
+  assembly           Assembly        @relation(fields: [assemblyId], references: [id])
+  pannaPramukh       Worker?         @relation("PannaPramukhVoters", fields: [pannaPramukhId], references: [id])
+  votedParty         Party?          @relation(fields: [votedPartyId], references: [id])
+  feedbacks          VoterFeedback[]
 
   @@index([boothNumber])
   @@index([pannaPramukhId])
@@ -273,6 +291,18 @@ model Booth {
   id                Int      @id @default(autoincrement())
   number            Int
   name              String?
+  nameEn            String?
+  nameHi            String?
+  wardNo            String?
+  villageNameEn     String?
+  villageNameHi     String?
+  localityMohallaEn String?
+  localityMohallaHi String?
+  policeStationEn   String?
+  policeStationHi   String?
+  tehsilEn          String?
+  pincode           String?
+  districtEn        String?
   area              String?
   totalVoters       Int      @default(0)
   coveragePercent   Int      @default(0)

@@ -7,12 +7,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Search, Filter, Users, MapPin, Phone, Edit2, Eye, User, Home, ChevronDown, ChevronUp, X, Loader2, Share2, Crown, Activity, Star, Printer, UserPlus } from 'lucide-react';
+import { Search, Filter, Users, MapPin, Phone, Edit2, Eye, User, Home, ChevronDown, ChevronUp, X, Loader2, Share2, Crown, Activity, Star, Printer, UserPlus, CheckCircle } from 'lucide-react';
 import { getVoters, getFilterOptions, updateVoterFeedback, updateVoter, getVoterWithFamily, createVoter, verifyVoter, deleteVoter, getVoterEditRequests, approveVoterEditRequest, rejectVoterEditRequest, addToFamily, removeFromFamily, searchVotersForFamily } from '@/app/actions/voters';
 import { useView } from '@/context/ViewContext';
 import { getWorkerBooth } from '@/app/actions/worker';
 import { Clock, Check, AlertCircle, CloudDownload, RefreshCw, WifiOff, Save, Trash2, UserMinus } from 'lucide-react';
 import { saveVotersLocally, getLocalVoters, updateLocalVoter, searchLocalVoters } from '@/lib/voter-store';
+import { SearchableSelect } from '@/components/SearchableSelect';
 
 // --- STYLES & SUB-COMPONENTS (HOISTED) ---
 // ... (omitting repeated styles for brevity if needed, but tool needs exact match or full block)
@@ -125,10 +126,49 @@ export default function CandidateVotersView() {
     const { data: session }: any = useSession();
     const assemblyId = session?.user?.assemblyId;
     const { effectiveRole, effectiveWorkerType } = useView();
-    const isBoothManager = effectiveWorkerType === 'BOOTH_MANAGER';
+    const role = effectiveRole || (session?.user as any)?.role;
+    const workerType = effectiveWorkerType || (session?.user as any)?.workerType;
+    const isBoothManager = workerType === 'BOOTH_MANAGER';
     const [assignedBooth, setAssignedBooth] = useState<any>(null);
 
     const [lang, setLang] = useState('hi');
+
+    useEffect(() => {
+        const savedLang = localStorage.getItem('app_lang');
+        if (savedLang) setLang(savedLang);
+    }, []);
+
+    const t = {
+        title: lang === 'hi' ? 'मतदाता सूची' : 'Voter List',
+        totalVoters: lang === 'hi' ? 'कुल मतदाता' : 'Total Voters',
+        searchPlaceholder: lang === 'hi' ? 'खोजें (नाम, फोन, EPIC)...' : 'Search (Name, Phone, EPIC)...',
+        allBooths: lang === 'hi' ? 'सभी बूथ' : 'All Booths',
+        allVillages: lang === 'hi' ? 'सभी गांव' : 'All Villages',
+        allPanna: lang === 'hi' ? 'सभी पन्ना प्रमुख' : 'All Page Leads',
+        allCaste: lang === 'hi' ? 'सभी जाति' : 'All Castes',
+        allFamily: lang === 'hi' ? 'सभी परिवार' : 'All Families',
+        allAge: lang === 'hi' ? 'सभी आयु' : 'All Ages',
+        allGender: lang === 'hi' ? 'सभी लिंग' : 'All Genders',
+        allStatus: lang === 'hi' ? 'सभी स्थिति' : 'All Status',
+        filters: lang === 'hi' ? 'फिल्टर' : 'Filters',
+        print: lang === 'hi' ? 'प्रिंट' : 'Print',
+        addVoter: lang === 'hi' ? '+ वोटर' : '+ Voter',
+        approvals: lang === 'hi' ? 'अनुमोदन' : 'Approvals',
+        syncing: lang === 'hi' ? 'सिंक हो रहा है...' : 'Syncing...',
+        male: lang === 'hi' ? 'पुरुष' : 'Male',
+        female: lang === 'hi' ? 'महिला' : 'Female',
+        other: lang === 'hi' ? 'अन्य' : 'Other',
+        favor: lang === 'hi' ? 'पक्ष' : 'Favor',
+        neutral: lang === 'hi' ? 'न्यूट्रल' : 'Neutral',
+        anti: lang === 'hi' ? 'विपक्ष' : 'Against',
+        head: lang === 'hi' ? 'मुखिया' : 'Head',
+        pwd: lang === 'hi' ? 'दिव्यांग' : 'PwD',
+        vip: lang === 'hi' ? 'वीआईपी' : 'VIP',
+        voted: lang === 'hi' ? 'वोट दिया' : 'Voted',
+        results: lang === 'hi' ? 'परिणाम' : 'Results',
+        next: lang === 'hi' ? 'अगला' : 'Next',
+        prev: lang === 'hi' ? 'पिछला' : 'Prev'
+    };
 
     const [voters, setVoters] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -282,13 +322,13 @@ export default function CandidateVotersView() {
     });
 
     const [options, setOptions] = useState<any>({
-        castes: [], subCastes: [], surnames: [], villages: [], booths: [], parties: []
+        castes: [], subCastes: [], surnames: [], villages: [], booths: [], parties: [], pannaPramukhs: []
     });
 
     const [filters, setFilters] = useState({
-        search: '', booth: 'सभी बूथ', status: 'सभी स्थिति', gender: 'सभी', village: 'सभी गांव',
+        search: '', booth: 'सभी बूथ', boothName: 'सभी बूथ नाम', status: 'सभी स्थिति', gender: 'सभी', village: 'सभी गांव',
         caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
-        familySize: 'सभी परिवार', ageFilter: 'सभी आयु',
+        familySize: 'सभी परिवार', ageFilter: 'सभी आयु', pannaId: 'सभी पन्ना प्रमुख',
         isHead: false, isPwD: false, isImportant: false, isVoted: 'All', votedPartyId: '',
         page: 1, pageSize: 50
     });
@@ -580,56 +620,113 @@ export default function CandidateVotersView() {
                             <div style={{ gridColumn: isMobile ? 'span 1' : 'span 2' }}>
                                 <div style={{ position: 'relative' }}>
                                     <Search style={{ position: 'absolute', left: '16px', top: '14px', color: '#94A3B8' }} size={16} />
-                                    <input name="search" placeholder="खोजें (नाम, फोन, EPIC)..." value={filters.search} onChange={handleFilterChange}
+                                    <input name="search" placeholder={t.searchPlaceholder} value={filters.search} onChange={handleFilterChange}
                                         style={{ width: '100%', padding: '12px 12px 12px 42px', borderRadius: '12px', border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '14px', outline: 'none' }}
                                     />
                                 </div>
                             </div>
 
                             {!isBoothManager && (
-                                <StyledSelect name="booth" value={filters.booth} onChange={handleFilterChange}>
-                                    <option value="सभी बूथ">सभी बूथ</option>
-                                    {options.booths.map((b: any) => <option key={b.number} value={b.number}>#{b.number}</option>)}
-                                </StyledSelect>
+                                <SearchableSelect
+                                    options={['सभी बूथ', ...options.booths.map((b: any) => ({
+                                        label: typeof b === 'object' ? (b.name ? `भाग ${b.number} - ${b.name}` : `भाग ${b.number}`) : `भाग ${b}`,
+                                        value: String(typeof b === 'object' ? b.number : b)
+                                    }))]}
+                                    value={filters.booth}
+                                    onChange={(val) => setFilters(prev => ({ ...prev, booth: val, page: 1 }))}
+                                    placeholder={t.allBooths}
+                                    searchPlaceholder="बूथ संख्या या नाम खोजें..."
+                                />
                             )}
 
-                            <StyledSelect name="village" value={filters.village} onChange={handleFilterChange}>
-                                <option value="सभी गांव">सभी गांव</option>
-                                {options.villages.map((v: any) => <option key={v} value={v}>{v}</option>)}
-                            </StyledSelect>
+                            <SearchableSelect
+                                options={['सभी बूथ नाम', ...options.booths.map((b: any) => typeof b === 'object' ? b.name : b).filter(Boolean)]}
+                                value={filters.boothName}
+                                onChange={(val) => setFilters(prev => ({ ...prev, boothName: val, page: 1 }))}
+                                placeholder="बूथ का नाम"
+                                searchPlaceholder="बूथ नाम खोजें..."
+                            />
 
-                            <StyledSelect name="caste" value={filters.caste} onChange={handleFilterChange}>
-                                <option value="सभी जाति">सभी जाति</option>
-                                {options.castes.map((c: any) => <option key={c} value={c}>{c}</option>)}
-                            </StyledSelect>
+                            <SearchableSelect
+                                options={['सभी गांव', ...options.villages]}
+                                value={filters.village}
+                                onChange={(val) => setFilters(prev => ({ ...prev, village: val, page: 1 }))}
+                                placeholder={t.allVillages}
+                                searchPlaceholder="गांव/वार्ड खोजें..."
+                            />
 
-                            <StyledSelect name="familySize" value={filters.familySize} onChange={handleFilterChange}>
-                                <option value="सभी परिवार">सभी परिवार</option>
-                                <option value="1-3">छोटा (1-3 सदस्य)</option>
-                                <option value="4-6">मध्यम (4-6 सदस्य)</option>
-                                <option value="7+">बड़ा (7+ सदस्य)</option>
-                            </StyledSelect>
+                            <SearchableSelect
+                                options={[
+                                    { label: t.allPanna, value: 'सभी पन्ना प्रमुख' },
+                                    ...(options.pannaPramukhs
+                                        ?.filter((p: any) => filters.booth === 'सभी बूथ' || p.boothNumber === parseInt(filters.booth))
+                                        .map((p: any) => ({ label: `${p.name} (#${p.boothNumber})`, value: String(p.id) })) || [])
+                                ]}
+                                value={filters.pannaId}
+                                onChange={(val) => setFilters(prev => ({ ...prev, pannaId: val, page: 1 }))}
+                                placeholder={t.allPanna}
+                                searchPlaceholder="पन्ना प्रमुख खोजें..."
+                            />
 
-                            <StyledSelect name="ageFilter" value={filters.ageFilter} onChange={handleFilterChange}>
-                                <option value="सभी आयु">सभी आयु</option>
-                                <option value="18-24">पहली बार (18-24)</option>
-                                <option value="25-35">युवा (25-35)</option>
-                                <option value="36-60">मध्यम (36-60)</option>
-                                <option value="60+">वरिष्ठ (60+)</option>
-                            </StyledSelect>
+                            <SearchableSelect
+                                options={['सभी जाति', ...options.castes]}
+                                value={filters.caste}
+                                onChange={(val) => setFilters(prev => ({ ...prev, caste: val, page: 1 }))}
+                                placeholder={t.allCaste}
+                                searchPlaceholder="जाति का नाम खोजें..."
+                            />
 
-                            <StyledSelect name="gender" value={filters.gender} onChange={handleFilterChange}>
-                                <option value="सभी">लिंग (Gender)</option>
-                                <option value="M">पुरुष</option>
-                                <option value="F">महिला</option>
-                            </StyledSelect>
+                            <SearchableSelect
+                                options={[
+                                    { label: t.allFamily, value: 'सभी परिवार' },
+                                    { label: lang === 'hi' ? 'छोटा (1-3 सदस्य)' : 'Small (1-3)', value: '1-3' },
+                                    { label: lang === 'hi' ? 'मध्यम (4-6 सदस्य)' : 'Medium (4-6)', value: '4-6' },
+                                    { label: lang === 'hi' ? 'बड़ा (7+ सदस्य)' : 'Large (7+)', value: '7+' }
+                                ]}
+                                value={filters.familySize}
+                                onChange={(val) => setFilters(prev => ({ ...prev, familySize: val, page: 1 }))}
+                                placeholder={t.allFamily}
+                                searchPlaceholder="परिवार साइज़ खोजें..."
+                            />
 
-                            <StyledSelect name="status" value={filters.status} onChange={handleFilterChange}>
-                                <option value="सभी स्थिति">समर्थन (Status)</option>
-                                <option value="Support">✅ पक्ष (Favor)</option>
-                                <option value="Neutral">⚪ न्यूट्रल</option>
-                                <option value="Oppose">❌ विपक्ष (Anti)</option>
-                            </StyledSelect>
+                            <SearchableSelect
+                                options={[
+                                    { label: t.allAge, value: 'सभी आयु' },
+                                    { label: lang === 'hi' ? 'पहली बार (18-24)' : 'First Time (18-24)', value: '18-24' },
+                                    { label: lang === 'hi' ? 'युवा (25-35)' : 'Youth (25-35)', value: '25-35' },
+                                    { label: lang === 'hi' ? 'मध्यम (36-60)' : 'Middle Aged (36-60)', value: '36-60' },
+                                    { label: lang === 'hi' ? 'वरिष्ठ (60+)' : 'Senior (60+)', value: '60+' }
+                                ]}
+                                value={filters.ageFilter}
+                                onChange={(val) => setFilters(prev => ({ ...prev, ageFilter: val, page: 1 }))}
+                                placeholder={t.allAge}
+                                searchPlaceholder="आयु वर्ग खोजें..."
+                            />
+
+                            <SearchableSelect
+                                options={[
+                                    { label: t.allGender, value: 'सभी' },
+                                    { label: t.male, value: 'M' },
+                                    { label: t.female, value: 'F' }
+                                ]}
+                                value={filters.gender}
+                                onChange={(val) => setFilters(prev => ({ ...prev, gender: val, page: 1 }))}
+                                placeholder={t.allGender}
+                                searchPlaceholder="लिंग खोजें..."
+                            />
+
+                            <SearchableSelect
+                                options={[
+                                    { label: t.allStatus, value: 'सभी स्थिति' },
+                                    { label: `✅ ${t.favor}`, value: 'Support' },
+                                    { label: `⚪ ${t.neutral}`, value: 'Neutral' },
+                                    { label: `❌ ${t.anti}`, value: 'Oppose' }
+                                ]}
+                                value={filters.status}
+                                onChange={(val) => setFilters(prev => ({ ...prev, status: val, page: 1 }))}
+                                placeholder={t.allStatus}
+                                searchPlaceholder="स्थिति खोजें..."
+                            />
 
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', gridColumn: isMobile ? 'span 1' : 'span 2' }}>
                                 <ToggleCheck name="isHead" checked={filters.isHead} onChange={handleFilterChange} label="मुखिया" icon="👑" />
@@ -649,87 +746,109 @@ export default function CandidateVotersView() {
                 ) : isMobile ? (
                     /* MOBILE CARD VIEW */
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {voters.map((v) => (
-                            <div key={v.id} style={{ background: '#1E293B', borderRadius: '16px', padding: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', border: '1px solid #334155' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                                    <div>
-                                        <div style={{ fontSize: '16px', fontWeight: '800', color: '#F8FAFC' }}>
-                                            {v.name} {v.age ? ` (${v.age})` : ''}
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: '#CBD5E1', marginTop: '2px' }}>
-                                            {v.relativeName} ({v.relationshipType === 'Mother' ? 'माता' : v.relationshipType === 'Husband' ? 'पति' : 'पिता'})
-                                        </div>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '800' }}>बूथ #{v.boothNumber}</div>
-                                        <div style={{ fontSize: '10px', color: '#64748B', fontFamily: 'monospace' }}>{v.epic}</div>
-                                    </div>
-                                </div>
+                        {voters.map((v) => {
+                            const isContacted = Boolean(
+                                (v.supportStatus && v.supportStatus !== 'Neutral') ||
+                                v.updatedByName ||
+                                (v.notes && v.notes.trim().length > 0)
+                            );
 
-                                <div style={{ marginBottom: '16px', fontSize: '12px', color: '#94A3B8' }}>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px', marginBottom: '4px' }}>
-                                        <MapPin size={10} style={{ marginTop: '2px', flexShrink: 0 }} />
+                            return (
+                                <div key={v.id} style={{ background: '#1E293B', borderRadius: '16px', padding: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', border: '1px solid #334155' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                                         <div>
-                                            <div style={{ color: '#E2E8F0', fontWeight: '500' }}>
-                                                {v.houseNumber ? `Makan Number- ${v.houseNumber}, ` : ''}{v.village || ''}
+                                            <div style={{ fontSize: '16px', fontWeight: '800', color: '#F8FAFC', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span>{lang === 'hi' ? (v.nameHi || v.name) : (v.nameEn || v.name)} {v.age ? ` (${v.age})` : ''}</span>
+                                                {isContacted ? (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#059669', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 4px rgba(5,150,105,0.3)' }}>
+                                                        <CheckCircle size={12} fill="white" color="#059669" /> संपर्कित
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#334155', color: '#CBD5E1', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700' }}>
+                                                        ⏳ संपर्क बाकी
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div style={{ fontSize: '11px', marginTop: '1px' }}>
-                                                {v.area && v.village && v.area.startsWith(v.village)
-                                                    ? v.area.substring(v.village.length).replace(/^[\s,]+/, '')
-                                                    : (v.area || v.address || '').replace(/Makan Number-\s*.*?,/, '').trim()}
+                                            <div style={{ fontSize: '13px', color: '#CBD5E1', marginTop: '2px' }}>
+                                                ({(v.relationType === 'Mother' || v.relationshipType === 'Mother') ? 'माता' : ((v.relationType === 'Husband' || v.relationshipType === 'Husband') ? 'पति' : 'पिता')}) - {lang === 'hi' ? (v.relativeNameHi || v.relativeName) : (v.relativeNameEn || v.relativeName)}
                                             </div>
+                                            {v.updatedByName && (
+                                                <div style={{ fontSize: '11px', color: '#10B981', fontWeight: '700', marginTop: '2px' }}>
+                                                    संपर्ककर्ता: {v.updatedByName}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '800' }}>बूथ #{v.boothNumber}</div>
+                                            <div style={{ fontSize: '10px', color: '#64748B', fontFamily: 'monospace' }}>{v.epic}</div>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                                        {v.mobile && (
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Phone size={10} /> {v.mobile}</span>
-                                        )}
-                                        {v.isHead && (
-                                            <span style={badgeStyle('#F59E0B')}>Mukhiya</span>
-                                        )}
+
+                                    <div style={{ marginBottom: '16px', fontSize: '12px', color: '#94A3B8' }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px', marginBottom: '4px' }}>
+                                            <MapPin size={10} style={{ marginTop: '2px', flexShrink: 0 }} />
+                                            <div>
+                                                <div style={{ color: '#E2E8F0', fontWeight: '500' }}>
+                                                    {v.houseNumber ? `Makan Number- ${v.houseNumber}, ` : ''}{v.village || ''}
+                                                </div>
+                                                <div style={{ fontSize: '11px', marginTop: '1px' }}>
+                                                    {v.area && v.village && v.area.startsWith(v.village)
+                                                        ? v.area.substring(v.village.length).replace(/^[\s,]+/, '')
+                                                        : (v.area || v.address || '').replace(/Makan Number-\s*.*?,/, '').trim()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                                            {v.mobile && (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Phone size={10} /> {v.mobile}</span>
+                                            )}
+                                            {v.isHead && (
+                                                <span style={badgeStyle('#F59E0B')}>Mukhiya</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <select
+                                            value={v.supportStatus || 'Neutral'}
+                                            onChange={async (e) => {
+                                                const newStatus = e.target.value;
+                                                await updateLocalVoter(v.id, { supportStatus: newStatus });
+                                                setVoters(prev => prev.map(p => p.id === v.id ? { ...p, supportStatus: newStatus } : p));
+                                                await updateVoterFeedback(v.id, { supportStatus: newStatus });
+                                            }}
+                                            style={{
+                                                flex: 1, padding: '10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800',
+                                                border: 'none', background: v.supportStatus === 'Support' ? '#064E3B' : v.supportStatus === 'Oppose' ? '#450A0A' : '#334155',
+                                                color: v.supportStatus === 'Support' ? '#10B981' : v.supportStatus === 'Oppose' ? '#F87171' : '#94A3B8'
+                                            }}
+                                        >
+                                            <option value="Support">✅ पक्ष (Favor)</option>
+                                            <option value="Neutral">⚪ न्यूट्रल</option>
+                                            <option value="Oppose">❌ विपक्ष (Anti)</option>
+                                        </select>
+                                        <button
+                                            onClick={() => {
+                                                setViewVoter({ ...v, family: [] });
+                                                setIsEditing(false);
+                                                setEditData(v);
+                                                setIsLoadingFamily(true);
+                                                getVoterWithFamily(v.id).then(fullData => {
+                                                    if (fullData) {
+                                                        setViewVoter(fullData);
+                                                        setEditData(fullData);
+                                                    }
+                                                    setIsLoadingFamily(false);
+                                                });
+                                            }}
+                                            style={{ width: '44px', height: '44px', borderRadius: '12px', border: '1px solid #334155', background: '#0F172A', color: '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <Eye size={18} />
+                                        </button>
                                     </div>
                                 </div>
-
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <select
-                                        value={v.supportStatus || 'Neutral'}
-                                        onChange={async (e) => {
-                                            const newStatus = e.target.value;
-                                            await updateLocalVoter(v.id, { supportStatus: newStatus });
-                                            setVoters(prev => prev.map(p => p.id === v.id ? { ...p, supportStatus: newStatus } : p));
-                                            await updateVoterFeedback(v.id, { supportStatus: newStatus });
-                                        }}
-                                        style={{
-                                            flex: 1, padding: '10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800',
-                                            border: 'none', background: v.supportStatus === 'Support' ? '#064E3B' : v.supportStatus === 'Oppose' ? '#450A0A' : '#334155',
-                                            color: v.supportStatus === 'Support' ? '#10B981' : v.supportStatus === 'Oppose' ? '#F87171' : '#94A3B8'
-                                        }}
-                                    >
-                                        <option value="Support">✅ पक्ष (Favor)</option>
-                                        <option value="Neutral">⚪ न्यूट्रल</option>
-                                        <option value="Oppose">❌ विपक्ष (Anti)</option>
-                                    </select>
-                                    <button
-                                        onClick={() => {
-                                            setViewVoter({ ...v, family: [] });
-                                            setIsEditing(false);
-                                            setEditData(v);
-                                            setIsLoadingFamily(true);
-                                            getVoterWithFamily(v.id).then(fullData => {
-                                                if (fullData) {
-                                                    setViewVoter(fullData);
-                                                    setEditData(fullData);
-                                                }
-                                                setIsLoadingFamily(false);
-                                            });
-                                        }}
-                                        style={{ width: '44px', height: '44px', borderRadius: '12px', border: '1px solid #334155', background: '#0F172A', color: '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    >
-                                        <Eye size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 ) : (
                     /* DESKTOP TABLE VIEW */
@@ -748,24 +867,45 @@ export default function CandidateVotersView() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {voters.map((v) => (
-                                        <tr key={v.id} style={{ borderBottom: '1px solid #334155', transition: 'background 0.2s', background: '#1E293B' }}
-                                            onMouseEnter={(e) => e.currentTarget.style.background = '#2C3E50'}
-                                            onMouseLeave={(e) => e.currentTarget.style.background = '#1E293B'}>
+                                    {voters.map((v) => {
+                                        const isContacted = Boolean(
+                                            (v.supportStatus && v.supportStatus !== 'Neutral') ||
+                                            v.updatedByName ||
+                                            (v.notes && v.notes.trim().length > 0)
+                                        );
 
-                                            <td style={{ padding: '16px', verticalAlign: 'top' }}>
-                                                <div style={{ fontSize: '15px', fontWeight: '700', color: '#F8FAFC', marginBottom: '4px' }}>
-                                                    {v.name} {v.age ? ` (${v.age})` : ''}
-                                                </div>
-                                                <div style={{ fontSize: '13px', color: '#CBD5E1', marginBottom: '2px' }}>
-                                                    {v.relationshipType === 'Mother' ? 'माता' : v.relationshipType === 'Husband' ? 'पति' : 'पिता'} - {v.relativeName || 'N/A'}
-                                                </div>
+                                        return (
+                                            <tr key={v.id} style={{ borderBottom: '1px solid #334155', transition: 'background 0.2s', background: '#1E293B' }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = '#2C3E50'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = '#1E293B'}>
+
+                                                <td style={{ padding: '16px', verticalAlign: 'top' }}>
+                                                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#F8FAFC', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        <span>{lang === 'hi' ? (v.nameHi || v.name) : (v.nameEn || v.name)} {v.age ? ` (${v.age})` : ''}</span>
+                                                        {isContacted ? (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#059669', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 4px rgba(5,150,105,0.3)' }}>
+                                                                <CheckCircle size={12} fill="white" color="#059669" /> संपर्कित
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#334155', color: '#CBD5E1', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700' }}>
+                                                                ⏳ संपर्क बाकी
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ fontSize: '13px', color: '#CBD5E1', marginBottom: '2px' }}>
+                                                        ({(v.relationType === 'Mother' || v.relationshipType === 'Mother') ? 'माता' : ((v.relationType === 'Husband' || v.relationshipType === 'Husband') ? 'पति' : 'पिता')}) - {lang === 'hi' ? (v.relativeNameHi || v.relativeName) : (v.relativeNameEn || v.relativeName)}
+                                                    </div>
+                                                    {v.updatedByName && (
+                                                        <div style={{ fontSize: '11px', color: '#10B981', fontWeight: '700', marginBottom: '2px' }}>
+                                                            संपर्ककर्ता: {v.updatedByName}
+                                                        </div>
+                                                    )}
                                                 {(v.area || v.address || v.village) && (
                                                     <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '2px', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
                                                         <MapPin size={10} style={{ marginTop: '2px', flexShrink: 0 }} />
                                                         <div>
                                                             <div style={{ color: '#F8FAFC' }}>
-                                                                {v.houseNumber ? `Makan Number- ${v.houseNumber}, ` : ''}{v.village || ''}
+                                                                {v.houseNumber ? `Makan Number- ${v.houseNumber}, ` : ''}{lang === 'hi' ? (v.villageHi || v.village) : (v.villageEn || v.village)}
                                                             </div>
                                                             <div style={{ fontSize: '11px', marginTop: '1px' }}>
                                                                 {v.area && v.village && v.area.startsWith(v.village)
@@ -779,6 +919,8 @@ export default function CandidateVotersView() {
                                                     परिवार- {v.familySize || 1} सदस्य
                                                     {v.isHead && <span style={{ ...badgeStyle('#F59E0B'), marginLeft: '6px' }}>Mukhiya</span>}
                                                     {v.isPwD && <span style={{ ...badgeStyle('#EF4444'), marginLeft: '6px' }}>PwD</span>}
+                                                    {v.caste && <span style={{ ...badgeStyle('#3B82F6'), marginLeft: '6px' }}>{v.caste}</span>}
+                                                    {v.religion && <span style={{ ...badgeStyle('#8B5CF6'), marginLeft: '6px' }}>{v.religion}</span>}
                                                 </div>
                                             </td>
 
@@ -838,11 +980,12 @@ export default function CandidateVotersView() {
                                                         background: 'transparent', color: '#94A3B8', fontSize: '12px', cursor: 'pointer',
                                                         display: 'flex', alignItems: 'center', gap: '4px'
                                                     }}>
-                                                    <Eye size={14} /> व्यू एंड एडिट
+                                                    <Eye size={14} /> ऑप्शन और एडिट
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))}
+                                    );
+                                })}
                                 </tbody>
                             </table>
                             {voters.length === 0 && (
@@ -1050,7 +1193,7 @@ export default function CandidateVotersView() {
                         <div style={{ background: 'white', width: '90%', maxWidth: '900px', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', maxHeight: '90vh' }}>
                             <div style={{ padding: '24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(to right, #F8FAFC, white)' }}>
                                 <div>
-                                    <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0F172A' }}>{viewVoter.name}</h2>
+                                    <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0F172A' }}>{lang === 'hi' ? (viewVoter.nameHi || viewVoter.name) : (viewVoter.nameEn || viewVoter.name)}</h2>
                                     <div style={{ color: '#64748B', fontSize: '14px', fontWeight: '500' }}>EPIC: <span style={{ fontFamily: 'monospace', color: '#4338CA' }}>{viewVoter.epic}</span></div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1077,13 +1220,13 @@ export default function CandidateVotersView() {
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
                                             {!isEditing ? (
                                                 <>
-                                                    <InfoBox label="Relative Name" value={viewVoter.relativeName} />
-                                                    <InfoBox label="Relation Type" value={viewVoter.relationType} />
-                                                    <InfoBox label="Age" value={`${viewVoter.age} Yrs`} />
-                                                    <InfoBox label="Gender" value={viewVoter.gender} />
-                                                    <InfoBox label="Mobile" value={viewVoter.mobile} />
-                                                    <InfoBox label="House Number" value={viewVoter.houseNumber} />
-                                                    <InfoBox label="Village / Ward" value={viewVoter.village} />
+                                                    <InfoBox label={lang === 'hi' ? "सम्बन्धी का नाम" : "Relative Name"} value={lang === 'hi' ? (viewVoter.relativeNameHi || viewVoter.relativeName) : (viewVoter.relativeNameEn || viewVoter.relativeName)} />
+                                                    <InfoBox label={lang === 'hi' ? "सम्बन्ध" : "Relation Type"} value={viewVoter.relationType} />
+                                                    <InfoBox label={lang === 'hi' ? "उम्र" : "Age"} value={`${viewVoter.age} ${lang === 'hi' ? 'वर्ष' : 'Yrs'}`} />
+                                                    <InfoBox label={lang === 'hi' ? "लिंग" : "Gender"} value={viewVoter.gender} />
+                                                    <InfoBox label={lang === 'hi' ? "मोबाइल" : "Mobile"} value={viewVoter.mobile} />
+                                                    <InfoBox label={lang === 'hi' ? "मकान संख्या" : "House Number"} value={viewVoter.houseNumber} />
+                                                    <InfoBox label={lang === 'hi' ? "गांव/वार्ड" : "Village / Ward"} value={lang === 'hi' ? (viewVoter.villageHi || viewVoter.village) : (viewVoter.villageEn || viewVoter.village)} />
                                                     <InfoBox label="वर्ग / जाति (Category / Caste)" value={`${viewVoter.caste || ''} / ${viewVoter.subCaste || ''}`} />
                                                 </>
                                             ) : (

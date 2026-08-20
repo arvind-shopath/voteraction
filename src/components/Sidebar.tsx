@@ -19,9 +19,12 @@ interface SidebarProps {
     candidateName?: string;
     candidateImageUrl?: string | null;
     partyLogoUrl?: string | null;
+    realUserName?: string;
+    realUserImage?: string | null;
+    isWorker?: boolean;
 }
 
-const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProps) => {
+const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName, realUserImage, isWorker }: SidebarProps) => {
     const pathname = usePathname();
     const { data: session }: any = useSession();
     const { effectiveRole, effectiveWorkerType, simulationPersona, setEffectiveRole } = useView();
@@ -46,47 +49,44 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
 
     // Profile Info (The person currently logged in - ALWAYS show real user details for Admin/SuperAdmin)
     // For Candidates, we prioritize the candidateName prop which reflects the Assembly branding
+    // Update: If it's a real WORKER login, show their real name instead of Candidate branding
     const userName = isActuallyGlobal
-        ? (session?.user?.name || (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन'))
-        : (simulationPersona?.name || candidateName || session?.user?.name || (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य')));
+        ? (realUserName || session?.user?.name || (realRole === 'SUPERADMIN' ? 'सर्वेसर्वा' : 'एडमिन'))
+        : (simulationPersona?.name || (isWorker ? realUserName : (candidateName || realUserName)) || session?.user?.name || (role === 'CANDIDATE' ? 'कैंडिडेट दृश्य' : (role === 'WORKER' ? 'कार्यकर्ता दृश्य' : 'सिमुलेशन दृश्य')));
 
     const userImage = isActuallyGlobal
-        ? session?.user?.image
-        : (simulationPersona?.image || candidateImageUrl || session?.user?.image);
+        ? (realUserImage || session?.user?.image)
+        : (simulationPersona?.image || (isWorker ? realUserImage : (candidateImageUrl || realUserImage)) || session?.user?.image);
 
     const getMenuItems = () => {
         // Core Admin View (Switching to other views via Header View Switcher)
         if (role === 'SUPERADMIN' || role === 'ADMIN') {
             return [
                 { name: lang === 'hi' ? 'कंट्रोल हाउस' : 'Control House', path: '/admin', icon: Activity },
-                // Admin no longer sees "User Dashboard" link here to avoid confusion
-                { name: lang === 'hi' ? 'कैंडिडेट्स (Teams)' : 'Candidates (Teams)', path: '/admin/candidates', icon: Star },
+                { name: lang === 'hi' ? 'प्रत्याशी और टीमें' : 'Candidates & Teams', path: '/admin/candidates', icon: Star },
                 { name: lang === 'hi' ? 'यूजर मास्टर' : 'User Master', path: '/admin/users', icon: Users },
-                { name: lang === 'hi' ? 'विधानसभा मैनेजमेंट' : 'Assembly Management', path: '/admin/assemblies', icon: Tent },
-                { name: lang === 'hi' ? 'पार्टी मैनेजमेंट' : 'Party Management', path: '/admin/parties', icon: Flag },
+                { name: lang === 'hi' ? 'विधानसभा प्रबंधन' : 'Assembly Management', path: '/admin/assemblies', icon: Tent },
+                { name: lang === 'hi' ? 'पार्टी प्रबंधन' : 'Party Management', path: '/admin/parties', icon: Flag },
                 { name: lang === 'hi' ? 'मतदाता मास्टर डेटा' : 'Voter Master Data', path: '/admin/voters', icon: Vote },
-                { name: lang === 'hi' ? 'ECI अपडेट' : 'ECI Updates', path: '/eci-updates', icon: ShieldCheck },
-                { name: lang === 'hi' ? 'डेटा इम्पॉर्ट' : 'Data Import', path: '/voters/data-import', icon: FileBox },
-                { name: lang === 'hi' ? 'सोशल सेना' : 'Social Sena', path: '/social-sena', icon: ShieldCheck },
+                { name: lang === 'hi' ? 'निर्वाचन आयोग अपडेट' : 'ECI Updates', path: '/eci-updates', icon: ShieldCheck },
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
-                { name: lang === 'hi' ? 'सिस्टम ऑडिट लॉग्स' : 'System Logs', path: '/admin/logs', icon: Activity },
+                { name: lang === 'hi' ? 'सिस्टम लॉग्स' : 'System Logs', path: '/admin/logs', icon: Activity },
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
 
         if (role === 'CANDIDATE') {
             return [
-                { name: lang === 'hi' ? 'कैंडिडेट डैशबोर्ड' : 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                { name: lang === 'hi' ? 'प्रत्याशी डैशबोर्ड' : 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Vote },
-                { name: lang === 'hi' ? 'ECI अपडेट' : 'ECI Updates', path: '/eci-updates', icon: ShieldCheck },
+                { name: lang === 'hi' ? 'निर्वाचन आयोग अपडेट' : 'ECI Updates', path: '/eci-updates', icon: ShieldCheck },
                 { name: lang === 'hi' ? 'बूथ प्रबंधन' : 'Booth Management', path: '/booths', icon: Tent },
-                { name: lang === 'hi' ? 'कार्यकर्ता & टीम' : 'Workers & Team', path: '/workers', icon: Users },
-                { name: lang === 'hi' ? 'टास्क मैनेजमेंट' : 'Task Management', path: '/tasks', icon: ListTodo },
-                { name: lang === 'hi' ? 'समस्याएं (Issues)' : 'Issues', path: '/issues', icon: AlertTriangle },
-                { name: lang === 'hi' ? 'सोशल मीडिया' : 'Social Media', path: '/social', icon: Share2 },
-                { name: lang === 'hi' ? 'जनसंपर्क (PR)' : 'Public Relations', path: '/jansampark', icon: Handshake },
+                { name: lang === 'hi' ? 'कार्यकर्ता और टीम' : 'Workers & Team', path: '/workers', icon: Users },
+                { name: lang === 'hi' ? 'कार्य प्रबंधन' : 'Task Management', path: '/tasks', icon: ListTodo },
+                { name: lang === 'hi' ? 'समस्याएं' : 'Issues', path: '/issues', icon: AlertTriangle },
+                { name: lang === 'hi' ? 'जनसंपर्क' : 'Public Relations', path: '/jansampark', icon: Handshake },
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
-                { name: lang === 'hi' ? 'सेटिंग्स & ब्रांडिंग' : 'Settings & Branding', path: '/settings', icon: Settings },
+                { name: lang === 'hi' ? 'सेटिंग्स और ब्रांडिंग' : 'Settings & Branding', path: '/settings', icon: Settings },
             ];
         }
 
@@ -94,13 +94,12 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
         if (role === 'WORKER' && workerType === 'BOOTH_MANAGER') {
             return [
                 { name: lang === 'hi' ? 'बूथ डैशबोर्ड' : 'Booth Dashboard', path: '/dashboard', icon: LayoutDashboard },
-                { name: lang === 'hi' ? 'मेरे बूथ के मतदाता' : 'My Booth Voters', path: '/voters', icon: Vote },
-                { name: lang === 'hi' ? 'जनसंपर्क (Route)' : 'Public Relations', path: '/jansampark', icon: Handshake },
+                { name: lang === 'hi' ? 'मतदाता सूची' : 'My Booth Voters', path: '/voters', icon: Vote },
+                { name: lang === 'hi' ? 'जनसंपर्क' : 'Public Relations', path: '/jansampark', icon: Handshake },
                 { name: lang === 'hi' ? 'बूथ कार्यकर्ता' : 'Booth Workers', path: '/workers', icon: Users },
-                { name: lang === 'hi' ? 'मेरे टास्क (Tasks)' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
+                { name: lang === 'hi' ? 'मेरे कार्य' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
                 { name: lang === 'hi' ? 'समस्या रिपोर्ट' : 'Report Issue', path: '/issues', icon: AlertTriangle },
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
-                { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
@@ -110,12 +109,11 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
             return [
                 { name: lang === 'hi' ? 'पन्ना डैशबोर्ड' : 'Page Dashboard', path: '/dashboard', icon: LayoutDashboard },
                 { name: lang === 'hi' ? 'आपका पन्ना' : 'Your Panna', path: '/voters?filter=my-panna', icon: BookOpen },
-                { name: lang === 'hi' ? 'मेरे बूथ के मतदाता' : 'Booth Voters', path: '/voters', icon: Users },
-                { name: lang === 'hi' ? 'जनसंपर्क (Route)' : 'PR Entry', path: '/jansampark', icon: Handshake },
-                { name: lang === 'hi' ? 'टास्क (Tasks)' : 'Tasks', path: '/worker/tasks', icon: ListTodo },
-                { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
+                { name: lang === 'hi' ? 'मतदाता सूची' : 'Booth Voters', path: '/voters', icon: Users },
+                { name: lang === 'hi' ? 'जनसंपर्क' : 'PR Entry', path: '/jansampark', icon: Handshake },
+                { name: lang === 'hi' ? 'मेरे कार्य' : 'Tasks', path: '/worker/tasks', icon: ListTodo },
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
-                { name: lang === 'hi' ? 'मदद/समस्या' : 'Help/Issue', path: '/issues', icon: AlertTriangle },
+                { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Help/Issue', path: '/issues', icon: AlertTriangle },
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
@@ -123,34 +121,12 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
         // FIELD WORKER / GROUND WORKER (Worker with type FIELD)
         if (role === 'WORKER' && workerType === 'FIELD') {
             return [
-                { name: lang === 'hi' ? 'ग्राउंड वर्कर डैशबोर्ड' : 'Ground Worker Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                { name: lang === 'hi' ? 'कार्यकर्ता डैशबोर्ड' : 'Ground Worker Dashboard', path: '/dashboard', icon: LayoutDashboard },
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Users },
-                { name: lang === 'hi' ? 'जनसंपर्क एंट्री' : 'PR Entry', path: '/jansampark', icon: Handshake },
-                { name: lang === 'hi' ? 'मेरे टास्क (Tasks)' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
+                { name: lang === 'hi' ? 'जनसंपर्क' : 'PR Entry', path: '/jansampark', icon: Handshake },
+                { name: lang === 'hi' ? 'मेरे कार्य' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
-                { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
                 { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Report Issue', path: '/issues', icon: AlertTriangle },
-                { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
-            ];
-        }
-
-        if (['SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role) || (role === 'WORKER' && workerType === 'SOCIAL_MEDIA')) {
-            const isCentral = workerType === 'SOCIAL_CENTRAL' || workerType?.startsWith('CENTRAL_') || ['SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role);
-            if (isCentral) {
-                let path = '/social-sena';
-                if (workerType === 'CENTRAL_DESIGNER' || role === 'DESIGNER') path = '/social-sena/designer';
-                if (workerType === 'CENTRAL_EDITOR' || role === 'EDITOR') path = '/social-sena/video-editor';
-
-                return [
-                    { name: lang === 'hi' ? 'सोशल सेना' : 'Social Sena', path: path, icon: ShieldCheck },
-                    { name: lang === 'hi' ? 'एनालिटिक्स' : 'Analytics', path: '/social/analytics', icon: BarChart3 },
-                    { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
-                ];
-            }
-            return [
-                { name: lang === 'hi' ? 'कंटेंट डैशबोर्ड' : 'Content Dashboard', path: '/social/local-team', icon: LayoutDashboard },
-                { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
-                { name: lang === 'hi' ? 'एनालिटिक्स' : 'Analytics', path: '/social/analytics', icon: BarChart3 },
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
@@ -160,10 +136,10 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
             return [
                 { name: lang === 'hi' ? 'कार्यकर्ता डैशबोर्ड' : 'Worker Dashboard', path: '/dashboard', icon: LayoutDashboard },
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Vote },
-                { name: lang === 'hi' ? 'जनसंपर्क एंट्री' : 'PR Entry', path: '/jansampark', icon: Handshake },
-                { name: lang === 'hi' ? 'मेरे टास्क (Tasks)' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
-                { name: lang === 'hi' ? 'प्रचार सामग्री' : 'Campaign Material', path: '/social/materials', icon: Megaphone },
+                { name: lang === 'hi' ? 'जनसंपर्क' : 'PR Entry', path: '/jansampark', icon: Handshake },
+                { name: lang === 'hi' ? 'मेरे कार्य' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
                 { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Report Issue', path: '/issues', icon: AlertTriangle },
+                { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
@@ -172,7 +148,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
     };
 
     const searchParams = useSearchParams();
-    const { isSidebarOpen, isSidebarCollapsed: layoutCollapsed, toggleCollapse, closeSidebar } = useLayout();
+    const { isSidebarOpen, isSidebarCollapsed: layoutCollapsed, toggleCollapse, toggleSidebar, closeSidebar } = useLayout();
     const currentMenu = getMenuItems();
 
     // On mobile, never treat it as collapsed internally (always show branding/text when open)
@@ -184,7 +160,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const isSidebarCollapsed = !isMobile && layoutCollapsed;
+    const isSidebarCollapsed = isMobile ? !isSidebarOpen : layoutCollapsed;
     const isSocialCentral = (workerType === 'SOCIAL_CENTRAL' || workerType?.startsWith('CENTRAL_'));
 
     if (pathname.startsWith('/social-sena') && role === 'SOCIAL_MEDIA' && isSocialCentral) {
@@ -199,16 +175,14 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                 onClick={closeSidebar}
             />
 
-            <div className={`sidebar ${isSidebarOpen ? 'mobile-open' : ''} ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`} style={{ color: 'white' }}>
+            <div className={`sidebar ${isSidebarOpen ? 'mobile-open' : ''} ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
                 {/* Collapse Toggle Button (Desktop) */}
                 <button
-                    onClick={toggleCollapse}
-                    className="hidden-mobile"
-                    suppressHydrationWarning
+                    onClick={() => isMobile ? toggleSidebar() : toggleCollapse()}
                     style={{
                         position: 'absolute',
                         right: '-12px',
-                        top: '80px',
+                        top: '40px',
                         width: '24px',
                         height: '24px',
                         borderRadius: '50%',
@@ -218,7 +192,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
                         zIndex: 101,
                         color: '#64748B'
                     }}
@@ -241,8 +215,17 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                     }
                 `}</style>
 
-                <div style={{ padding: '24px 24px 0', textAlign: 'center' }}>
-                    <img src="/logo.png?v=2" alt="Voteraction Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 4px 15px rgba(0,0,0,0.8))' }} />
+                <div style={{ padding: isSidebarCollapsed ? '20px 8px' : '24px 24px 0', textAlign: 'center', transition: 'all 0.3s' }}>
+                    <img
+                        src={isSidebarCollapsed ? "/icon.png" : "/logo.png?v=2"}
+                        alt="Voteraction Logo"
+                        style={{
+                            height: isSidebarCollapsed ? '32px' : '60px',
+                            width: 'auto',
+                            filter: isSidebarCollapsed ? 'none' : 'drop-shadow(0 4px 15px rgba(0,0,0,0.8))',
+                            transition: 'all 0.3s'
+                        }}
+                    />
                 </div>
                 {!isSidebarCollapsed && (
                     <div className="sidebar-brand" style={{ padding: '24px' }}>
@@ -284,11 +267,11 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                                 </div>
                             )}
                             <div className="sidebar-brand-text" style={{ marginTop: (isGlobal || !partyLogoUrl) ? '0' : '12px' }}>
-                                <div style={{ fontSize: '18px', fontWeight: '900', lineHeight: 1.2 }}>
+                                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B', marginBottom: '2px' }} className="sidebar-brand-text">
                                     {userName}
                                 </div>
-                                <div style={{ fontSize: '11px', fontWeight: '700', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '1.5px', marginTop: '4px' }}>
-                                    {role.replace('_', ' ')} {lang === 'hi' ? 'कंट्रोल' : 'CONTROL'}
+                                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '800', letterSpacing: '0.05em' }} className="sidebar-brand-text">
+                                    {effectiveRole === 'SOCIAL_MEDIA' ? 'सोशल सेना' : (isGlobal ? 'सिस्टम एडमिन' : 'कैंडिडेट')}
                                 </div>
                             </div>
                         </div>
@@ -338,16 +321,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl }: SidebarProp
                                 key={item.path}
                                 href={item.path}
                                 className={`menu-item ${isActive ? 'active' : ''}`}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    padding: '12px 16px',
-                                    borderRadius: '12px',
-                                    textDecoration: 'none',
-                                    marginBottom: '4px',
-                                    transition: 'all 0.2s'
-                                }}
+                                title={isSidebarCollapsed ? item.name : ''}
                             >
                                 <Icon size={20} className="menu-icon" />
                                 <span>{item.name}</span>
