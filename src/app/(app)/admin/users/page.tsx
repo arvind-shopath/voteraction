@@ -188,9 +188,45 @@ export default function UsersPage() {
 
     const pendingUsers = filteredUsers.filter(u => u.status === 'Pending');
     const globalAdmins = filteredUsers.filter(u => (u.role === 'ADMIN' || u.role === 'SUPERADMIN') && u.status !== 'Pending');
-    const candidates = filteredUsers.filter(u => u.role === 'CANDIDATE' && u.status !== 'Pending');
-    const workers = filteredUsers.filter(u => ['WORKER', 'SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(u.role) && u.status !== 'Pending');
-    const otherMembers = filteredUsers.filter(u => !['CANDIDATE', 'WORKER', 'SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR', 'ADMIN', 'SUPERADMIN'].includes(u.role) && u.status !== 'Pending');
+
+    // Group candidates and their campaign workers together by Assembly / Campaign
+    const activeNonAdmins = filteredUsers.filter(u => u.status !== 'Pending' && u.role !== 'ADMIN' && u.role !== 'SUPERADMIN');
+
+    const campaignGroupsMap: Record<string, { id: string, title: string, users: any[] }> = {};
+    const unassignedMembers: any[] = [];
+
+    activeNonAdmins.forEach(u => {
+        const asmId = u.assemblyId || u.campaign?.assemblyId;
+        if (asmId) {
+            const groupKey = `campaign-assembly-${asmId}`;
+            if (!campaignGroupsMap[groupKey]) {
+                const asmObj = assemblies.find(a => a.id === asmId) || u.assembly;
+                const asmTitle = asmObj ? `${asmObj.nameHindi || asmObj.name} (${asmObj.number})` : `विधानसभा #${asmId}`;
+                const candidateObj = activeNonAdmins.find(c => (c.assemblyId === asmId || c.campaign?.assemblyId === asmId) && c.role === 'CANDIDATE');
+                const candName = candidateObj?.name || asmObj?.candidateName || 'प्रत्याशी';
+
+                campaignGroupsMap[groupKey] = {
+                    id: groupKey,
+                    title: `प्रत्याशी ${candName} एवं टीम - ${asmTitle}`,
+                    users: []
+                };
+            }
+            campaignGroupsMap[groupKey].users.push(u);
+        } else {
+            unassignedMembers.push(u);
+        }
+    });
+
+    // Ensure Candidate appears FIRST in each campaign team list
+    Object.values(campaignGroupsMap).forEach(group => {
+        group.users.sort((a, b) => {
+            if (a.role === 'CANDIDATE') return -1;
+            if (b.role === 'CANDIDATE') return 1;
+            return 0;
+        });
+    });
+
+    const campaignGroups = Object.values(campaignGroupsMap);
 
     if (loading) return (
         <div style={{ padding: '80px', textAlign: 'center' }}>
@@ -268,7 +304,7 @@ export default function UsersPage() {
                     icon={<Clock size={20} color="#F59E0B" />}
                     users={pendingUsers}
                     id="pending"
-                    expanded={expandedGroups['pending']}
+                    expanded={expandedGroups['pending'] ?? true}
                     onToggle={toggleGroup}
                     onUpdateStatus={handleUpdateStatus}
                     onUpdateRole={handleUpdateRole}
@@ -279,7 +315,7 @@ export default function UsersPage() {
                     icon={<Shield size={20} color="#6366F1" />}
                     users={globalAdmins}
                     id="admins"
-                    expanded={expandedGroups['admins']}
+                    expanded={expandedGroups['admins'] ?? true}
                     onToggle={toggleGroup}
                     onUpdateStatus={handleUpdateStatus}
                     onUpdateRole={handleUpdateRole}
@@ -289,42 +325,30 @@ export default function UsersPage() {
                     onDelete={triggerDelete}
                 />
 
-                <UserGroupSection
-                    title="प्रत्याशी (Candidates)"
-                    icon={<Star size={20} color="#F59E0B" />}
-                    users={candidates}
-                    id="candidates"
-                    expanded={expandedGroups['candidates']}
-                    onToggle={toggleGroup}
-                    onUpdateStatus={handleUpdateStatus}
-                    onUpdateRole={handleUpdateRole}
-                    onAssignAssembly={handleAssignAssembly}
-                    onEditName={triggerUpdateUserName}
-                    onDelete={triggerDelete}
-                    onChangePassword={triggerChangePassword}
-                />
+                {campaignGroups.map(group => (
+                    <UserGroupSection
+                        key={group.id}
+                        title={group.title}
+                        icon={<Star size={20} color="#F59E0B" />}
+                        users={group.users}
+                        id={group.id}
+                        expanded={expandedGroups[group.id] ?? true}
+                        onToggle={toggleGroup}
+                        onUpdateStatus={handleUpdateStatus}
+                        onUpdateRole={handleUpdateRole}
+                        onAssignAssembly={handleAssignAssembly}
+                        onEditName={triggerUpdateUserName}
+                        onDelete={triggerDelete}
+                        onChangePassword={triggerChangePassword}
+                    />
+                ))}
 
                 <UserGroupSection
-                    title="कार्यकर्ता व टीम (Campaign Team)"
-                    icon={<UsersIcon size={20} color="#2563EB" />}
-                    users={workers}
-                    id="workers"
-                    expanded={expandedGroups['workers']}
-                    onToggle={toggleGroup}
-                    onUpdateStatus={handleUpdateStatus}
-                    onUpdateRole={handleUpdateRole}
-                    onAssignAssembly={handleAssignAssembly}
-                    onEditName={triggerUpdateUserName}
-                    onDelete={triggerDelete}
-                    onChangePassword={triggerChangePassword}
-                />
-
-                <UserGroupSection
-                    title="अन्य सदस्य"
+                    title="सोशल मीडिया व अन्य सदस्य"
                     icon={<User size={20} color="#64748B" />}
-                    users={otherMembers}
+                    users={unassignedMembers}
                     id="others"
-                    expanded={expandedGroups['others']}
+                    expanded={expandedGroups['others'] ?? true}
                     onToggle={toggleGroup}
                     onUpdateStatus={handleUpdateStatus}
                     onUpdateRole={handleUpdateRole}
