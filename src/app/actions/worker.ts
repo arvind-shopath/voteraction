@@ -74,6 +74,36 @@ export async function createBulkTasks(data: {
     revalidatePath('/worker/tasks');
 }
 
+async function resolveAssemblyId(assemblyIdRaw?: any) {
+    const session = await auth();
+    const user_s = session?.user as any;
+    
+    let targetAssemblyId: number | null = null;
+
+    if (user_s?.assemblyId) {
+        targetAssemblyId = parseInt(user_s.assemblyId.toString(), 10);
+    }
+
+    if (assemblyIdRaw !== undefined && assemblyIdRaw !== null && assemblyIdRaw !== '') {
+        const parsed = parseInt(assemblyIdRaw.toString(), 10);
+        if (!isNaN(parsed) && parsed > 0) {
+            const exists = await prisma.assembly.findUnique({ where: { id: parsed }, select: { id: true } });
+            if (exists) {
+                if (!targetAssemblyId || ['ADMIN', 'SUPERADMIN'].includes(user_s?.role)) {
+                    targetAssemblyId = parsed;
+                }
+            }
+        }
+    }
+
+    if (!targetAssemblyId) {
+        const firstAsm = await prisma.assembly.findFirst({ select: { id: true } });
+        targetAssemblyId = firstAsm?.id || 14;
+    }
+
+    return targetAssemblyId;
+}
+
 export async function getWorkersInAssembly(assemblyIdRaw?: any) {
     const session = await auth();
     const user_s = session?.user as any;
