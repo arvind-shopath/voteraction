@@ -10,8 +10,8 @@ export async function getBooths(assemblyId: number) {
         where: { assemblyId },
         include: {
             workers: {
-                where: { type: 'BOOTH_MANAGER' },
-                select: { id: true, name: true }
+                where: { deletedAt: null },
+                select: { id: true, name: true, mobile: true, type: true, user: { select: { mobile: true } } }
             }
         },
         orderBy: { number: 'asc' }
@@ -28,7 +28,12 @@ export async function getBooths(assemblyId: number) {
                 where: {
                     assemblyId,
                     boothNumber: booth.number,
-                    mobile: { not: null }
+                    OR: [
+                        { supportStatus: { in: ['Support', 'Oppose'] } },
+                        { updatedByName: { not: null } },
+                        { notes: { not: null } },
+                        { mobile: { not: null } }
+                    ]
                 }
             });
 
@@ -61,13 +66,28 @@ export async function getBooths(assemblyId: number) {
             });
             const dominantCaste = casteStats.length > 0 ? (casteStats[0].caste || 'Unknown') : 'Unknown';
 
+            const bm = booth.workers.find((w: any) => w.type === 'BOOTH_MANAGER' || w.type === 'BOOTH');
+            const boothManagerName = bm?.name || booth.inchargeName || null;
+            const boothManagerMobile = bm?.mobile || bm?.user?.mobile || booth.inchargeMobile || null;
+            const pannaWorkers = booth.workers.filter((w: any) => w.type === 'PANNA_PRAMUKH' || w.type === 'PANNA');
+            const pannaCount = pannaWorkers.length;
+
+            const displayLocation = booth.villageNameHi || booth.localityMohallaHi || booth.area || booth.villageNameEn || booth.nameHi || booth.name || null;
+
             return {
                 ...booth,
+                boothManagerName,
+                boothManagerMobile,
+                pannaCount,
+                pannaWorkers,
                 totalVoters: voterCount,
+                contactedCount,
                 coveragePercent: coverage,
+                janSamparkPercent: coverage,
                 status, // Support Status (Strong/Medium/Weak)
                 dominantCaste,
-                isAssigned: booth.workers.length > 0
+                isAssigned: Boolean(boothManagerName),
+                displayLocation
             };
         })
     );
@@ -81,9 +101,17 @@ export async function createBooth(data: {
     area?: string,
     inchargeName?: string,
     inchargeMobile?: string,
-    assemblyId: number
+    assemblyId: number,
+    workerId?: number
 }) {
-    await prisma.booth.create({ data });
+    const { workerId, ...boothData } = data;
+    const booth = await prisma.booth.create({ data: boothData });
+    if (workerId) {
+        await prisma.worker.update({
+            where: { id: workerId },
+            data: { boothId: booth.id, type: 'BOOTH_MANAGER' }
+        });
+    }
     revalidatePath('/booths');
 }
 
@@ -91,12 +119,23 @@ export async function updateBooth(id: number, data: {
     name?: string,
     area?: string,
     inchargeName?: string,
-    inchargeMobile?: string
+    inchargeMobile?: string,
+    workerId?: number
 }) {
+    const { workerId, ...boothData } = data;
     await prisma.booth.update({
         where: { id },
-        data
+        data: boothData
     });
+
+    if (workerId) {
+        // First, if there was an old manager on this booth, we keep or update
+        await prisma.worker.update({
+            where: { id: workerId },
+            data: { boothId: id, type: 'BOOTH_MANAGER' }
+        });
+    }
+
     revalidatePath('/booths');
 }
 

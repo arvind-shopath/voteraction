@@ -805,7 +805,7 @@ export async function getFilterOptions(assemblyId?: number) {
         if (assembly) assemblyState = assembly.state;
     }
 
-    const [casteCategories, castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties, pannaPramukhs, villageBoothPairs] = await Promise.all([
+    const [casteCategories, castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties, pannaPramukhs, boothManagers, villageBoothPairs] = await Promise.all([
         prisma.voter.findMany({
             select: { casteCategory: true },
             distinct: ['casteCategory'],

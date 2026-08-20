@@ -485,7 +485,25 @@ export default function WorkerVotersView() {
         }));
     };
 
-    const activeFilterCount = Object.values(filters).filter(v => v !== 'All' && v !== false && v !== '' && !String(v).includes('सभी')).length;
+    const activeFilterCount = useMemo(() => {
+        let count = 0;
+        if (filters.search && filters.search.trim() !== '') count++;
+        if (filters.status && filters.status !== 'सभी स्थिति') count++;
+        if (filters.gender && filters.gender !== 'सभी') count++;
+        if (filters.village && filters.village !== 'सभी गांव') count++;
+        if (filters.casteCategory && filters.casteCategory !== 'सभी वर्ग') count++;
+        if (filters.caste && filters.caste !== 'सभी जाति') count++;
+        if (filters.subCaste && filters.subCaste !== 'सभी उपजाति') count++;
+        if (filters.surname && filters.surname !== 'सभी उपनाम') count++;
+        if (filters.familySize && filters.familySize !== 'सभी परिवार') count++;
+        if (filters.ageFilter && filters.ageFilter !== 'सभी आयु') count++;
+        if (filters.isHead) count++;
+        if (filters.isPwD) count++;
+        if (filters.isImportant) count++;
+        if (filters.isVoted && filters.isVoted !== 'All') count++;
+        if (filters.votedPartyId && filters.votedPartyId !== '') count++;
+        return count;
+    }, [filters]);
 
     const handleClearFilters = (e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
