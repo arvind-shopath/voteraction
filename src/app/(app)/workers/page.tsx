@@ -244,7 +244,13 @@ export default function WorkersPage() {
     };
 
     const filteredWorkers = workers
-        .filter(w => filterType === 'ALL' || w.type === filterType)
+        .filter(w => {
+            if (filterType === 'ALL') return true;
+            if (filterType === 'FIELD' || filterType === 'GROUND') return ['FIELD', 'GROUND'].includes(w.type);
+            if (filterType === 'BOOTH_MANAGER' || filterType === 'BOOTH') return ['BOOTH_MANAGER', 'BOOTH'].includes(w.type);
+            if (filterType === 'PANNA_PRAMUKH' || filterType === 'PANNA') return ['PANNA_PRAMUKH', 'PANNA'].includes(w.type);
+            return w.type === filterType;
+        })
         .sort((a, b) => {
             if (sortBy === 'POINTS_HIGH') return (b.totalPoints || 0) - (a.totalPoints || 0);
             if (sortBy === 'POINTS_LOW') return (a.totalPoints || 0) - (b.totalPoints || 0);
@@ -259,10 +265,14 @@ export default function WorkersPage() {
     });
 
     const hierarchyData = useMemo(() => {
-        const generalWorkers = workers.filter(w => w.type === 'FIELD' || w.type === 'SOCIAL_MEDIA');
+        const isBoothMgr = (w: any) => ['BOOTH_MANAGER', 'BOOTH'].includes(w.type);
+        const isPanna = (w: any) => ['PANNA_PRAMUKH', 'PANNA'].includes(w.type);
+        const isGround = (w: any) => ['FIELD', 'GROUND'].includes(w.type);
+
+        const generalWorkers = workers.filter(w => isGround(w));
         const boothGroups = booths.map(booth => {
-            const manager = workers.find(w => w.type === 'BOOTH_MANAGER' && w.boothId === booth.id);
-            const pannaPramukhs = workers.filter(w => w.type === 'PANNA_PRAMUKH' && w.boothId === booth.id);
+            const manager = workers.find(w => isBoothMgr(w) && w.boothId === booth.id);
+            const pannaPramukhs = workers.filter(w => isPanna(w) && w.boothId === booth.id);
             return {
                 ...booth,
                 manager,
@@ -402,9 +412,9 @@ export default function WorkersPage() {
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: '800', fontSize: '18px' }}>{worker.name}</div>
-                                        <div style={{ fontSize: '13px', color: '#64748B' }}>{worker.mobile}</div>
+                                        <div style={{ fontSize: '13px', color: '#64748B' }}>{worker.mobile || worker.user?.mobile}</div>
                                         <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: '800', color: '#2563EB', background: '#EFF6FF', padding: '2px 8px', borderRadius: '6px', display: 'inline-block' }}>
-                                            {worker.type === 'SOCIAL_MEDIA' ? 'सोशल मीडिया' : worker.type.split('_').join(' ')}
+                                            {['BOOTH_MANAGER', 'BOOTH'].includes(worker.type) ? 'बूथ मैनेजर' : ['PANNA_PRAMUKH', 'PANNA'].includes(worker.type) ? 'पन्ना प्रमुख' : 'ग्राउंड कार्यकर्ता'}
                                         </div>
                                     </div>
                                 </div>
@@ -415,7 +425,7 @@ export default function WorkersPage() {
                                     </div>
                                 )}
 
-                                {worker.type === 'PANNA_PRAMUKH' && (
+                                {['PANNA_PRAMUKH', 'PANNA'].includes(worker.type) && (
                                     <div style={{ marginBottom: '20px', padding: '16px', background: '#F8FAFC', borderRadius: '16px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B' }}>संपर्क प्रोग्रेस</span>
@@ -428,7 +438,7 @@ export default function WorkersPage() {
                                 )}
 
                                 <div style={{ display: 'flex', gap: '10px' }}>
-                                    {worker.type === 'PANNA_PRAMUKH' ? (
+                                    {['PANNA_PRAMUKH', 'PANNA'].includes(worker.type) ? (
                                         <>
                                             <button onClick={() => handleOpenAssign(worker)} style={{ flex: 1, padding: '10px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>वोटर जोड़े</button>
                                             <button onClick={() => handleViewVoters(worker)} style={{ flex: 1, padding: '10px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>लिस्ट</button>
@@ -495,8 +505,8 @@ export default function WorkersPage() {
                                         <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                                             <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#FFF7ED', border: '1px solid #FFEDD5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706' }}><UserCheck size={20} /></div>
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{group.manager?.name || 'कैंडिडेट नियुक्त नहीं'}</div>
-                                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#D97706' }}>बूथ इंचार्ज</div>
+                                                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{group.manager?.name || 'बूथ मैनेजर नियुक्त नहीं'}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#D97706' }}>{group.manager ? 'बूथ मैनेजर' : 'रिक्त'}</div>
                                             </div>
                                             <div style={{ padding: '6px 14px', background: '#7C3AED', color: 'white', borderRadius: '10px', fontSize: '14px', fontWeight: '900' }}>
                                                 {group.manager?.totalPoints || 0} ✨
