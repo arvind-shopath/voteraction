@@ -182,7 +182,8 @@ export default function UsersPage() {
             u.mobile?.includes(searchQuery) ||
             u.role?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
+        const matchesRole = roleFilter === 'ALL' ||
+            (roleFilter === 'WORKER' ? (u.role === 'WORKER' || u.role === 'ELECTION_MANAGER') : u.role === roleFilter);
 
         return matchesSearch && matchesRole;
     });
@@ -304,10 +305,9 @@ export default function UsersPage() {
                     }}
                 >
                     <option value="ALL">सभी रोल्स</option>
-                    <option value="ADMIN">एडमिन</option>
-                    <option value="CANDIDATE">कैंडिडेट</option>
-                    <option value="ELECTION_MANAGER">इलेक्शन मैनेजर</option>
-                    <option value="WORKER">कार्यकर्ता</option>
+                    <option value="ADMIN">एडमिन (Admins)</option>
+                    <option value="CANDIDATE">प्रत्याशी (Candidates)</option>
+                    <option value="WORKER">कार्यकर्ता (Election Manager & Workers)</option>
                 </select>
             </div>
 
@@ -847,8 +847,8 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                         <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>
                             <option value="ADMIN">🛡️ सिस्टम एडमिन (Admin)</option>
                             <option value="CANDIDATE">🏆 विधानसभा प्रत्याशी (Candidate)</option>
-                            <option value="ELECTION_MANAGER">🗄️ इलेक्शन मैनेजर (Election Manager)</option>
-                            <optgroup label="कार्यकर्ता (Worker Roles)">
+                            <optgroup label="प्रत्याशी के कार्यकर्ता (Worker Roles)">
+                                <option value="ELECTION_MANAGER">🗄️ इलेक्शन मैनेजर (Election Manager)</option>
                                 <option value="WORKER_BOOTH_MANAGER">🏢 बूथ मैनेजर (Booth Manager)</option>
                                 <option value="WORKER_PANNA_PRAMUKH">📄 पन्ना प्रमुख (Panna Pramukh)</option>
                                 <option value="WORKER_FIELD">🚶‍♂️ ग्राउंड कार्यकर्ता (Ground Worker)</option>
