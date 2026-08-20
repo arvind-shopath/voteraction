@@ -5,7 +5,7 @@
  */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { Search, Filter, Users, MapPin, Phone, Edit2, Eye, User, Home, ChevronDown, ChevronUp, X, Loader2, Share2, Crown, Activity, Star, Printer, UserPlus, CheckCircle } from 'lucide-react';
 import { getVoters, getFilterOptions, updateVoterFeedback, updateVoter, getVoterWithFamily, createVoter, verifyVoter, deleteVoter, getVoterEditRequests, approveVoterEditRequest, rejectVoterEditRequest, addToFamily, removeFromFamily, searchVotersForFamily } from '@/app/actions/voters';
