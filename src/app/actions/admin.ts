@@ -392,6 +392,7 @@ export async function createUserSecure(data: {
     mobile: string,
     name: string,
     role: string,
+    workerType?: string,
     password?: string,
     assemblyId?: number,
     status?: string
@@ -399,8 +400,15 @@ export async function createUserSecure(data: {
     const session = await auth();
     const currentUser = session?.user as any;
 
-    // Only SUPERADMIN can create ADMIN, SUPERADMIN, SOCIAL_MEDIA, MANAGER, and new Social roles
-    if (['ADMIN', 'SUPERADMIN', 'SOCIAL_MEDIA', 'CANDIDATE', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(data.role)) {
+    let roleToSave = data.role;
+    let workerTypeToSave = data.workerType;
+    if (roleToSave.startsWith('WORKER_')) {
+        workerTypeToSave = roleToSave.replace('WORKER_', '');
+        roleToSave = 'WORKER';
+    }
+
+    // Only SUPERADMIN can create ADMIN, SUPERADMIN, CANDIDATE
+    if (['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(roleToSave)) {
         if (currentUser?.role !== 'SUPERADMIN') {
             throw new Error("You don't have permission to create this type of user.");
         }
@@ -420,12 +428,23 @@ export async function createUserSecure(data: {
             mobile: data.mobile,
             username: data.mobile,
             name: data.name,
-            role: data.role,
+            role: roleToSave,
             password: hashedPassword,
             assemblyId: data.assemblyId || null,
             status: data.status || 'Active'
         }
     });
+
+    if (roleToSave === 'WORKER' && workerTypeToSave) {
+        await prisma.worker.create({
+            data: {
+                name: data.name || data.mobile,
+                userId: user.id,
+                type: workerTypeToSave,
+                assemblyId: data.assemblyId || (await prisma.assembly.findFirst())?.id || 1
+            }
+        });
+    }
 
     revalidatePath('/admin/users');
     return user;

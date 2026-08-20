@@ -336,6 +336,7 @@ export default function UsersPage() {
                         onToggle={toggleGroup}
                         onUpdateStatus={handleUpdateStatus}
                         onUpdateRole={handleUpdateRole}
+                        onUpdateWorkerType={handleUpdateWorkerType}
                         onAssignAssembly={handleAssignAssembly}
                         onEditName={triggerUpdateUserName}
                         onDelete={triggerDelete}
@@ -344,7 +345,7 @@ export default function UsersPage() {
                 ))}
 
                 <UserGroupSection
-                    title="सोशल मीडिया व अन्य सदस्य"
+                    title="अन्य सदस्य"
                     icon={<User size={20} color="#64748B" />}
                     users={unassignedMembers}
                     id="others"
@@ -352,6 +353,7 @@ export default function UsersPage() {
                     onToggle={toggleGroup}
                     onUpdateStatus={handleUpdateStatus}
                     onUpdateRole={handleUpdateRole}
+                    onUpdateWorkerType={handleUpdateWorkerType}
                     onAssignAssembly={handleAssignAssembly}
                     onEditName={triggerUpdateUserName}
                     onChangePassword={triggerChangePassword}
@@ -394,7 +396,7 @@ export default function UsersPage() {
                                     type="text"
                                     value={newMobileInput}
                                     onChange={(e) => setNewMobileInput(e.target.value)}
-                                    placeholder="मोबाइल नंबर बदलें..."
+                                    placeholder="यहाँ मोबाइल नंबर लिखें..."
                                     style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '2px solid #E2E8F0', outline: 'none', fontSize: '16px', fontWeight: '600' }}
                                 />
                             </div>
@@ -405,28 +407,27 @@ export default function UsersPage() {
 
             {passwordModalOpen && selectedUser && (
                 <PremiumModal
-                    title="पासवर्ड बदलें"
+                    title={`${selectedUser.name} का पासवर्ड बदलें`}
                     onClose={() => setPasswordModalOpen(false)}
                     actions={[
                         { label: 'रद्द करें', onClick: () => setPasswordModalOpen(false), type: 'secondary' },
                         { label: 'पासवर्ड बदलें', onClick: confirmChangePassword, type: 'primary' }
                     ]}
                 >
-                    <div style={{ padding: '24px' }}>
-                        <p style={{ marginBottom: '16px', color: '#64748B', fontSize: '14px', fontWeight: '600' }}>यूजर: <span style={{ color: '#1E293B' }}>{selectedUser.name}</span></p>
-                        <div style={{ position: 'relative' }}>
-                            <Lock size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <p style={{ color: '#64748B', fontSize: '14px', fontWeight: '600' }}>
+                            यूजर: <strong style={{ color: '#1E293B' }}>{selectedUser.name}</strong> ({selectedUser.mobile})
+                        </p>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>नया पासवर्ड</label>
                             <input
-                                type="text"
+                                type="password"
                                 value={newInput}
                                 onChange={(e) => setNewInput(e.target.value)}
                                 autoFocus
-                                placeholder="नया पासवर्ड (कम से कम 6 अक्षर)"
-                                style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: '16px', border: '2px solid #E2E8F0', outline: 'none', fontSize: '16px', fontWeight: '600' }}
+                                placeholder="नया पासवर्ड लिखें (कम से कम 6 अक्षर)"
+                                style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '2px solid #E2E8F0', outline: 'none', fontSize: '16px', fontWeight: '600' }}
                             />
-                        </div>
-                        <div style={{ marginTop: '8px', fontSize: '11px', color: '#64748B', fontWeight: '700', paddingLeft: '8px' }}>
-                            अनिवार्य: कम से कम 1 बड़ा अक्षर (Caps), 1 स्पेशल चिन्ह (@, #, $), और 1 अंक
                         </div>
                     </div>
                 </PremiumModal>
@@ -434,11 +435,11 @@ export default function UsersPage() {
 
             {deleteModalOpen && selectedUser && (
                 <PremiumModal
-                    title="पक्का डिलीट करें?"
+                    title="यूजर को हटाएं"
                     onClose={() => setDeleteModalOpen(false)}
                     actions={[
-                        { label: 'नहीं, छोड़ें', onClick: () => setDeleteModalOpen(false), type: 'secondary' },
-                        { label: 'हाँ, डिलीट करें', onClick: confirmDelete, type: 'danger' }
+                        { label: 'रद्द करें', onClick: () => setDeleteModalOpen(false), type: 'secondary' },
+                        { label: 'हां, हटाएं', onClick: confirmDelete, type: 'danger' }
                     ]}
                 >
                     <div style={{ padding: '32px', textAlign: 'center' }}>
@@ -478,7 +479,7 @@ export default function UsersPage() {
     );
 }
 
-function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdateStatus, onUpdateRole, onAssignAssembly, onEditName, onDelete, isAssemblyGroup, onChangePassword }: any) {
+function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdateStatus, onUpdateRole, onUpdateWorkerType, onAssignAssembly, onEditName, onDelete, isAssemblyGroup, onChangePassword }: any) {
     if (users.length === 0) return null;
     return (
         <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
@@ -528,21 +529,29 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                                     </td>
                                     <td style={{ padding: '16px' }}>
                                         <select
-                                            value={u.role}
-                                            onChange={(e) => onUpdateRole(u.id, e.target.value)}
+                                            value={u.role === 'WORKER' ? `WORKER_${u.worker?.type || 'GROUND'}` : u.role}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (val.startsWith('WORKER_')) {
+                                                    const wType = val.replace('WORKER_', '');
+                                                    if (u.role !== 'WORKER') onUpdateRole(u.id, 'WORKER');
+                                                    if (onUpdateWorkerType) onUpdateWorkerType(u.id, wType);
+                                                } else {
+                                                    onUpdateRole(u.id, val);
+                                                }
+                                            }}
                                             disabled={u.mobile === '9723338321'} // Protect Arvind
                                             style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '13px', fontWeight: '700', color: '#475569', cursor: u.mobile === '9723338321' ? 'default' : 'pointer', background: u.mobile === '9723338321' ? '#F8FAFC' : 'white' }}
                                         >
                                             {u.role === 'SUPERADMIN' && <option value="SUPERADMIN">Super Admin</option>}
                                             <option value="ADMIN">Admin</option>
-                                            <option value="CANDIDATE">Candidate</option>
-                                            <optgroup label="Social Sena">
-                                                <option value="SOCIAL_MEDIA">Social Sena (General)</option>
-                                                <option value="SM_MANAGER">Social Sena Manager</option>
-                                                <option value="DESIGNER">Graphics Designer</option>
-                                                <option value="EDITOR">Video Editor</option>
+                                            <option value="CANDIDATE">Candidate (प्रत्याशी)</option>
+                                            <optgroup label="कार्यकर्ता श्रेणी (Worker Roles)">
+                                                <option value="WORKER_GROUND">ग्राउंड कार्यकर्ता (Ground Worker)</option>
+                                                <option value="WORKER_BOOTH">बूथ मैनेजर (Booth Manager)</option>
+                                                <option value="WORKER_PANNA">पन्ना प्रमुख (Panna Pramukh)</option>
+                                                <option value="WORKER_FIELD">कार्यकर्ता (General Worker)</option>
                                             </optgroup>
-                                            <option value="WORKER">Worker</option>
                                         </select>
                                     </td>
                                     <td style={{ padding: '16px' }}>
@@ -604,12 +613,12 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>रोल (Role)</label>
                         <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>
-                            <option value="CANDIDATE">Candidate (कैंडिडेट)</option>
-                            <optgroup label="सोशल सेना">
-                                <option value="SOCIAL_MEDIA">Social Sena (General)</option>
-                                <option value="SM_MANAGER">Social Sena Manager</option>
-                                <option value="DESIGNER">Graphics Designer</option>
-                                <option value="EDITOR">Video Editor</option>
+                            <option value="CANDIDATE">Candidate (प्रत्याशी)</option>
+                            <optgroup label="कार्यकर्ता (Worker Roles)">
+                                <option value="WORKER_GROUND">ग्राउंड कार्यकर्ता (Ground Worker)</option>
+                                <option value="WORKER_BOOTH">बूथ मैनेजर (Booth Manager)</option>
+                                <option value="WORKER_PANNA">पन्ना प्रमुख (Panna Pramukh)</option>
+                                <option value="WORKER_FIELD">कार्यकर्ता (General Worker)</option>
                             </optgroup>
                             <option value="ADMIN">Admin</option>
                         </select>
@@ -621,7 +630,7 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                             जरूरी: 1 बड़ा अक्षर (Caps), 1 स्पेशल चिन्ह (@, #, $), 1 अंक
                         </div>
                     </div>
-                    {(formData.role === 'WORKER') && (
+                    {(formData.role.startsWith('WORKER') || formData.role === 'CANDIDATE') && (
                         <div>
                             <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>विधानसभा</label>
                             <select value={formData.assemblyId} onChange={e => setFormData({ ...formData, assemblyId: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>
