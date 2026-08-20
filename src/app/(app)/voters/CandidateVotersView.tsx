@@ -106,10 +106,42 @@ const ToggleCheck = ({ label, checked, onChange, name, icon }: any) => (
 
 const CASTE_OPTIONS: any = {
     'सामान्य (General)': ['ब्राह्मण', 'ठाकुर (राजपूत)', 'बनिया', 'लाला (कायस्थ)', 'त्यागी', 'भूमिहार', 'अन्य'],
-    'ओबीसी (OBC)': ['यादव', 'कुर्मी', 'कुशवाहा', 'मौर्य', 'लोध', 'जाट', 'गुज्जर', 'सैनी', 'विश्वकर्मा', 'प्रजापति', 'अन्य'],
+    'ओबीसी (OBC)': ['यादव', 'कुर्मी', 'कुशवाहा', 'मौर्य', 'लोध', 'जाट', 'गुज्जर', 'सैनी', 'विश्वकर्मा', 'प्रजापति', 'प्रजापति/कुम्हार', 'अन्य'],
     'एससी (SC)': ['जाटव', 'पासी', 'धोबी', 'कोरी', 'वाल्मीकि', 'अन्य'],
     'एसटी (ST)': ['गोंद', 'खरवार', 'सहारिया', 'अन्य'],
     'मुस्लिम (Muslim)': ['अंसारी', 'कुरैशी', 'शेख', 'पठान', 'सैय्यद', 'मंसूरी', 'अन्य']
+};
+
+export const getCategoryKey = (cat?: string | null, casteVal?: string | null) => {
+    if (cat) {
+        const cUpper = String(cat).trim().toUpperCase();
+        if (cUpper === 'OBC' || cat === 'ओबीसी' || cUpper.includes('OBC') || cat.includes('ओबीसी')) return 'ओबीसी (OBC)';
+        if (cUpper === 'SC' || cat === 'एससी' || cUpper.includes('SC') || cat.includes('एससी')) return 'एससी (SC)';
+        if (cUpper === 'ST' || cat === 'एसटी' || cUpper.includes('ST') || cat.includes('एसटी')) return 'एसटी (ST)';
+        if (cUpper === 'GENERAL' || cUpper === 'GEN' || cat === 'सामान्य' || cUpper.includes('GEN') || cat.includes('सामान्य')) return 'सामान्य (General)';
+        if (cUpper === 'MUSLIM' || cat === 'मुस्लिम' || cUpper.includes('MUSLIM') || cat.includes('मुस्लिम')) return 'मुस्लिम (Muslim)';
+    }
+    if (casteVal) {
+        const cVal = String(casteVal).trim().toLowerCase();
+        for (const [key, list] of Object.entries(CASTE_OPTIONS)) {
+            if ((list as string[]).some(item => item.toLowerCase() === cVal || cVal.includes(item.toLowerCase()) || item.toLowerCase().includes(cVal))) {
+                return key;
+            }
+        }
+    }
+    return '';
+};
+
+export const formatVoterForEdit = (v: any) => {
+    const catKey = getCategoryKey(v.casteCategory, v.caste);
+    const dbCat = catKey.includes('OBC') ? 'OBC' : catKey.includes('SC') ? 'SC' : catKey.includes('ST') ? 'ST' : catKey.includes('Muslim') ? 'Muslim' : catKey.includes('General') ? 'General' : (v.casteCategory || '');
+    return {
+        ...v,
+        casteCategoryKey: catKey,
+        casteCategory: dbCat,
+        caste: v.caste || '',
+        subCaste: v.subCaste || ''
+    };
 };
 
 const InfoBox = ({ label, value }: any) => (
@@ -1089,12 +1121,12 @@ export default function CandidateVotersView() {
                                                     onClick={() => {
                                                         setViewVoter({ ...v, family: [] });
                                                         setIsEditing(false);
-                                                        setEditData(v);
+                                                        setEditData(formatVoterForEdit(v));
                                                         setIsLoadingFamily(true);
                                                         getVoterWithFamily(v.id).then(fullData => {
                                                             if (fullData) {
                                                                 setViewVoter(fullData);
-                                                                setEditData(fullData);
+                                                                setEditData(formatVoterForEdit(fullData));
                                                             }
                                                             setIsLoadingFamily(false);
                                                         });
@@ -1217,8 +1249,12 @@ export default function CandidateVotersView() {
                                         <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>वर्ग (Category)</label>
                                         <select
                                             style={inputStyle}
-                                            value={newVoter.caste}
-                                            onChange={(e) => setNewVoter({ ...newVoter, caste: e.target.value, subCaste: '' })}
+                                            value={newVoter.casteCategoryKey || ''}
+                                            onChange={(e) => {
+                                                const selectedKey = e.target.value;
+                                                const dbCat = selectedKey.includes('OBC') ? 'OBC' : selectedKey.includes('SC') ? 'SC' : selectedKey.includes('ST') ? 'ST' : selectedKey.includes('Muslim') ? 'Muslim' : selectedKey.includes('General') ? 'General' : '';
+                                                setNewVoter({ ...newVoter, casteCategoryKey: selectedKey, casteCategory: dbCat, caste: '' });
+                                            }}
                                         >
                                             <option value="">--चुनें--</option>
                                             {Object.keys(CASTE_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
@@ -1228,12 +1264,12 @@ export default function CandidateVotersView() {
                                         <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>जाति (Caste)</label>
                                         <select
                                             style={inputStyle}
-                                            value={newVoter.subCaste}
-                                            disabled={!newVoter.caste}
-                                            onChange={(e) => setNewVoter({ ...newVoter, subCaste: e.target.value })}
+                                            value={newVoter.caste || ''}
+                                            disabled={!newVoter.casteCategoryKey}
+                                            onChange={(e) => setNewVoter({ ...newVoter, caste: e.target.value })}
                                         >
                                             <option value="">--चुनें--</option>
-                                            {newVoter.caste && CASTE_OPTIONS[newVoter.caste]?.map((c: string) => (
+                                            {newVoter.casteCategoryKey && CASTE_OPTIONS[newVoter.casteCategoryKey]?.map((c: string) => (
                                                 <option key={c} value={c}>{c}</option>
                                             ))}
                                         </select>
@@ -1351,25 +1387,25 @@ export default function CandidateVotersView() {
                                                     <InfoBox label={lang === 'hi' ? "मोबाइल" : "Mobile"} value={viewVoter.mobile} />
                                                     <InfoBox label={lang === 'hi' ? "मकान संख्या" : "House Number"} value={viewVoter.houseNumber} />
                                                     <InfoBox label={lang === 'hi' ? "गांव/वार्ड" : "Village / Ward"} value={lang === 'hi' ? (viewVoter.villageHi || viewVoter.village) : (viewVoter.villageEn || viewVoter.village)} />
-                                                    <InfoBox label="वर्ग / जाति (Category / Caste)" value={`${viewVoter.caste || ''} / ${viewVoter.subCaste || ''}`} />
+                                                    <InfoBox label="वर्ग / जाति (Category / Caste)" value={`${viewVoter.casteCategory || ''} ${viewVoter.caste ? `(${viewVoter.caste})` : ''}`.trim() || 'N/A'} />
                                                 </>
                                             ) : (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                                     <div style={{ gridColumn: 'span 2' }}>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>FULL NAME</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} />
+                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.name || ''} onChange={(e) => setEditData({ ...editData, name: e.target.value })} />
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>RELATIVE NAME</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.relativeName} onChange={(e) => setEditData({ ...editData, relativeName: e.target.value })} />
+                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.relativeName || ''} onChange={(e) => setEditData({ ...editData, relativeName: e.target.value })} />
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>EPIC NUMBER</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.epic} onChange={(e) => setEditData({ ...editData, epic: e.target.value })} />
+                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.epic || ''} onChange={(e) => setEditData({ ...editData, epic: e.target.value })} />
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>RELATION</label>
-                                                        <select style={{ ...inputStyle, padding: '10px' }} value={editData.relationType} onChange={(e) => setEditData({ ...editData, relationType: e.target.value })}>
+                                                        <select style={{ ...inputStyle, padding: '10px' }} value={editData.relationType || 'Father'} onChange={(e) => setEditData({ ...editData, relationType: e.target.value })}>
                                                             <option value="Father">Father</option>
                                                             <option value="Husband">Husband</option>
                                                             <option value="Mother">Mother</option>
@@ -1378,11 +1414,11 @@ export default function CandidateVotersView() {
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>AGE</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} type="number" value={editData.age} onChange={(e) => setEditData({ ...editData, age: e.target.value })} />
+                                                        <input style={{ ...inputStyle, padding: '10px' }} type="number" value={editData.age || ''} onChange={(e) => setEditData({ ...editData, age: e.target.value })} />
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>GENDER</label>
-                                                        <select style={{ ...inputStyle, padding: '10px' }} value={editData.gender} onChange={(e) => setEditData({ ...editData, gender: e.target.value })}>
+                                                        <select style={{ ...inputStyle, padding: '10px' }} value={editData.gender || 'M'} onChange={(e) => setEditData({ ...editData, gender: e.target.value })}>
                                                             <option value="M">Male</option>
                                                             <option value="F">Female</option>
                                                             <option value="O">Other</option>
@@ -1390,22 +1426,26 @@ export default function CandidateVotersView() {
                                                     </div>
                                                     <div style={{ gridColumn: 'span 2' }}>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>MOBILE NUMBER</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.mobile} onChange={(e) => setEditData({ ...editData, mobile: e.target.value })} />
+                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.mobile || ''} onChange={(e) => setEditData({ ...editData, mobile: e.target.value })} />
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>HOUSE NO</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.houseNumber} onChange={(e) => setEditData({ ...editData, houseNumber: e.target.value })} />
+                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.houseNumber || ''} onChange={(e) => setEditData({ ...editData, houseNumber: e.target.value })} />
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>VILLAGE/WARD</label>
-                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.village} onChange={(e) => setEditData({ ...editData, village: e.target.value })} />
+                                                        <input style={{ ...inputStyle, padding: '10px' }} value={editData.village || ''} onChange={(e) => setEditData({ ...editData, village: e.target.value })} />
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>वर्ग (CATEGORY)</label>
                                                         <select
                                                             style={{ ...inputStyle, padding: '10px' }}
-                                                            value={editData.caste}
-                                                            onChange={(e) => setEditData({ ...editData, caste: e.target.value, subCaste: '' })}
+                                                            value={editData.casteCategoryKey || ''}
+                                                            onChange={(e) => {
+                                                                const selectedKey = e.target.value;
+                                                                const dbCat = selectedKey.includes('OBC') ? 'OBC' : selectedKey.includes('SC') ? 'SC' : selectedKey.includes('ST') ? 'ST' : selectedKey.includes('Muslim') ? 'Muslim' : selectedKey.includes('General') ? 'General' : '';
+                                                                setEditData({ ...editData, casteCategoryKey: selectedKey, casteCategory: dbCat, caste: '' });
+                                                            }}
                                                         >
                                                             <option value="">--चुनें--</option>
                                                             {Object.keys(CASTE_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
@@ -1415,14 +1455,17 @@ export default function CandidateVotersView() {
                                                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>जाति (CASTE)</label>
                                                         <select
                                                             style={{ ...inputStyle, padding: '10px' }}
-                                                            value={editData.subCaste}
-                                                            disabled={!editData.caste}
-                                                            onChange={(e) => setEditData({ ...editData, subCaste: e.target.value })}
+                                                            value={editData.caste || ''}
+                                                            disabled={!editData.casteCategoryKey}
+                                                            onChange={(e) => setEditData({ ...editData, caste: e.target.value })}
                                                         >
                                                             <option value="">--चुनें--</option>
-                                                            {editData.caste && CASTE_OPTIONS[editData.caste]?.map((c: string) => (
+                                                            {editData.casteCategoryKey && CASTE_OPTIONS[editData.casteCategoryKey]?.map((c: string) => (
                                                                 <option key={c} value={c}>{c}</option>
                                                             ))}
+                                                            {editData.caste && editData.casteCategoryKey && !CASTE_OPTIONS[editData.casteCategoryKey]?.includes(editData.caste) && (
+                                                                <option value={editData.caste}>{editData.caste}</option>
+                                                            )}
                                                         </select>
                                                     </div>
                                                 </div>

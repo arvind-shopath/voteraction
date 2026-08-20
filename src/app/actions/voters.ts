@@ -382,6 +382,7 @@ export async function updateVoter(voterId: number, data: any) {
         area: data.area,
         caste: data.caste,
         subCaste: data.subCaste,
+        casteCategory: data.casteCategory,
         surname: data.surname,
         mobile: data.mobile, // ALSO SAVED TO MASTER VOTER RECORD
         isHead: data.isHead,
@@ -600,6 +601,7 @@ export async function createVoter(data: any) {
             eciStatus: data.eciStatus || 'IN_LIST',
             caste: data.caste,
             subCaste: data.subCaste,
+            casteCategory: data.casteCategory,
             updatedByName: userName,
         }
     });
