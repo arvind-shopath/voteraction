@@ -87,21 +87,28 @@ export async function getWorkersInAssembly(assemblyIdRaw?: any) {
 
     // Resolve target assembly ID safely
     let targetAssemblyId: number | null = null;
-    if (assemblyIdRaw !== undefined && assemblyIdRaw !== null && assemblyIdRaw !== '') {
-        const parsed = parseInt(assemblyIdRaw.toString(), 10);
-        if (!isNaN(parsed) && parsed > 0) targetAssemblyId = parsed;
+
+    // 1. If logged-in user has an assigned assembly (e.g. Candidate 14)
+    if (user_s?.assemblyId) {
+        targetAssemblyId = parseInt(user_s.assemblyId.toString(), 10);
     }
 
-    // If logged in as Candidate, Election Manager, or Worker, prioritize their assigned assembly
-    if (user_s?.assemblyId) {
-        const userAsm = parseInt(user_s.assemblyId.toString(), 10);
-        if (!targetAssemblyId || ['CANDIDATE', 'ELECTION_MANAGER', 'WORKER'].includes(user_s.role)) {
-            targetAssemblyId = userAsm;
+    // 2. If assemblyIdRaw was passed, verify that it actually exists in DB
+    if (assemblyIdRaw !== undefined && assemblyIdRaw !== null && assemblyIdRaw !== '') {
+        const parsed = parseInt(assemblyIdRaw.toString(), 10);
+        if (!isNaN(parsed) && parsed > 0) {
+            const exists = await prisma.assembly.findUnique({ where: { id: parsed }, select: { id: true } });
+            if (exists) {
+                if (!targetAssemblyId || ['ADMIN', 'SUPERADMIN'].includes(user_s?.role)) {
+                    targetAssemblyId = parsed;
+                }
+            }
         }
     }
 
+    // 3. Fallback: Find first existing assembly in DB
     if (!targetAssemblyId) {
-        const firstAsm = await prisma.assembly.findFirst();
+        const firstAsm = await prisma.assembly.findFirst({ select: { id: true } });
         targetAssemblyId = firstAsm ? firstAsm.id : 14;
     }
 
