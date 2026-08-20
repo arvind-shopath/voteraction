@@ -646,12 +646,27 @@ export default function WorkersPage() {
                         <div style={{ padding: '24px', maxHeight: '60vh', overflowY: 'auto' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {viewingVoters.map((v: any) => (
-                                    <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: v.isVoted ? '#ECFDF5' : '#F8FAFC', borderRadius: '16px', border: v.isVoted ? '1px solid #A7F3D0' : '1px solid #F1F5F9' }}>
+                                    <div key={v.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '16px', background: v.isVoted ? '#ECFDF5' : '#F8FAFC', borderRadius: '16px', border: v.isVoted ? '1px solid #A7F3D0' : '1px solid #E2E8F0' }}>
                                         <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: '800', fontSize: '15px' }}>{v.name}</div>
-                                            <div style={{ fontSize: '11px', color: '#64748B' }}>{v.gender}, {v.age} | EPIC: {v.epic}</div>
+                                            <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A' }}>{v.name}</div>
+                                            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>{v.gender === 'M' ? 'पुरुष' : 'महिला'}, {v.age} वर्ष | EPIC: {v.epic || 'N/A'}</div>
                                         </div>
-                                        <button onClick={() => handleToggleVoted(v.id, v.isVoted)} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', background: v.isVoted ? '#10B981' : '#E2E8F0', color: v.isVoted ? 'white' : '#475569', fontSize: '11px', fontWeight: '800' }}>{v.isVoted ? 'Undo' : 'Voted ✅'}</button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {v.isVoted ? (
+                                                <>
+                                                    <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#DCFCE7', color: '#15803D', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        ✓ मतदान संपन्न
+                                                    </span>
+                                                    <button onClick={() => handleToggleVoted(v.id, true)} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #CBD5E1', background: 'white', color: '#64748B', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                                                        बदलें (Undo)
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button onClick={() => handleToggleVoted(v.id, false)} style={{ padding: '6px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', background: 'white', color: '#334155', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    वोट दर्ज करें (Mark Voted)
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
