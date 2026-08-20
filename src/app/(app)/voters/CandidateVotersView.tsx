@@ -373,6 +373,28 @@ export default function CandidateVotersView() {
     });
 
 
+    // URL Query Params Parser (e.g. /voters?booth=1)
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const boothParam = urlParams.get('booth');
+            const villageParam = urlParams.get('village');
+            const searchParam = urlParams.get('search');
+            const casteParam = urlParams.get('caste');
+
+            if (boothParam || villageParam || searchParam || casteParam) {
+                setFilters(prev => ({
+                    ...prev,
+                    ...(boothParam ? { booth: boothParam } : {}),
+                    ...(villageParam ? { village: decodeURIComponent(villageParam) } : {}),
+                    ...(searchParam ? { search: decodeURIComponent(searchParam) } : {}),
+                    ...(casteParam ? { caste: decodeURIComponent(casteParam) } : {}),
+                    page: 1
+                }));
+            }
+        }
+    }, []);
+
     useEffect(() => {
         if (assemblyId) {
             getFilterOptions(assemblyId).then((res) => {

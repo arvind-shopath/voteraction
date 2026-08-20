@@ -42,17 +42,21 @@ export async function getBoothSentimentAnalytics(assemblyId: number) {
 
 export async function getCasteAnalytics(assemblyId: number) {
     const voters = await prisma.voter.findMany({
-        where: { assemblyId },
+        where: { 
+            assemblyId,
+            caste: { not: null }
+        },
         select: { caste: true }
     });
 
     const counts: Record<string, number> = {};
     voters.forEach((v: any) => {
-        const caste = v.caste || 'अन्य / अज्ञात';
+        if (!v.caste || v.caste === 'अन्य / अज्ञात' || v.caste.trim() === '') return;
+        const caste = v.caste.trim();
         counts[caste] = (counts[caste] || 0) + 1;
     });
 
-    // Convert to array and sort by count
+    // Convert to array and sort by count descending
     return Object.entries(counts)
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => b.count - a.count);
@@ -60,7 +64,10 @@ export async function getCasteAnalytics(assemblyId: number) {
 
 export async function getAgeAnalytics(assemblyId: number) {
     const voters = await prisma.voter.findMany({
-        where: { assemblyId },
+        where: { 
+            assemblyId,
+            age: { not: null }
+        },
         select: { age: true }
     });
 
@@ -68,14 +75,13 @@ export async function getAgeAnalytics(assemblyId: number) {
         '18-25 (युवा)': 0,
         '26-45 (युवा/प्रौढ़)': 0,
         '46-60 (प्रौढ़)': 0,
-        '60+ (वरिष्ठ)': 0,
-        'अज्ञात': 0
+        '60+ (वरिष्ठ)': 0
     };
 
     voters.forEach((v: any) => {
         const age = v.age;
-        if (!age) groups['अज्ञात']++;
-        else if (age <= 25) groups['18-25 (युवा)']++;
+        if (!age || age < 18) return;
+        if (age <= 25) groups['18-25 (युवा)']++;
         else if (age <= 45) groups['26-45 (युवा/प्रौढ़)']++;
         else if (age <= 60) groups['46-60 (प्रौढ़)']++;
         else groups['60+ (वरिष्ठ)']++;

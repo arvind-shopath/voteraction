@@ -336,17 +336,20 @@ export default function CandidateDashboardView({
                                 <div className="card">
                                     <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={20} color="#8B5CF6" /> {t.ageDist}</h3>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                        {ageData.map((item: any, idx: number) => {
-                                            const colors = ['#F59E0B', '#10B981', '#2563EB', '#8B5CF6', '#94A3B8'];
-                                            const percent = totalVoters > 0 ? Math.round((item.count / totalVoters) * 100) : 0;
-                                            return (
-                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: colors[idx % colors.length] }}></div>
-                                                    <div style={{ flex: 1, fontSize: '14px', fontWeight: '700' }}>{item.range}</div>
-                                                    <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{percent}%</div>
-                                                </div>
-                                            )
-                                        })}
+                                        {(() => {
+                                            const totalAgeCount = ageData.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+                                            return ageData.map((item: any, idx: number) => {
+                                                const colors = ['#F59E0B', '#10B981', '#2563EB', '#8B5CF6', '#94A3B8'];
+                                                const percent = totalAgeCount > 0 ? Math.round((item.count / totalAgeCount) * 100) : 0;
+                                                return (
+                                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: colors[idx % colors.length] }}></div>
+                                                        <div style={{ flex: 1, fontSize: '14px', fontWeight: '700' }}>{item.range}</div>
+                                                        <div style={{ fontSize: '14px', fontWeight: '900', color: '#1E293B' }}>{percent}%</div>
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
                                     </div>
                                 </div>
                             </div>
