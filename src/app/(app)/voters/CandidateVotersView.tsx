@@ -327,11 +327,12 @@ export default function CandidateVotersView() {
 
     const [filters, setFilters] = useState({
         search: '', booth: 'सभी बूथ', boothName: 'सभी बूथ नाम', status: 'सभी स्थिति', gender: 'सभी', village: 'सभी गांव',
-        caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
+        casteCategory: 'सभी वर्ग', caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
         familySize: 'सभी परिवार', ageFilter: 'सभी आयु', pannaId: 'सभी पन्ना प्रमुख',
         isHead: false, isPwD: false, isImportant: false, isVoted: 'All', votedPartyId: '',
         page: 1, pageSize: 50
     });
+
 
     useEffect(() => {
         if (assemblyId) {
@@ -669,12 +670,26 @@ export default function CandidateVotersView() {
                             />
 
                             <SearchableSelect
-                                options={['सभी जाति', ...options.castes]}
+                                options={['सभी वर्ग', 'सामान्य', 'ओबीसी', 'एससी', 'एसटी', 'मुस्लिम']}
+                                value={filters.casteCategory}
+                                onChange={(val) => setFilters(prev => ({ ...prev, casteCategory: val, caste: 'सभी जाति', page: 1 }))}
+                                placeholder="वर्ग (Category)"
+                                searchPlaceholder="वर्ग खोजें (सामान्य/ओबीसी/एससी/एसटी/मुस्लिम)..."
+                            />
+
+                            <SearchableSelect
+                                options={[
+                                    'सभी जाति',
+                                    ...(Array.isArray(options.castes) ? options.castes
+                                        .filter((c: any) => typeof c === 'object' ? (!filters.casteCategory || filters.casteCategory === 'सभी वर्ग' || c.category === filters.casteCategory) : true)
+                                        .map((c: any) => typeof c === 'object' ? c.caste : c) : [])
+                                ]}
                                 value={filters.caste}
                                 onChange={(val) => setFilters(prev => ({ ...prev, caste: val, page: 1 }))}
                                 placeholder={t.allCaste}
                                 searchPlaceholder="जाति का नाम खोजें..."
                             />
+
 
                             <SearchableSelect
                                 options={[

@@ -12,6 +12,7 @@ export async function getVoters(filters: {
     gender?: string;
     status?: string;
     village?: string;
+    casteCategory?: string;
     caste?: string;
     subCaste?: string;
     surname?: string;
@@ -30,7 +31,8 @@ export async function getVoters(filters: {
     page?: number;
     pageSize?: number;
 }) {
-    const { search, booth, gender, status, village, caste, subCaste, surname, familySize, ageFilter, assemblyId, pannaId, pannaOnly, verificationStatus, eciStatus, page = 1, pageSize = 25 } = filters;
+    const { search, booth, gender, status, village, casteCategory, caste, subCaste, surname, familySize, ageFilter, assemblyId, pannaId, pannaOnly, verificationStatus, eciStatus, page = 1, pageSize = 25 } = filters;
+
 
     const where: any = {};
 
@@ -200,9 +202,14 @@ export async function getVoters(filters: {
         where.village = village;
     }
 
+    if (casteCategory && casteCategory !== 'सभी वर्ग') {
+        where.casteCategory = casteCategory;
+    }
+
     if (caste && caste !== 'सभी जाति') {
         where.caste = caste;
     }
+
 
     if (subCaste && subCaste !== 'सभी उपजाति') {
         where.subCaste = subCaste;
@@ -742,9 +749,14 @@ export async function getFilterOptions(assemblyId?: number) {
         if (assembly) assemblyState = assembly.state;
     }
 
-    const [castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties, pannaPramukhs] = await Promise.all([
+    const [casteCategories, castes, subCastes, surnames, villages, registeredBooths, voterBooths, parties, pannaPramukhs] = await Promise.all([
         prisma.voter.findMany({
-            select: { caste: true },
+            select: { casteCategory: true },
+            distinct: ['casteCategory'],
+            where: { ...where, casteCategory: { not: null } }
+        }),
+        prisma.voter.findMany({
+            select: { caste: true, casteCategory: true },
             distinct: ['caste'],
             where: { ...where, caste: { not: null } }
         }),
@@ -824,7 +836,8 @@ export async function getFilterOptions(assemblyId?: number) {
     }));
 
     return {
-        castes: castes.map(c => c.caste as string).filter(Boolean),
+        casteCategories: Array.from(new Set(casteCategories.map(c => c.casteCategory as string).filter(Boolean))),
+        castes: castes.map(c => ({ caste: c.caste as string, category: c.casteCategory as string })).filter(c => Boolean(c.caste)),
         subCastes: subCastes.map(s => ({ value: s.subCaste as string, parent: s.caste as string })),
         surnames: surnames.map(s => ({ value: s.surname as string, parent: s.subCaste as string })),
         villages: villages.map(v => v.village as string).filter(Boolean),
@@ -832,6 +845,7 @@ export async function getFilterOptions(assemblyId?: number) {
         parties: parties || [],
         pannaPramukhs: pannaPramukhs.map(p => ({ id: p.id, name: p.name, boothNumber: p.booth?.number }))
     };
+
 }
 export async function getUnassignedVoters(assemblyId: number, boothNumber: number) {
     const where: any = {

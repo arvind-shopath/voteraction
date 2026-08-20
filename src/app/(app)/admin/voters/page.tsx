@@ -141,12 +141,12 @@ export default function AdminVotersPage() {
     });
 
     const [options, setOptions] = useState<any>({
-        castes: [], subCastes: [], surnames: [], villages: [], booths: [], parties: []
+        casteCategories: [], castes: [], subCastes: [], surnames: [], villages: [], booths: [], parties: []
     });
 
     const [filters, setFilters] = useState({
         search: '', booth: 'सभी बूथ', boothName: 'सभी बूथ नाम', status: 'सभी स्थिति', gender: 'सभी', village: 'सभी गांव',
-        caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
+        casteCategory: 'सभी वर्ग', caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
         familySize: 'सभी परिवार', ageFilter: 'सभी आयु',
         isHead: false, isPwD: false, isImportant: false, isVoted: 'All', votedPartyId: '',
         page: 1, pageSize: 50
@@ -198,9 +198,10 @@ export default function AdminVotersPage() {
         }
     }, [
         selectedAssembly, filters.page, filters.search, filters.booth, filters.boothName, filters.status, filters.gender, filters.village,
-        filters.caste, filters.familySize, filters.ageFilter,
+        filters.casteCategory, filters.caste, filters.familySize, filters.ageFilter,
         filters.isHead, filters.isPwD, filters.isImportant, filters.isVoted, filters.votedPartyId
     ]);
+
 
     const handleFilterChange = (e: any) => {
         const { name, value, type, checked } = e.target;
@@ -473,12 +474,26 @@ export default function AdminVotersPage() {
                             />
 
                             <SearchableSelect
-                                options={['सभी जाति', ...options.castes]}
+                                options={['सभी वर्ग', 'सामान्य', 'ओबीसी', 'एससी', 'एसटी', 'मुस्लिम']}
+                                value={filters.casteCategory}
+                                onChange={(val) => setFilters(prev => ({ ...prev, casteCategory: val, caste: 'सभी जाति', page: 1 }))}
+                                placeholder="वर्ग (Category)"
+                                searchPlaceholder="वर्ग खोजें (सामान्य/ओबीसी/एससी/एसटी/मुस्लिम)..."
+                            />
+
+                            <SearchableSelect
+                                options={[
+                                    'सभी जाति',
+                                    ...(Array.isArray(options.castes) ? options.castes
+                                        .filter((c: any) => typeof c === 'object' ? (!filters.casteCategory || filters.casteCategory === 'सभी वर्ग' || c.category === filters.casteCategory) : true)
+                                        .map((c: any) => typeof c === 'object' ? c.caste : c) : [])
+                                ]}
                                 value={filters.caste}
                                 onChange={(val) => setFilters(prev => ({ ...prev, caste: val, page: 1 }))}
-                                placeholder="जाति"
+                                placeholder="जाति / उपजाति"
                                 searchPlaceholder="जाति का नाम खोजें..."
                             />
+
 
                             <SearchableSelect
                                 options={[
