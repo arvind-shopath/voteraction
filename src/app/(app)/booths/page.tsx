@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getBooths } from '@/app/actions/booth';
+import { getWorkersInAssembly } from '@/app/actions/worker';
 import { LayoutGrid, List, MapPin, User, CheckCircle2, TrendingUp, Plus, Search, Filter, Users, Shield, AlertCircle } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
@@ -9,6 +10,8 @@ export default function BoothsPage() {
     const { data: session }: any = useSession();
     const [booths, setBooths] = useState<any[]>([]);
     const [filteredBooths, setFilteredBooths] = useState<any[]>([]);
+    const [workers, setWorkers] = useState<any[]>([]);
+    const [selectedWorkerId, setSelectedWorkerId] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState('grid');
     const [showAdd, setShowAdd] = useState(false);
@@ -38,9 +41,13 @@ export default function BoothsPage() {
 
     async function fetchBooths() {
         setLoading(true);
-        const data = await getBooths(assemblyId);
-        setBooths(data);
-        setFilteredBooths(data);
+        const [bData, wData] = await Promise.all([
+            getBooths(assemblyId),
+            getWorkersInAssembly(assemblyId)
+        ]);
+        setBooths(bData);
+        setFilteredBooths(bData);
+        setWorkers(wData);
         setLoading(false);
     }
 
@@ -79,12 +86,18 @@ export default function BoothsPage() {
 
     const handleOpenAdd = () => {
         setEditingBooth(null);
+        setSelectedWorkerId('');
         setFormData({ number: '', name: '', area: '', inchargeName: '', inchargeMobile: '' });
         setShowAdd(true);
     };
 
     const handleEdit = (booth: any) => {
         setEditingBooth(booth);
+        const matchedWorker = workers.find((w: any) =>
+            (booth.inchargeMobile && (w.mobile === booth.inchargeMobile || w.user?.mobile === booth.inchargeMobile)) ||
+            (booth.inchargeName && w.name === booth.inchargeName)
+        );
+        setSelectedWorkerId(matchedWorker ? String(matchedWorker.id) : '');
         setFormData({
             number: booth.number.toString(),
             name: booth.name || '',
@@ -353,16 +366,52 @@ export default function BoothsPage() {
                                 <input type="text" value={formData.area} onChange={e => setFormData({ ...formData, area: e.target.value })}
                                     style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '16px', fontSize: '15px' }} />
                             </div>
+                            {/* Incharge selection from Workers */}
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', color: '#475569', marginBottom: '8px' }}>
+                                    बूथ इंचार्ज चुनें (कार्यकर्ता सूची से)
+                                </label>
+                                <select
+                                    value={selectedWorkerId}
+                                    onChange={(e) => {
+                                        const wid = e.target.value;
+                                        setSelectedWorkerId(wid);
+                                        if (wid) {
+                                            const found = workers.find((w: any) => String(w.id) === wid);
+                                            if (found) {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    inchargeName: found.name,
+                                                    inchargeMobile: found.mobile || found.user?.mobile || ''
+                                                }));
+                                            }
+                                        }
+                                    }}
+                                    style={{ width: '100%', padding: '14px', border: '1px solid #CBD5E1', borderRadius: '16px', fontSize: '14px', background: '#F8FAFC', fontWeight: '600' }}
+                                >
+                                    <option value="">-- कार्यकर्ता चुनें (या नीचे सीधा लिखें) --</option>
+                                    {workers.map((w: any) => {
+                                        const mob = w.mobile || w.user?.mobile;
+                                        const roleLabel = w.type === 'BOOTH_MANAGER' || w.type === 'BOOTH' ? 'बूथ मैनेजर' : w.type === 'PANNA_PRAMUKH' || w.type === 'PANNA' ? 'पन्ना प्रमुख' : 'ग्राउंड कार्यकर्ता';
+                                        return (
+                                            <option key={w.id} value={String(w.id)}>
+                                                {w.name} ({roleLabel}){mob ? ` - ${mob}` : ''}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', color: '#475569', marginBottom: '10px' }}>इंचार्ज नाम</label>
                                     <input type="text" value={formData.inchargeName} onChange={e => setFormData({ ...formData, inchargeName: e.target.value })}
-                                        style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '16px', fontSize: '15px' }} />
+                                        style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '16px', fontSize: '15px' }} placeholder="इंचार्ज का नाम" />
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', color: '#475569', marginBottom: '10px' }}>इंचार्ज मोबाइल</label>
                                     <input type="text" value={formData.inchargeMobile} onChange={e => setFormData({ ...formData, inchargeMobile: e.target.value })}
-                                        style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '16px', fontSize: '15px' }} />
+                                        style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '16px', fontSize: '15px' }} placeholder="मोबाइल नंबर" />
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '16px' }}>

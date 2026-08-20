@@ -175,7 +175,7 @@ export default function WorkersPage() {
     const openEditModal = (worker: any) => {
         setEditData({
             name: worker.name,
-            mobile: worker.mobile || '',
+            mobile: worker.mobile || worker.user?.mobile || '',
             type: worker.type,
             boothId: worker.boothId?.toString() || ''
         });
@@ -338,7 +338,6 @@ export default function WorkersPage() {
                                 {!isBoothManager && (
                                     <>
                                         <option value="FIELD">ग्राउंड कार्यकर्ता</option>
-                                        {!hasCreativeTeam && <option value="SOCIAL_MEDIA">सोशल मीडिया</option>}
                                         <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
                                     </>
                                 )}
@@ -455,18 +454,18 @@ export default function WorkersPage() {
                                 <div style={{ width: '2px', height: '20px', background: '#E2E8F0', margin: '0 auto' }}></div>
                             </div>
 
-                            {/* Level 2: Ground Workers & Social Media */}
+                            {/* Level 2: Ground Workers */}
                             <div>
                                 <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#64748B', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <Users size={18} /> जमीनी कार्यकर्ता एवं सोशल मीडिया टीम
+                                    <Users size={18} /> जमीनी कार्यकर्ता (Ground Workers)
                                 </h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
                                     {hierarchyData.generalWorkers.map((w: any) => (
                                         <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
-                                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: w.type === 'SOCIAL_MEDIA' ? '#FDF2F8' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: w.type === 'SOCIAL_MEDIA' ? '#DB2777' : '#2563EB', fontWeight: '800' }}>{w.name[0]}</div>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', fontWeight: '800' }}>{w.name[0]}</div>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: '800', fontSize: '14px' }}>{w.name}</div>
-                                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8' }}>{w.type === 'SOCIAL_MEDIA' ? 'सोशल मीडिया' : 'ग्राउंड सपोर्ट'}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8' }}>{'ग्राउंड सपोर्ट'}</div>
                                             </div>
                                             <div style={{ padding: '4px 10px', background: '#7C3AED', color: 'white', borderRadius: '8px', fontSize: '12px', fontWeight: '900' }}>
                                                 {w.totalPoints || 0} ✨
@@ -565,7 +564,6 @@ export default function WorkersPage() {
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>प्रकार</label>
                                 <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value, boothId: '' })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
                                     <option value="FIELD">ग्राउंड कार्यकर्ता</option>
-                                    {!hasCreativeTeam && <option value="SOCIAL_MEDIA">सोशल मीडिया</option>}
                                     <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
                                     <option value="PANNA_PRAMUKH">पन्ना प्रमुख</option>
                                 </select>
@@ -593,7 +591,7 @@ export default function WorkersPage() {
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div className="card" style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '32px', borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ fontSize: '22px', fontWeight: '900' }}>कार्यकर्ता माहिती अपडेट करें</h2>
+                            <h2 style={{ fontSize: '22px', fontWeight: '900' }}>कार्यकर्ता विवरण अपडेट करें</h2>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button type="button" onClick={() => setShowPasswordReset(showEdit)} style={{ background: '#FEF2F2', color: '#DC2626', border: 'none', borderRadius: '50%', padding: '8px', cursor: 'pointer' }}><Key size={18} /></button>
                                 <button onClick={() => setShowEdit(null)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px' }}><X size={20} /></button>
@@ -612,7 +610,6 @@ export default function WorkersPage() {
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>कार्यकर्ता टाइप</label>
                                 <select value={editData.type} onChange={e => setEditData({ ...editData, type: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
                                     <option value="FIELD">ग्राउंड कार्यकर्ता</option>
-                                    {!hasCreativeTeam && <option value="SOCIAL_MEDIA">सोशल मीडिया</option>}
                                     <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
                                     <option value="PANNA_PRAMUKH">पन्ना प्रमुख</option>
                                 </select>
