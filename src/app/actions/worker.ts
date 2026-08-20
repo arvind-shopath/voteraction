@@ -4,6 +4,7 @@ import { prisma as prismaClient } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/auth';
 import { validatePasswordStrength } from '@/lib/validation';
+import bcrypt from 'bcryptjs';
 
 const prisma = prismaClient as any;
 
@@ -207,8 +208,6 @@ export async function getWorkersInAssembly(assemblyIdRaw?: any) {
         };
     });
 }
-
-import bcrypt from 'bcryptjs';
 
 export async function checkCreativeTeamStatus(assemblyIdRaw?: any) {
     try {
