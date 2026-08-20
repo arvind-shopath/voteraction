@@ -11,7 +11,8 @@ import {
     autoAssignVotersByCount,
     checkCreativeTeamStatus,
     getAssemblyVillages,
-    bulkTransferVoters
+    bulkTransferVoters,
+    unassignVotersFromWorker
 } from '@/app/actions/worker';
 import { getBoothsWithAssignment, getBoothCoverageStats } from '@/app/actions/booth';
 import { getUnassignedVoters, updateVoterFeedback } from '@/app/actions/voters';
@@ -20,7 +21,7 @@ import {
     UserPlus, Plus, Phone, Users, Share2, X, ShieldCheck,
     LayoutList, Filter, Search, CheckCircle, ChevronRight,
     Home, UserCheck, AlertCircle, Calendar, RefreshCcw,
-    TrendingUp, Zap, Map as MapIcon, Edit2, Lock, Key, ChevronDown, User, Network, MapPin
+    TrendingUp, Zap, Map as MapIcon, Edit2, Lock, Key, ChevronDown, User, Network, MapPin, Trash2, UserMinus
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useView } from '@/context/ViewContext';
@@ -261,12 +262,26 @@ export default function WorkersPage() {
         }
     };
 
+    const [selectedForUnassign, setSelectedForUnassign] = useState<number[]>([]);
+
     const handleViewVoters = async (worker: any) => {
         setLoading(true);
         const voters = await getWorkerAssignedVoters(worker.id);
         setViewingVoters(voters);
+        setSelectedForUnassign([]);
         setShowVoterList(worker);
         setLoading(false);
+    };
+
+    const handleUnassignVoters = async (voterIds: number[]) => {
+        if (voterIds.length === 0) return;
+        if (!confirm(`क्या आप वाकई ${voterIds.length} वोटर को इस पन्ना प्रमुख से हटाना (Unassign) चाहते हैं?`)) return;
+        setLoading(true);
+        await unassignVotersFromWorker(voterIds);
+        setViewingVoters(prev => prev.filter(v => !voterIds.includes(v.id)));
+        setSelectedForUnassign(prev => prev.filter(id => !voterIds.includes(id)));
+        setLoading(false);
+        fetchData();
     };
 
     const handleToggleVoted = async (voterId: number, current: boolean) => {
@@ -1062,79 +1077,148 @@ export default function WorkersPage() {
                                 </div>
                             </div>
 
+                            {/* Actions & Selection Bar for Unassigning */}
+                            <div style={{ padding: '12px 24px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={viewingVoters.length > 0 && selectedForUnassign.length === viewingVoters.length}
+                                            onChange={e => {
+                                                if (e.target.checked) {
+                                                    setSelectedForUnassign(viewingVoters.map(v => v.id));
+                                                } else {
+                                                    setSelectedForUnassign([]);
+                                                }
+                                            }}
+                                            style={{ width: '16px', height: '16px', accentColor: '#EF4444', cursor: 'pointer' }}
+                                        />
+                                        <span>सभी चुनें ({viewingVoters.length})</span>
+                                    </label>
+                                    {selectedForUnassign.length > 0 && (
+                                        <span style={{ fontSize: '12px', color: '#64748B', fontWeight: '600' }}>
+                                            ({selectedForUnassign.length} चयनित)
+                                        </span>
+                                    )}
+                                </div>
+
+                                {selectedForUnassign.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUnassignVoters(selectedForUnassign)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5', borderRadius: '10px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}
+                                    >
+                                        <UserMinus size={16} />
+                                        <span>{selectedForUnassign.length} वोटर हटाएं (Unassign)</span>
+                                    </button>
+                                )}
+                            </div>
+
                             {/* Voters List */}
                             <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {viewingVoters.map((v: any) => {
-                                        const fb = v.feedbacks?.[0];
-                                        const isContacted = Boolean((fb?.supportStatus && fb.supportStatus !== 'Neutral') || (v.supportStatus && v.supportStatus !== 'Neutral') || fb?.notes || v.notes || fb?.updatedByName || v.updatedByName);
-                                        const currentSupport = fb?.supportStatus || v.supportStatus || 'Neutral';
-                                        const notes = fb?.notes || v.notes;
-                                        const updater = fb?.updatedByName || v.updatedByName;
+                                {viewingVoters.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
+                                        <Users size={36} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+                                        <p style={{ fontSize: '15px', fontWeight: '700' }}>इस पन्ना प्रमुख को कोई वोटर असाइन नहीं है।</p>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {viewingVoters.map((v: any) => {
+                                            const fb = v.feedbacks?.[0];
+                                            const isContacted = Boolean((fb?.supportStatus && fb.supportStatus !== 'Neutral') || (v.supportStatus && v.supportStatus !== 'Neutral') || fb?.notes || v.notes || fb?.updatedByName || v.updatedByName);
+                                            const currentSupport = fb?.supportStatus || v.supportStatus || 'Neutral';
+                                            const notes = fb?.notes || v.notes;
+                                            const updater = fb?.updatedByName || v.updatedByName;
+                                            const isChecked = selectedForUnassign.includes(v.id);
 
-                                        return (
-                                            <div key={v.id} style={{ padding: '16px', background: isContacted ? '#F8FAFC' : '#FFFFFF', borderRadius: '16px', border: isContacted ? '1px solid #CBD5E1' : '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            {v.name}
-                                                            {v.houseNumber && (
-                                                                <span style={{ fontSize: '11px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
-                                                                    🏠 मकान: {v.houseNumber}
-                                                                </span>
-                                                            )}
-                                                            {v.village && (
-                                                                <span style={{ fontSize: '11px', color: '#64748B' }}>
-                                                                    📍 {v.village}
-                                                                </span>
-                                                            )}
+                                            return (
+                                                <div key={v.id} style={{ padding: '16px', background: isChecked ? '#FEF2F2' : (isContacted ? '#F8FAFC' : '#FFFFFF'), borderRadius: '16px', border: isChecked ? '1px solid #FCA5A5' : (isContacted ? '1px solid #CBD5E1' : '1px solid #E2E8F0'), boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={e => {
+                                                                    if (e.target.checked) {
+                                                                        setSelectedForUnassign(prev => [...prev, v.id]);
+                                                                    } else {
+                                                                        setSelectedForUnassign(prev => prev.filter(id => id !== v.id));
+                                                                    }
+                                                                }}
+                                                                style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#EF4444', cursor: 'pointer' }}
+                                                            />
+                                                            <div>
+                                                                <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    {v.name}
+                                                                    {v.houseNumber && (
+                                                                        <span style={{ fontSize: '11px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
+                                                                            🏠 मकान: {v.houseNumber}
+                                                                        </span>
+                                                                    )}
+                                                                    {v.village && (
+                                                                        <span style={{ fontSize: '11px', color: '#64748B' }}>
+                                                                            📍 {v.village}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                                                    <span>{v.gender === 'M' ? 'पुरुष' : 'महिला'}, {v.age} वर्ष</span>
+                                                                    {v.epic && <span>EPIC: <b>{v.epic}</b></span>}
+                                                                    {v.mobile && <span>📞 <b>{v.mobile}</b></span>}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                                                            <span>{v.gender === 'M' ? 'पुरुष' : 'महिला'}, {v.age} वर्ष</span>
-                                                            {v.epic && <span>EPIC: <b>{v.epic}</b></span>}
-                                                            {v.mobile && <span>📞 <b>{v.mobile}</b></span>}
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {isContacted ? (
+                                                                <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#DCFCE7', color: '#15803D', fontSize: '11px', fontWeight: '800' }}>
+                                                                    ✓ संपर्क संपन्न
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#FEF3C7', color: '#B45309', fontSize: '11px', fontWeight: '800' }}>
+                                                                    ⏳ संपर्क बाकी
+                                                                </span>
+                                                            )}
+
+                                                            {currentSupport === 'Support' && (
+                                                                <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#DCFCE7', color: '#15803D', fontSize: '11px', fontWeight: '800' }}>
+                                                                    🟢 समर्थक
+                                                                </span>
+                                                            )}
+                                                            {currentSupport === 'Oppose' && (
+                                                                <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#FEE2E2', color: '#DC2626', fontSize: '11px', fontWeight: '800' }}>
+                                                                    🔴 विरोधी
+                                                                </span>
+                                                            )}
+                                                            {currentSupport === 'Neutral' && (
+                                                                <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#F1F5F9', color: '#64748B', fontSize: '11px', fontWeight: '700' }}>
+                                                                    ⚪ न्यूट्रल
+                                                                </span>
+                                                            )}
+
+                                                            <button
+                                                                type="button"
+                                                                title="इस पन्ना प्रमुख से वोटर हटाएं"
+                                                                onClick={() => handleUnassignVoters([v.id])}
+                                                                style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700', marginLeft: '4px' }}
+                                                            >
+                                                                <UserMinus size={14} />
+                                                                <span>हटाएं</span>
+                                                            </button>
                                                         </div>
                                                     </div>
 
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        {isContacted ? (
-                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#DCFCE7', color: '#15803D', fontSize: '11px', fontWeight: '800' }}>
-                                                                ✓ संपर्क संपन्न
-                                                            </span>
-                                                        ) : (
-                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#FEF3C7', color: '#B45309', fontSize: '11px', fontWeight: '800' }}>
-                                                                ⏳ संपर्क बाकी
-                                                            </span>
-                                                        )}
-
-                                                        {currentSupport === 'Support' && (
-                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#DCFCE7', color: '#15803D', fontSize: '11px', fontWeight: '800' }}>
-                                                                🟢 समर्थक
-                                                            </span>
-                                                        )}
-                                                        {currentSupport === 'Oppose' && (
-                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#FEE2E2', color: '#DC2626', fontSize: '11px', fontWeight: '800' }}>
-                                                                🔴 विरोधी
-                                                            </span>
-                                                        )}
-                                                        {currentSupport === 'Neutral' && (
-                                                            <span style={{ padding: '4px 10px', borderRadius: '20px', background: '#F1F5F9', color: '#64748B', fontSize: '11px', fontWeight: '700' }}>
-                                                                ⚪ न्यूट्रल
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    {(notes || updater) && (
+                                                        <div style={{ marginTop: '10px', padding: '8px 12px', background: '#F1F5F9', borderRadius: '10px', fontSize: '12px', color: '#334155', borderLeft: '3px solid #2563EB' }}>
+                                                            {notes && <div><b>📝 अपडेट / नोट:</b> {notes}</div>}
+                                                            {updater && <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>👤 दर्जकर्ता: {updater}</div>}
+                                                        </div>
+                                                    )}
                                                 </div>
-
-                                                {(notes || updater) && (
-                                                    <div style={{ marginTop: '10px', padding: '8px 12px', background: '#F1F5F9', borderRadius: '10px', fontSize: '12px', color: '#334155', borderLeft: '3px solid #2563EB' }}>
-                                                        {notes && <div><b>📝 अपडेट / नोट:</b> {notes}</div>}
-                                                        {updater && <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>👤 दर्जकर्ता: {updater}</div>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

@@ -480,6 +480,21 @@ export async function assignVotersToWorker(workerId: number, voterIds: number[])
         }
     });
     revalidatePath('/workers');
+    revalidatePath('/voters');
+}
+
+export async function unassignVotersFromWorker(voterIds: number[]) {
+    await prisma.voter.updateMany({
+        where: {
+            id: { in: voterIds }
+        },
+        data: {
+            pannaPramukhId: null
+        }
+    });
+    revalidatePath('/workers');
+    revalidatePath('/voters');
+    return { success: true };
 }
 
 export async function autoAssignVotersByCount(workerId: number, targetCount: number, assemblyId: number, boothNumber: number) {
