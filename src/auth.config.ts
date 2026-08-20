@@ -50,7 +50,9 @@ export const authConfig = {
                 session.user.id = token.id as string;
                 // Normalize legacy role for transition
                 const rawRole = token.role as string;
-                session.user.role = rawRole === 'MANAGER' ? 'CANDIDATE' : rawRole;
+                // ELECTION_MANAGER sees same view as CANDIDATE
+                session.user.role = (rawRole === 'MANAGER' || rawRole === 'ELECTION_MANAGER') ? 'CANDIDATE' : rawRole;
+                session.user.realRole = rawRole; // keep the real role for permission checks
                 session.user.status = token.status as string;
                 session.user.assemblyId = token.assemblyId as number | null;
                 session.user.assemblyName = token.assemblyName as string | null | undefined;
