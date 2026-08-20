@@ -6,14 +6,21 @@ import webpush from 'web-push';
 
 const prisma = prismaClient as any;
 
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY!;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 
-webpush.setVapidDetails(
-    'mailto:support@voteraction.com',
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
-);
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+    try {
+        webpush.setVapidDetails(
+            'mailto:support@voteraction.com',
+            VAPID_PUBLIC_KEY,
+            VAPID_PRIVATE_KEY
+        );
+    } catch (e) {
+        console.warn("VAPID details setup warning:", e);
+    }
+}
+
 
 export async function getNotifications(userIdRaw?: any, assemblyIdRaw?: any) {
     const userId = userIdRaw ? parseInt(userIdRaw.toString()) : undefined;
@@ -83,7 +90,8 @@ export async function createNotification(data: {
         targetUserIds.push(...users.map((u: any) => u.id));
     }
 
-    if (targetUserIds.length > 0) {
+    if (targetUserIds.length > 0 && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+
         const subscriptions = await prisma.pushSubscription.findMany({
             where: { userId: { in: targetUserIds } }
         });
