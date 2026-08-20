@@ -32,6 +32,7 @@ export default function CandidatesPage() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [statusModalOpen, setStatusModalOpen] = useState(false);
     const [assignModalOpen, setAssignModalOpen] = useState(false);
+    const [removeAssemblyModalOpen, setRemoveAssemblyModalOpen] = useState(false);
     const [newName, setNewName] = useState('');
 
     // Message/Notify State
@@ -128,12 +129,13 @@ export default function CandidatesPage() {
         }
     };
 
-    const handleConfirmAssignAssembly = async (assemblyId: number | null) => {
+    const handleConfirmAssignAssembly = async (assemblyId: number | null, allowMasterMobileAccess: boolean = true) => {
         if (!selectedUser) return;
         try {
-            await assignUserToAssembly(selectedUser.id, assemblyId);
+            await assignUserToAssembly(selectedUser.id, assemblyId, allowMasterMobileAccess);
             showMsg("सफलता", assemblyId ? "विधानसभा असाइन कर दी गई है।" : "विधानसभा से हटा दिया गया है।");
             setAssignModalOpen(false);
+            setRemoveAssemblyModalOpen(false);
             fetchData();
         } catch (e: any) {
             showMsg("त्रुटि", e.message, "error");
@@ -164,6 +166,11 @@ export default function CandidatesPage() {
     const handleTriggerAssign = (u: any) => {
         setSelectedUser(u);
         setAssignModalOpen(true);
+    };
+
+    const handleTriggerRemoveAssembly = (u: any) => {
+        setSelectedUser(u);
+        setRemoveAssemblyModalOpen(true);
     };
 
     // Filter Logic: Display ONLY Candidate users (no empty assembly seats)
@@ -349,21 +356,30 @@ export default function CandidatesPage() {
                                     <div className="action-buttons" style={{ display: 'flex', gap: '8px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                                         <button
                                             onClick={() => handleTriggerManageTeam(u)}
-                                            style={{ flex: isMobile ? '1 1 100%' : 3.5, padding: '14px', borderRadius: '18px', background: '#0F172A', color: 'white', border: 'none', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
+                                            style={{ flex: isMobile ? '1 1 100%' : 3, padding: '14px', borderRadius: '18px', background: '#0F172A', color: 'white', border: 'none', fontWeight: '800', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
                                         >
                                             <Shield size={16} /> टीम प्रबंधन
                                         </button>
                                         <button
                                             onClick={() => handleTriggerAssign(u)}
-                                            style={{ flex: 1, padding: '14px', borderRadius: '18px', background: 'white', border: '1px solid #E2E8F0', color: '#64748B', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                            title="विधानसभा असाइन करें"
+                                            style={{ flex: 1.5, padding: '14px', borderRadius: '18px', background: u.assemblyId ? '#F0F9FF' : '#2563EB', border: u.assemblyId ? '1px solid #BAE6FD' : 'none', color: u.assemblyId ? '#0284C7' : 'white', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}
+                                            title="विधानसभा असाइन या बदलें"
                                         >
-                                            <Building2 size={18} />
+                                            <Building2 size={16} /> {u.assemblyId ? 'बदलें' : 'असाइन करें'}
                                         </button>
+                                        {u.assemblyId && (
+                                            <button
+                                                onClick={() => handleTriggerRemoveAssembly(u)}
+                                                style={{ flex: 1.5, padding: '14px', borderRadius: '18px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
+                                                title="विधानसभा हटाएं"
+                                            >
+                                                <X size={16} /> वि०सभा हटाएं
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => handleTriggerDelete(u)}
                                             style={{ flex: 1, padding: '14px', borderRadius: '18px', background: 'white', border: '1px solid #FEE2E2', color: '#EF4444', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                            title="कैंडिडेट डिलीट करें"
+                                            title="कैंडिडेट यूजर डिलीट करें"
                                         >
                                             <Trash2 size={18} />
                                         </button>
@@ -423,10 +439,25 @@ export default function CandidatesPage() {
                 </CustomModal>
             )}
 
+            {removeAssemblyModalOpen && selectedUser && (
+                <CustomModal
+                    title="विधानसभा रिमूव करें"
+                    onClose={() => setRemoveAssemblyModalOpen(false)}
+                    onConfirm={() => handleConfirmAssignAssembly(null)}
+                    confirmLabel="हां, विधानसभा हटाएं"
+                    confirmType="danger"
+                >
+                    <p style={{ fontWeight: '700', color: '#64748B' }}>
+                        क्या आप वाकई <span style={{ color: '#0F172A' }}>{selectedUser.name}</span> से विधानसभा <span style={{ color: '#2563EB' }}>{assemblies.find(as => as.id === selectedUser.assemblyId)?.name || ''}</span> हटाना (Unassign) चाहते हैं?
+                    </p>
+                </CustomModal>
+            )}
+
             {assignModalOpen && selectedUser && (
                 <SelectAssemblyModal
                     assemblies={assemblies}
-                    currentId={selectedUser.assemblyId}
+                    candidate={selectedUser}
+                    campaign={campaigns.find(c => c.id === selectedUser.campaignId)}
                     onClose={() => setAssignModalOpen(false)}
                     onConfirm={handleConfirmAssignAssembly}
                 />
@@ -628,31 +659,89 @@ function CustomModal({ title, children, onClose, onConfirm, confirmLabel = "अ�
     );
 }
 
-function SelectAssemblyModal({ assemblies, currentId, onClose, onConfirm }: any) {
+function SelectAssemblyModal({ assemblies, candidate, campaign, onClose, onConfirm }: any) {
+    const currentId = candidate?.assemblyId;
     const [selected, setSelected] = useState(currentId || '');
+    const [allowMobileAccess, setAllowMobileAccess] = useState(campaign?.allowMasterMobileAccess !== false);
+
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001, padding: '20px', backdropFilter: 'blur(8px)' }}>
             <div onClick={onClose} style={{ position: 'absolute', inset: 0 }}></div>
-            <div style={{ background: 'white', borderRadius: '32px', maxWidth: '450px', width: '100%', position: 'relative', zIndex: 1, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+            <div style={{ background: 'white', borderRadius: '32px', maxWidth: '480px', width: '100%', position: 'relative', zIndex: 1, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
                 <div style={{ padding: '24px 32px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A' }}>विधनसभा असाइन करें</h3>
+                    <div>
+                        <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A' }}>विधानसभा असाइन करें</h3>
+                        <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', marginTop: '2px' }}>कैंडिडेट: {candidate?.name}</p>
+                    </div>
                     <button onClick={onClose} style={{ background: '#F8FAFC', border: 'none', width: '36px', height: '36px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={18} /></button>
                 </div>
-                <div style={{ padding: '32px' }}>
+                <div style={{ padding: '28px 32px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#475569', marginBottom: '8px' }}>
+                        विधानसभा क्षेत्र चुनें (Select Assembly)
+                    </label>
                     <select
                         value={selected}
                         onChange={e => setSelected(e.target.value)}
-                        style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0', outline: 'none', fontWeight: '700', fontSize: '15px', background: 'white' }}
+                        style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #CBD5E1', outline: 'none', fontWeight: '700', fontSize: '15px', background: 'white' }}
                     >
-                        <option value="">कोई नहीं (छोड़ें)</option>
+                        <option value="">-- कोई नहीं (असाइन न करें) --</option>
                         {assemblies.map((a: any) => (
                             <option key={a.id} value={a.id}>{a.name} ({a.district})</option>
                         ))}
                     </select>
+
+                    {/* Master Mobile Access Permission Toggle */}
+                    <div style={{
+                        padding: '16px',
+                        background: allowMobileAccess ? '#F0FDF4' : '#F8FAFC',
+                        borderRadius: '20px',
+                        border: allowMobileAccess ? '1px solid #BBF7D0' : '1px solid #E2E8F0',
+                        marginTop: '20px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+                        <div>
+                            <div style={{ fontSize: '13px', fontWeight: '800', color: allowMobileAccess ? '#166534' : '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Phone size={15} /> 📱 मास्टर मोबाइल एक्सेस
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600', marginTop: '2px' }}>
+                                {allowMobileAccess ? '✅ प्रत्याशी को सिस्टम के सभी मोबाइल नंबर दिखेंगे' : '🔒 केवल खुद के कार्यकर्ताओं के नंबर दिखेंगे'}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setAllowMobileAccess(!allowMobileAccess)}
+                            style={{
+                                padding: '8px 14px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                background: allowMobileAccess ? '#166534' : '#64748B',
+                                color: 'white',
+                                fontSize: '12px',
+                                fontWeight: '800',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {allowMobileAccess ? 'ON' : 'OFF'}
+                        </button>
+                    </div>
                 </div>
-                <div style={{ padding: '24px 32px', background: '#F8FAFC', display: 'flex', gap: '12px' }}>
-                    <button onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '16px', border: '1px solid #E2E8F0', background: 'white', color: '#64748B', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}>रद्द करें</button>
-                    <button onClick={() => onConfirm(selected ? parseInt(selected) : null)} style={{ flex: 1.5, padding: '14px', borderRadius: '16px', background: '#2563EB', color: 'white', border: 'none', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}>असाइन करें</button>
+
+                <div style={{ padding: '20px 32px', background: '#F8FAFC', display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
+                    {currentId ? (
+                        <button
+                            type="button"
+                            onClick={() => onConfirm(null, allowMobileAccess)}
+                            style={{ padding: '14px 16px', borderRadius: '16px', border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#DC2626', fontWeight: '800', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <Trash2 size={16} /> वि०सभा हटाएं
+                        </button>
+                    ) : <div />}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={onClose} style={{ padding: '14px 20px', borderRadius: '16px', border: '1px solid #E2E8F0', background: 'white', color: '#64748B', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}>रद्द करें</button>
+                        <button onClick={() => onConfirm(selected ? parseInt(selected) : null, allowMobileAccess)} style={{ padding: '14px 24px', borderRadius: '16px', background: '#2563EB', color: 'white', border: 'none', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}>असाइन करें</button>
+                    </div>
                 </div>
             </div>
         </div>

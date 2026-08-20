@@ -602,7 +602,7 @@ export async function updateCandidateProfile(idRaw: any, data: {
     revalidatePath('/settings');
 }
 
-export async function assignUserToAssembly(userId: number, assemblyId: number | null) {
+export async function assignUserToAssembly(userId: number, assemblyId: number | null, allowMasterMobileAccess: boolean = true) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error("User not found");
 
@@ -618,12 +618,17 @@ export async function assignUserToAssembly(userId: number, assemblyId: number | 
 
         if (existingCampaign) {
             campaignId = existingCampaign.id;
+            await prisma.campaign.update({
+                where: { id: existingCampaign.id },
+                data: { allowMasterMobileAccess }
+            }).catch(() => {});
         } else {
             const newCampaign = await prisma.campaign.create({
                 data: {
                     name: `${user.name || 'Candidate'} Campaign`,
                     candidateName: user.name,
-                    assemblyId: assemblyId
+                    assemblyId: assemblyId,
+                    allowMasterMobileAccess
                 }
             });
             campaignId = newCampaign.id;
