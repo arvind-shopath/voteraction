@@ -10,7 +10,8 @@ import {
     updateWorkerPassword,
     autoAssignVotersByCount,
     checkCreativeTeamStatus,
-    getAssemblyVillages
+    getAssemblyVillages,
+    bulkTransferVoters
 } from '@/app/actions/worker';
 import { getBoothsWithAssignment, getBoothCoverageStats } from '@/app/actions/booth';
 import { getUnassignedVoters, updateVoterFeedback } from '@/app/actions/voters';
