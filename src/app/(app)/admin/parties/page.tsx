@@ -260,7 +260,15 @@ export default function PartiesPage() {
                                 <div style={{ position: 'relative' }}>
                                     <div style={{ width: '60px', height: '60px', borderRadius: '16px', background: 'white', border: '2px solid #F1F5F9', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
                                         {party.logo ? (
-                                            <img src={party.logo} alt={party.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }} />
+                                            <img
+                                                src={party.logo}
+                                                alt={party.name}
+                                                style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }}
+                                                onError={(e) => {
+                                                    // If image fails to load, fallback to flag icon
+                                                    (e.target as HTMLElement).style.display = 'none';
+                                                }}
+                                            />
                                         ) : (
                                             <Flag size={26} color={party.color} />
                                         )}

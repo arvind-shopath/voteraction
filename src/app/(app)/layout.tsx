@@ -75,6 +75,28 @@ export default async function AppLayout({
 
         if (assembly) {
             let logoUrl = assembly.logoUrl;
+            let themeColor = assembly.themeColor;
+
+            // If assembly.party is set, try fetching party color & logo
+            if (assembly.party) {
+                try {
+                    const party = await prisma.party.findFirst({
+                        where: {
+                            OR: [
+                                { name: assembly.party },
+                                { name: { contains: assembly.party.split(' ')[0] } }
+                            ]
+                        },
+                        select: { logo: true, color: true }
+                    });
+                    if (party) {
+                        if (!logoUrl) logoUrl = party.logo;
+                        if (!themeColor || themeColor === '#1E3A8A') themeColor = party.color;
+                    }
+                } catch (e) {
+                    console.error('Party lookup error:', e);
+                }
+            }
 
             // For WORKER role, always use their real name, not assembly's candidate name
             const nameToUse = isWorker
@@ -85,23 +107,7 @@ export default async function AppLayout({
                 : (simulatedPersona?.image || assembly.candidateImageUrl || realUserImage);
 
             branding = {
-                themeColor: assembly.themeColor || '#1E3A8A',
-                candidateName: nameToUse,
-                candidateImageUrl: imgToUse,
-                logoUrl: logoUrl
-            };
-
-            // If assembly.logoUrl is missing, try fetching from Party table
-            if (!logoUrl && assembly.party) {
-                const party = await prisma.party.findUnique({
-                    where: { name: assembly.party },
-                    select: { logo: true }
-                });
-                if (party?.logo) logoUrl = party.logo;
-            }
-
-            branding = {
-                themeColor: assembly.themeColor || '#1E3A8A',
+                themeColor: themeColor || '#1E3A8A',
                 candidateName: nameToUse,
                 candidateImageUrl: imgToUse,
                 logoUrl: logoUrl
