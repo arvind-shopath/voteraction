@@ -329,10 +329,26 @@ export function parseUPVoterRoll(text: string, manualAddress?: string, defaultVi
 
     console.log(`Starting Parser. Total Pages Found: ${pages.length}`);
 
+    let currentVillageForRoll = defaultVillage || '';
+
     pages.forEach((pageText, pageIdx) => {
 
         const lines = pageText.split('\n');
         if (lines.length < 5) return;
+
+        // Check for section/village header on this page
+        let pageVillage = currentVillageForRoll;
+        for (const line of lines) {
+            const secMatch = line.match(/अनुभाग\s*संख्या\s*और\s*नाम\s*[:\-\s]*(?:[0-9]+[\-\s]*)?([^\n\r]+)/i);
+            if (secMatch) {
+                const parsedSec = secMatch[1].replace(/^[0-9]+[\-\s]*/, '').trim();
+                if (parsedSec && parsedSec.length > 1) {
+                    pageVillage = parsedSec;
+                    currentVillageForRoll = parsedSec;
+                    break;
+                }
+            }
+        }
 
         // Strip noise lines
         const contentLines = lines.filter(line => {
@@ -355,7 +371,7 @@ export function parseUPVoterRoll(text: string, manualAddress?: string, defaultVi
         records.forEach(rec => {
             const trimmed = rec.trim();
             if (trimmed.length < 15) return;
-            parseAndAddVoter(trimmed, voters, defaultVillage || '', manualAddress || '');
+            parseAndAddVoter(trimmed, voters, pageVillage || defaultVillage || '', manualAddress || '');
         });
     });
 

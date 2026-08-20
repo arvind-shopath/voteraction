@@ -432,17 +432,24 @@ export default function AdminVotersPage() {
                                 </div>
                             </div>
                             <SearchableSelect
-                                options={['सभी बूथ', ...options.booths.map((b: any) => ({
-                                    label: typeof b === 'object' ? (b.name ? `भाग ${b.number} - ${b.name}` : `भाग ${b.number}`) : `भाग ${b}`,
-                                    value: String(typeof b === 'object' ? b.number : b)
-                                }))]}
+                                options={['सभी बूथ', ...options.booths.map((b: any) => {
+                                    if (typeof b === 'object') {
+                                        const num = b.number;
+                                        let name = (b.name || '').replace(/^(?:भाग|बूथ|Booth)\s*\d+\s*[\-\:]\s*/i, '').trim();
+                                        return {
+                                            label: name ? `बूथ ${num} - ${name}` : `बूथ ${num}`,
+                                            value: String(num)
+                                        };
+                                    }
+                                    return { label: `बूथ ${b}`, value: String(b) };
+                                })]}
                                 value={filters.booth}
                                 onChange={(val) => {
                                     const selectedNum = parseInt(val);
                                     let matchedName = 'सभी बूथ नाम';
                                     if (!isNaN(selectedNum)) {
                                         const bObj = options.booths.find((b: any) => typeof b === 'object' && b.number === selectedNum);
-                                        if (bObj && bObj.name) matchedName = bObj.name;
+                                        if (bObj && bObj.name) matchedName = bObj.name.replace(/^(?:भाग|बूथ|Booth)\s*\d+\s*[\-\:]\s*/i, '').trim();
                                     }
                                     setFilters(prev => ({ ...prev, booth: val, boothName: matchedName, page: 1 }));
                                 }}
@@ -451,12 +458,15 @@ export default function AdminVotersPage() {
                             />
 
                             <SearchableSelect
-                                options={['सभी बूथ नाम', ...options.booths.map((b: any) => typeof b === 'object' ? b.name : b).filter(Boolean)]}
+                                options={['सभी बूथ नाम', ...options.booths.map((b: any) => {
+                                    const rawName = typeof b === 'object' ? b.name : b;
+                                    return (rawName || '').replace(/^(?:भाग|बूथ|Booth)\s*\d+\s*[\-\:]\s*/i, '').trim();
+                                }).filter(Boolean)]}
                                 value={filters.boothName}
                                 onChange={(val) => {
                                     let matchedNum = 'सभी बूथ';
                                     if (val !== 'सभी बूथ नाम') {
-                                        const bObj = options.booths.find((b: any) => typeof b === 'object' && b.name === val);
+                                        const bObj = options.booths.find((b: any) => typeof b === 'object' && (b.name === val || b.name?.endsWith(val)));
                                         if (bObj && bObj.number) matchedNum = String(bObj.number);
                                     }
                                     setFilters(prev => ({ ...prev, boothName: val, booth: matchedNum, page: 1 }));

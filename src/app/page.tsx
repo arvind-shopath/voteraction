@@ -82,8 +82,9 @@ export default function LandingPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <a
-            href="/downloads/voteraction.apk"
+            href="/apps/voteraction.apk"
             download
+
             style={{
               display: 'flex',
               alignItems: 'center',

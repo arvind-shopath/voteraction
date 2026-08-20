@@ -629,10 +629,17 @@ export default function CandidateVotersView() {
 
                             {!isBoothManager && (
                                 <SearchableSelect
-                                    options={['सभी बूथ', ...options.booths.map((b: any) => ({
-                                        label: typeof b === 'object' ? (b.name ? `भाग ${b.number} - ${b.name}` : `भाग ${b.number}`) : `भाग ${b}`,
-                                        value: String(typeof b === 'object' ? b.number : b)
-                                    }))]}
+                                    options={['सभी बूथ', ...options.booths.map((b: any) => {
+                                        if (typeof b === 'object') {
+                                            const num = b.number;
+                                            let name = (b.name || '').replace(/^(?:भाग|बूथ|Booth)\s*\d+\s*[\-\:]\s*/i, '').trim();
+                                            return {
+                                                label: name ? `बूथ ${num} - ${name}` : `बूथ ${num}`,
+                                                value: String(num)
+                                            };
+                                        }
+                                        return { label: `बूथ ${b}`, value: String(b) };
+                                    })]}
                                     value={filters.booth}
                                     onChange={(val) => setFilters(prev => ({ ...prev, booth: val, page: 1 }))}
                                     placeholder={t.allBooths}
@@ -641,7 +648,10 @@ export default function CandidateVotersView() {
                             )}
 
                             <SearchableSelect
-                                options={['सभी बूथ नाम', ...options.booths.map((b: any) => typeof b === 'object' ? b.name : b).filter(Boolean)]}
+                                options={['सभी बूथ नाम', ...options.booths.map((b: any) => {
+                                    const rawName = typeof b === 'object' ? b.name : b;
+                                    return (rawName || '').replace(/^(?:भाग|बूथ|Booth)\s*\d+\s*[\-\:]\s*/i, '').trim();
+                                }).filter(Boolean)]}
                                 value={filters.boothName}
                                 onChange={(val) => setFilters(prev => ({ ...prev, boothName: val, page: 1 }))}
                                 placeholder="बूथ का नाम"
