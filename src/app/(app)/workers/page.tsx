@@ -6,11 +6,9 @@ import {
     createWorker,
     assignVotersToWorker,
     getWorkerAssignedVoters,
-    bulkTransferVoters,
     updateWorker,
     updateWorkerPassword,
-    autoAssignVotersByCount,
-    checkCreativeTeamStatus
+    autoAssignVotersByCount
 } from '@/app/actions/worker';
 import { getBoothsWithAssignment, getBoothCoverageStats } from '@/app/actions/booth';
 import { getUnassignedVoters, updateVoterFeedback } from '@/app/actions/voters';

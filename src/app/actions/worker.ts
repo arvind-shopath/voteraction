@@ -300,6 +300,57 @@ export async function createWorker(data: {
     revalidatePath('/workers');
 }
 
+export async function updateWorker(workerId: number, data: {
+    name?: string;
+    mobile?: string;
+    type?: string;
+    boothId?: number | null;
+    boothIds?: number[];
+}) {
+    const worker = await prisma.worker.findUnique({
+        where: { id: workerId },
+        include: { user: true }
+    });
+
+    if (!worker) throw new Error('Worker not found');
+
+    const idsJson = data.boothIds && data.boothIds.length > 0 ? JSON.stringify(data.boothIds) : null;
+    const primaryBoothId = data.boothIds && data.boothIds.length > 0 ? data.boothIds[0] : (data.boothId !== undefined ? data.boothId : worker.boothId);
+
+    // Update Worker record
+    await prisma.worker.update({
+        where: { id: workerId },
+        data: {
+            name: data.name !== undefined ? data.name : worker.name,
+            mobile: data.mobile !== undefined ? data.mobile : worker.mobile,
+            type: data.type !== undefined ? data.type : worker.type,
+            boothId: primaryBoothId,
+            boothIds: idsJson
+        }
+    });
+
+    // Update linked User record (name, mobile/username, role)
+    if (worker.userId) {
+        let userRole = 'WORKER';
+        if (data.type === 'ELECTION_MANAGER') {
+            userRole = 'ELECTION_MANAGER';
+        }
+        await prisma.user.update({
+            where: { id: worker.userId },
+            data: {
+                name: data.name !== undefined ? data.name : worker.name,
+                mobile: data.mobile !== undefined ? data.mobile : worker.mobile,
+                username: data.mobile !== undefined ? data.mobile : undefined,
+                role: userRole
+            }
+        });
+    }
+
+    revalidatePath('/workers');
+    revalidatePath('/booths');
+    return { success: true };
+}
+
 export async function updateWorkerPassword(workerId: number, password: string) {
     const worker = await prisma.worker.findUnique({
         where: { id: workerId },
@@ -463,45 +514,6 @@ export async function bulkTransferVoters(fromWorkerId: number, toWorkerId: numbe
         where: { pannaPramukhId: fromWorkerId },
         data: { pannaPramukhId: toWorkerId }
     });
-    revalidatePath('/workers');
-}
-
-export async function updateWorker(id: number, data: {
-    name?: string,
-    mobile?: string,
-    type?: string,
-    boothId?: number | null,
-    boothIds?: number[] | null  // Multi-booth support for BOOTH_MANAGER
-}) {
-    const { boothIds, ...rest } = data;
-    
-    // Handle multi-booth IDs
-    const updateData: any = { ...rest };
-    if (boothIds !== undefined) {
-        updateData.boothIds = boothIds && boothIds.length > 0 ? JSON.stringify(boothIds) : null;
-        // Primary boothId = first selected booth
-        if (boothIds && boothIds.length > 0) {
-            updateData.boothId = boothIds[0];
-        }
-    }
-    
-    const worker = await prisma.worker.update({
-        where: { id },
-        data: updateData
-    });
-
-    // Also update User if name/mobile changed
-    if (worker.userId && (data.name || data.mobile)) {
-        await prisma.user.update({
-            where: { id: worker.userId },
-            data: {
-                name: data.name,
-                mobile: data.mobile,
-                username: data.mobile // Keep username same as mobile
-            }
-        });
-    }
-
     revalidatePath('/workers');
 }
 
