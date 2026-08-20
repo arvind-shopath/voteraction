@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { Search, Filter, Users, MapPin, Phone, Edit2, Eye, User, Home, ChevronDown, ChevronUp, X, Loader2, Share2, Crown, Activity, Star, Printer, UserPlus, CheckCircle } from 'lucide-react';
-import { getVoters, getFilterOptions, updateVoterFeedback, updateVoter, getVoterWithFamily, createVoter, verifyVoter, deleteVoter, getVoterEditRequests, approveVoterEditRequest, rejectVoterEditRequest, addToFamily, removeFromFamily, searchVotersForFamily, requestEciDeletion, setHeadOfFamily } from '@/app/actions/voters';
+import { getVoters, getFilterOptions, updateVoterFeedback, updateVoter, getVoterWithFamily, createVoter, verifyVoter, deleteVoter, getVoterEditRequests, approveVoterEditRequest, rejectVoterEditRequest, addToFamily, removeFromFamily, separateFromFamily, searchVotersForFamily, requestEciDeletion, setHeadOfFamily } from '@/app/actions/voters';
 import { useView } from '@/context/ViewContext';
 import { getWorkerBooth } from '@/app/actions/worker';
 import { Clock, Check, AlertCircle, CloudDownload, RefreshCw, WifiOff, Save, Trash2, UserMinus } from 'lucide-react';
@@ -339,18 +339,46 @@ export default function CandidateVotersView() {
         }
     };
 
-    const handleRemoveFromFamilyAction = async (voterId: number) => {
-        if (!confirm('क्या आप इस सदस्य को परिवार से हटाना चाहते हैं?')) return;
+    // Separation Modal State
+    const [separateModalVoter, setSeparateModalVoter] = useState<any>(null);
+    const [separateReason, setSeparateReason] = useState('पारिवारिक बंटवारा / अलग मकान (Family Division)');
+    const [separateNewHouse, setSeparateNewHouse] = useState('');
+    const [separateNotes, setSeparateNotes] = useState('');
+    const [isSeparating, setIsSeparating] = useState(false);
+
+    const handleOpenSeparateModal = (member: any) => {
+        setSeparateModalVoter(member);
+        setSeparateReason('पारिवारिक बंटवारा / अलग मकान (Family Division)');
+        setSeparateNewHouse(member.houseNumber ? `${member.houseNumber}/A` : '');
+        setSeparateNotes('');
+    };
+
+    const handleConfirmSeparate = async () => {
+        if (!separateModalVoter) return;
+        setIsSeparating(true);
         try {
-            await removeFromFamily(voterId);
-            alert('सदस्य को परिवार से हटा दिया गया है।');
-            // Refresh family
-            const fullData = await getVoterWithFamily(viewVoter.id);
-            if (fullData) setViewVoter(fullData);
+            const res = await separateFromFamily(
+                separateModalVoter.id,
+                separateReason,
+                separateNewHouse,
+                separateNotes
+            );
+            alert(res.message || 'सदस्य को नए परिवार में अलग कर दिया गया!');
+            setSeparateModalVoter(null);
+            if (viewVoter) {
+                const fullData = await getVoterWithFamily(viewVoter.id);
+                if (fullData) setViewVoter(fullData);
+            }
             fetchVoters();
-        } catch (error) {
-            alert('Error removing from family');
+        } catch (e: any) {
+            alert(e.message || 'त्रुटि हुई');
+        } finally {
+            setIsSeparating(false);
         }
+    };
+
+    const handleRemoveFromFamilyAction = async (member: any) => {
+        handleOpenSeparateModal(member);
     };
 
     const handleSetHeadAction = async (voterId: number) => {
@@ -1669,6 +1697,90 @@ export default function CandidateVotersView() {
                 )
             }
 
+            {/* SEPARATE FROM FAMILY MODAL */}
+            {
+                separateModalVoter && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                        <div style={{ background: 'white', width: '100%', maxWidth: '480px', borderRadius: '24px', padding: '28px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#B45309', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Home size={20} /> परिवार से अलग करें (नया परिवार बनाएं)
+                                    </h3>
+                                    <p style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                                        {separateModalVoter.name} (EPIC: {separateModalVoter.epic || '-'})
+                                    </p>
+                                </div>
+                                <button onClick={() => setSeparateModalVoter(null)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer' }}><X size={18} /></button>
+                            </div>
+
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                                    अलग करने का कारण चुनें <span style={{ color: '#DC2626' }}>*</span>
+                                </label>
+                                <select
+                                    value={separateReason}
+                                    onChange={e => setSeparateReason(e.target.value)}
+                                    style={{ ...inputStyle, width: '100%', padding: '12px', fontWeight: '700' }}
+                                >
+                                    <option value="पारिवारिक बंटवारा / अलग मकान (Family Division)">🏠 पारिवारिक बंटवारा / अलग मकान</option>
+                                    <option value="विवाह / ससुराल गमन (Married / Moved to In-laws)">💍 विवाह / ससुराल गमन</option>
+                                    <option value="रोजगार / अन्यत्र प्रवास (Job / Migration)">💼 रोजगार / अन्यत्र प्रवास</option>
+                                    <option value="गलत मैपिंग सुधार (Incorrect Mapping Correction)">✏️ गलत मैपिंग सुधार</option>
+                                    <option value="अन्य (Other)">📝 अन्य (Other)</option>
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                                    नया मकान नंबर (New House Number)
+                                </label>
+                                <input
+                                    placeholder="उदा. 1/A या 12..."
+                                    value={separateNewHouse}
+                                    onChange={e => setSeparateNewHouse(e.target.value)}
+                                    style={{ ...inputStyle, width: '100%', padding: '12px' }}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                                    विवरण / टिप्पणी (वैकल्पिक)
+                                </label>
+                                <textarea
+                                    placeholder="उदा. भाई से अलग मकान में रहने लगे हैं..."
+                                    value={separateNotes}
+                                    onChange={e => setSeparateNotes(e.target.value)}
+                                    style={{ ...inputStyle, width: '100%', padding: '12px', height: '60px', resize: 'none' }}
+                                />
+                            </div>
+
+                            <div style={{ background: '#FEF3C7', border: '1px solid #FDE68A', padding: '12px', borderRadius: '12px', marginBottom: '20px', fontSize: '12px', color: '#92400E' }}>
+                                ℹ️ अलग करने पर यह सदस्य अपने <b>नए परिवार का मुखिया (Head)</b> बन जाएगा, और पुराने परिवार का मुखिया यथावत रहेगा।
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setSeparateModalVoter(null)}
+                                    style={{ flex: 1, padding: '12px', border: '1px solid #CBD5E1', background: 'white', borderRadius: '12px', fontWeight: '700', color: '#64748B', cursor: 'pointer' }}
+                                >
+                                    कैंसिल
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isSeparating}
+                                    onClick={handleConfirmSeparate}
+                                    style={{ flex: 2, padding: '12px', background: '#D97706', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                >
+                                    {isSeparating ? <Loader2 className="animate-spin" size={16} /> : <Home size={16} />} अलग करें और नया परिवार बनाएं
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
             {/* Modal (View Details) */}
             {
                 viewVoter && (
@@ -1887,7 +1999,7 @@ export default function CandidateVotersView() {
                                                                     )}
                                                                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.supportStatus === 'Support' ? '#22C55E' : f.supportStatus === 'Oppose' ? '#EF4444' : '#CBD5E1' }}></div>
                                                                     {f.id !== viewVoter.id && (
-                                                                        <button onClick={() => handleRemoveFromFamilyAction(f.id)} title="परिवार से अलग करें" style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}>
+                                                                        <button onClick={() => handleRemoveFromFamilyAction(f)} title="परिवार से अलग करें" style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}>
                                                                             <UserMinus size={14} />
                                                                         </button>
                                                                     )}

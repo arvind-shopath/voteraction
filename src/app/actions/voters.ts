@@ -661,14 +661,78 @@ export async function addToFamily(voterId: number, houseNumber: string, village:
     return moveVoterToFamily(voterId, houseNumber, village, area);
 }
 
-export async function removeFromFamily(voterId: number) {
-    // Generates a unique "Standalone" house number to isolate the voter
-    const uniqueHouse = `STANDALONE-${Date.now()}`;
+export async function separateFromFamily(voterId: number, reason: string, newHouseNumber?: string, notes?: string) {
+    const voter = await prisma.voter.findUnique({
+        where: { id: voterId },
+        select: {
+            id: true,
+            name: true,
+            familyId: true,
+            assemblyId: true,
+            boothNumber: true,
+            houseNumber: true,
+            village: true,
+            isHead: true,
+            notes: true
+        }
+    });
+
+    if (!voter) throw new Error('Voter not found');
+
+    const oldFamilyId = voter.familyId;
+    const cleanHouse = newHouseNumber?.trim() || `${voter.houseNumber || '1'}/A`;
+    const newFamilyId = `FAM_${voter.assemblyId}_B${voter.boothNumber || 0}_SEP_${Date.now()}`;
+
+    const separationNote = `[पारिवारिक पृथक्करण / अलग परिवार] कारण: ${reason || 'पारिवारिक बंटवारा'}${notes ? ` | टिप्पणी: ${notes}` : ''}`;
+    const combinedNotes = voter.notes ? `${voter.notes}\n${separationNote}` : separationNote;
+
+    // 1. Update the separated voter: new familyId, new houseNumber, isHead = true (new independent family)
     await prisma.voter.update({
         where: { id: voterId },
-        data: { houseNumber: uniqueHouse }
+        data: {
+            familyId: newFamilyId,
+            houseNumber: cleanHouse,
+            familySize: 1,
+            isHead: true,
+            notes: combinedNotes
+        }
     });
+
+    // 2. If the separated voter was the head of the old family, promote the oldest male in the old family to be the new head
+    if (oldFamilyId) {
+        const remainingMembers = await prisma.voter.findMany({
+            where: { familyId: oldFamilyId, id: { not: voterId } },
+            select: { id: true, age: true, gender: true, isHead: true }
+        });
+
+        // Update family size for old family
+        await prisma.voter.updateMany({
+            where: { familyId: oldFamilyId },
+            data: { familySize: remainingMembers.length }
+        });
+
+        // If the old family lost its head or has no head now, pick the oldest male (or oldest female)
+        const hasActiveHead = remainingMembers.some(m => m.isHead);
+        if (!hasActiveHead && remainingMembers.length > 0) {
+            remainingMembers.sort((a, b) => {
+                const isAMale = (a.gender === 'M' || a.gender === 'Male' || a.gender === 'पुरुष') ? 1 : 0;
+                const isBMale = (b.gender === 'M' || b.gender === 'Male' || b.gender === 'पुरुष') ? 1 : 0;
+                if (isAMale !== isBMale) return isBMale - isAMale;
+                return (b.age || 0) - (a.age || 0);
+            });
+            await prisma.voter.update({
+                where: { id: remainingMembers[0].id },
+                data: { isHead: true }
+            });
+        }
+    }
+
     revalidatePath('/voters');
+    return { success: true, message: 'सदस्य को नए परिवार में सफलतापूर्वक अलग कर दिया गया।' };
+}
+
+export async function removeFromFamily(voterId: number) {
+    return separateFromFamily(voterId, 'पारिवारिक बंटवारा');
 }
 
 export async function searchVotersForFamily(query: string, assemblyId: number) {
