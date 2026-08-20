@@ -6,7 +6,8 @@ import { useSession } from 'next-auth/react';
 import {
     Shield, Clock, Trash2, Ban, CheckCircle,
     Users as UsersIcon, Building2, ChevronDown, ChevronRight,
-    Mail, AlertCircle, UserCheck, Star, User, Edit, Share2, X, Lock, Key, Search
+    Mail, AlertCircle, UserCheck, Star, User, Edit, Share2, X, Lock, Key, Search,
+    Crown, Briefcase, Award
 } from 'lucide-react';
 
 export default function UsersPage() {
@@ -189,11 +190,20 @@ export default function UsersPage() {
     const pendingUsers = filteredUsers.filter(u => u.status === 'Pending');
     const globalAdmins = filteredUsers.filter(u => (u.role === 'ADMIN' || u.role === 'SUPERADMIN') && u.status !== 'Pending');
 
-    // Group candidates and their campaign workers together by Assembly / Campaign
+    // Group candidates and their campaign workers together by Assembly
     const activeNonAdmins = filteredUsers.filter(u => u.status !== 'Pending' && u.role !== 'ADMIN' && u.role !== 'SUPERADMIN');
 
-    const campaignGroupsMap: Record<string, { id: string, title: string, users: any[] }> = {};
+    const campaignGroupsMap: Record<string, { id: string, title: string, candidate: any | null, workers: any[] }> = {};
     const unassignedMembers: any[] = [];
+
+    // Helper to determine worker rank in hierarchy
+    const getWorkerHierarchyRank = (u: any) => {
+        if (u.role === 'ELECTION_MANAGER') return 1;
+        const wt = u.worker?.type || 'FIELD';
+        if (wt === 'BOOTH_MANAGER' || wt === 'BOOTH') return 2;
+        if (wt === 'PANNA_PRAMUKH' || wt === 'PANNA') return 3;
+        return 4; // FIELD / GROUND
+    };
 
     activeNonAdmins.forEach(u => {
         const asmId = u.assemblyId || u.campaign?.assemblyId;
@@ -208,22 +218,24 @@ export default function UsersPage() {
                 campaignGroupsMap[groupKey] = {
                     id: groupKey,
                     title: `प्रत्याशी ${candName} एवं टीम - ${asmTitle}`,
-                    users: []
+                    candidate: candidateObj || null,
+                    workers: []
                 };
             }
-            campaignGroupsMap[groupKey].users.push(u);
+
+            if (u.role === 'CANDIDATE') {
+                campaignGroupsMap[groupKey].candidate = u;
+            } else {
+                campaignGroupsMap[groupKey].workers.push(u);
+            }
         } else {
             unassignedMembers.push(u);
         }
     });
 
-    // Ensure Candidate appears FIRST in each campaign team list
+    // Sort workers in each campaign team according to hierarchy: Election Manager -> Booth Manager -> Panna Pramukh -> Ground Worker
     Object.values(campaignGroupsMap).forEach(group => {
-        group.users.sort((a, b) => {
-            if (a.role === 'CANDIDATE') return -1;
-            if (b.role === 'CANDIDATE') return 1;
-            return 0;
-        });
+        group.workers.sort((a, b) => getWorkerHierarchyRank(a) - getWorkerHierarchyRank(b));
     });
 
     const campaignGroups = Object.values(campaignGroupsMap);
@@ -241,7 +253,7 @@ export default function UsersPage() {
             <div style={{ marginBottom: '32px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '20px' }}>
                 <div>
                     <h1 style={{ fontSize: isMobile ? '28px' : '32px', fontWeight: '900', color: '#1E293B' }}>यूजर मास्टर</h1>
-                    <p style={{ color: '#64748B', fontSize: '15px', fontWeight: '600' }}>सिस्टम के सभी मुख्य यूजर्स और एडमिन्स का प्रबंधन</p>
+                    <p style={{ color: '#64748B', fontSize: '15px', fontWeight: '600' }}>सिस्टम के सभी मुख्य यूजर्स, प्रत्याशी और कार्यकर्ताओं का प्रबंधन</p>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
@@ -299,7 +311,8 @@ export default function UsersPage() {
                 </select>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Pending Approval Section */}
                 <UserGroupSection
                     title="पेंडिंग अप्रूवल"
                     icon={<Clock size={20} color="#F59E0B" />}
@@ -310,7 +323,12 @@ export default function UsersPage() {
                     onUpdateStatus={handleUpdateStatus}
                     onUpdateRole={handleUpdateRole}
                     onAssignAssembly={handleAssignAssembly}
+                    onEditName={triggerUpdateUserName}
+                    onChangePassword={triggerChangePassword}
+                    onDelete={triggerDelete}
                 />
+
+                {/* System Admins Section */}
                 <UserGroupSection
                     title="सिस्टम एडमिन्स"
                     icon={<Shield size={20} color="#6366F1" />}
@@ -324,47 +342,49 @@ export default function UsersPage() {
                     onEditName={triggerUpdateUserName}
                     onChangePassword={triggerChangePassword}
                     onDelete={triggerDelete}
+                    isAdminSection={true}
                 />
 
+                {/* Candidate & Campaign Teams */}
                 {campaignGroups.map(group => (
-                    <UserGroupSection
+                    <CampaignTeamSection
                         key={group.id}
-                        title={group.title}
-                        icon={<Star size={20} color="#F59E0B" />}
-                        users={group.users}
                         id={group.id}
+                        title={group.title}
+                        candidate={group.candidate}
+                        workers={group.workers}
                         expanded={expandedGroups[group.id] ?? true}
                         onToggle={toggleGroup}
                         onUpdateStatus={handleUpdateStatus}
                         onUpdateRole={handleUpdateRole}
                         onUpdateWorkerType={handleUpdateWorkerType}
-                        onAssignAssembly={handleAssignAssembly}
                         onEditName={triggerUpdateUserName}
                         onDelete={triggerDelete}
                         onChangePassword={triggerChangePassword}
                     />
                 ))}
 
-                <UserGroupSection
-                    title="अन्य सदस्य"
-                    icon={<User size={20} color="#64748B" />}
-                    users={unassignedMembers}
-                    id="others"
-                    expanded={expandedGroups['others'] ?? true}
-                    onToggle={toggleGroup}
-                    onUpdateStatus={handleUpdateStatus}
-                    onUpdateRole={handleUpdateRole}
-                    onUpdateWorkerType={handleUpdateWorkerType}
-                    onAssignAssembly={handleAssignAssembly}
-                    onEditName={triggerUpdateUserName}
-                    onChangePassword={triggerChangePassword}
-                    onDelete={triggerDelete}
-                />
-
+                {/* Unassigned Members */}
+                {unassignedMembers.length > 0 && (
+                    <UserGroupSection
+                        title="अन्य सदस्य"
+                        icon={<User size={20} color="#64748B" />}
+                        users={unassignedMembers}
+                        id="others"
+                        expanded={expandedGroups['others'] ?? true}
+                        onToggle={toggleGroup}
+                        onUpdateStatus={handleUpdateStatus}
+                        onUpdateRole={handleUpdateRole}
+                        onUpdateWorkerType={handleUpdateWorkerType}
+                        onAssignAssembly={handleAssignAssembly}
+                        onEditName={triggerUpdateUserName}
+                        onChangePassword={triggerChangePassword}
+                        onDelete={triggerDelete}
+                    />
+                )}
             </div>
 
-            {/* --- Premium Modals --- */}
-
+            {/* --- Modals --- */}
             {editModalOpen && (
                 <PremiumModal
                     title={editMode === 'USER_NAME' ? "यूजर का नाम बदलें" : "कैंडिडेट का नाम बदलें"}
@@ -480,7 +500,227 @@ export default function UsersPage() {
     );
 }
 
-function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdateStatus, onUpdateRole, onUpdateWorkerType, onAssignAssembly, onEditName, onDelete, isAssemblyGroup, onChangePassword }: any) {
+/**
+ * 👑 Campaign & Candidate Team Section with Hierarchical Layout
+ */
+function CampaignTeamSection({ id, title, candidate, workers, expanded, onToggle, onUpdateStatus, onUpdateRole, onUpdateWorkerType, onEditName, onDelete, onChangePassword }: any) {
+    const totalCount = (candidate ? 1 : 0) + (workers?.length || 0);
+
+    const getWorkerSelectValue = (user: any) => {
+        if (user.role === 'ELECTION_MANAGER') return 'ELECTION_MANAGER';
+        const wt = user.worker?.type || 'FIELD';
+        if (wt === 'BOOTH_MANAGER' || wt === 'BOOTH') return 'WORKER_BOOTH_MANAGER';
+        if (wt === 'PANNA_PRAMUKH' || wt === 'PANNA') return 'WORKER_PANNA_PRAMUKH';
+        return 'WORKER_FIELD';
+    };
+
+    return (
+        <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+            {/* Group Header Button */}
+            <button
+                onClick={() => onToggle(id)}
+                style={{ width: '100%', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: expanded ? '#F8FAFC' : 'white', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '42px', height: '42px', background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', border: '1px solid #FCD34D', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Star size={22} color="#D97706" />
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                        <h3 style={{ fontSize: '17px', fontWeight: '900', color: '#1E293B' }}>{title}</h3>
+                        <p style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>
+                            1 मुख्य प्रत्याशी + {workers?.length || 0} कार्यकर्ता (कुल {totalCount} सदस्य)
+                        </p>
+                    </div>
+                </div>
+                {expanded ? <ChevronDown size={20} color="#94A3B8" /> : <ChevronRight size={20} color="#94A3B8" />}
+            </button>
+
+            {expanded && (
+                <div style={{ borderTop: '1px solid #F1F5F9', padding: '20px' }}>
+                    {/* 👑 CANDIDATE CARD (Top Leader) */}
+                    {candidate ? (
+                        <div style={{
+                            background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+                            border: '2px solid #FDE68A',
+                            borderRadius: '18px',
+                            padding: '18px 24px',
+                            marginBottom: '20px',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '16px',
+                            boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div style={{ width: '48px', height: '48px', background: '#F59E0B', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)' }}>
+                                    <Crown size={26} />
+                                </div>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <h4 style={{ fontSize: '18px', fontWeight: '900', color: '#92400E' }}>{candidate.name}</h4>
+                                        <span style={{ padding: '4px 10px', background: '#B45309', color: 'white', borderRadius: '8px', fontSize: '12px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                            <Award size={14} /> मुख्य प्रत्याशी (Candidate)
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '13px', color: '#B45309', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                                        <span>📞 {candidate.mobile}</span>
+                                        {candidate.assembly?.name && (
+                                            <span style={{ padding: '2px 8px', background: 'white', border: '1px solid #FCD34D', borderRadius: '6px', fontSize: '11px', fontWeight: '700', color: '#92400E' }}>
+                                                📍 {candidate.assembly.nameHindi || candidate.assembly.name}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '100px', background: candidate.status === 'Active' ? '#DCFCE7' : '#FEE2E2', color: candidate.status === 'Active' ? '#15803D' : '#991B1B', fontSize: '12px', fontWeight: '800', marginRight: '8px' }}>
+                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }}></div>
+                                    {candidate.status === 'Active' ? 'सक्रिय' : 'ब्लॉक'}
+                                </div>
+                                {onEditName && <button onClick={() => onEditName(candidate)} style={{ width: '36px', height: '36px', border: '1px solid #FCD34D', background: 'white', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#92400E', cursor: 'pointer' }} title="नाम सुधारें"><Edit size={16} /></button>}
+                                {onChangePassword && <button onClick={() => onChangePassword(candidate)} style={{ width: '36px', height: '36px', border: '1px solid #FCD34D', background: 'white', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', cursor: 'pointer' }} title="पासवर्ड बदलें"><Key size={16} /></button>}
+                                <button onClick={() => onUpdateStatus(candidate.id, candidate.status === 'Active' ? 'Blocked' : 'Active')} style={{ width: '36px', height: '36px', border: '1px solid #FCD34D', background: 'white', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: candidate.status === 'Active' ? '#DC2626' : '#16A34A', cursor: 'pointer' }} title={candidate.status === 'Active' ? 'ब्लॉक करें' : 'अनब्लॉक करें'}>{candidate.status === 'Active' ? <Ban size={16} /> : <CheckCircle size={16} />}</button>
+                                {onDelete && <button onClick={() => onDelete(candidate)} style={{ width: '36px', height: '36px', border: '1px solid #FECACA', background: '#FEF2F2', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', cursor: 'pointer' }} title="हटाएं"><Trash2 size={16} /></button>}
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ padding: '14px 20px', background: '#F8FAFC', borderRadius: '14px', border: '1px dashed #CBD5E1', marginBottom: '16px', color: '#64748B', fontSize: '13px', fontWeight: '700' }}>
+                            ⚠️ इस विधानसभा के लिए कोई प्रत्याशी असाइन नहीं है।
+                        </div>
+                    )}
+
+                    {/* 👥 WORKERS & TEAM TABLE */}
+                    <div style={{ marginBottom: '8px', padding: '0 4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <h5 style={{ fontSize: '14px', fontWeight: '900', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Briefcase size={16} color="#2563EB" /> प्रत्याशी की टीम व कार्यकर्ता ({workers?.length || 0})
+                        </h5>
+                        <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '700' }}>
+                            हेरारिकी: इलेक्शन मैनेजर ➔ बूथ मैनेजर ➔ पन्ना प्रमुख ➔ ग्राउंड वर्कर
+                        </span>
+                    </div>
+
+                    <div className="responsive-table-wrapper" style={{ border: '1px solid #E2E8F0', borderRadius: '16px', overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: '750px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                                    <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase' }}>कार्यकर्ता / मोबाइल</th>
+                                    <th style={{ padding: '14px', fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase' }}>पद / रोल (Role)</th>
+                                    <th style={{ padding: '14px', fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase' }}>स्टेटस</th>
+                                    <th style={{ padding: '14px 20px', fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', textAlign: 'right' }}>एक्शन</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {workers?.map((u: any) => {
+                                    const isElectionManager = u.role === 'ELECTION_MANAGER';
+                                    return (
+                                        <tr key={u.id} style={{ borderBottom: '1px solid #F1F5F9', background: isElectionManager ? '#F8FAFC' : 'white', transition: 'background 0.2s' }}>
+                                            <td style={{ padding: '14px 20px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <div style={{
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        background: isElectionManager ? '#EFF6FF' : '#F1F5F9',
+                                                        color: isElectionManager ? '#2563EB' : '#64748B',
+                                                        border: isElectionManager ? '1px solid #BFDBFE' : 'none',
+                                                        borderRadius: '10px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        {isElectionManager ? <Briefcase size={18} /> : <User size={18} />}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            {u.name}
+                                                            {isElectionManager && (
+                                                                <span style={{ fontSize: '10px', padding: '1px 6px', background: '#DBEAFE', color: '#1E40AF', borderRadius: '4px', fontWeight: '800' }}>
+                                                                    इलेक्शन मैनेजर
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', marginTop: '2px' }}>
+                                                            📞 {u.mobile}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '14px' }}>
+                                                <select
+                                                    value={getWorkerSelectValue(u)}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === 'ELECTION_MANAGER') {
+                                                            onUpdateRole(u.id, 'ELECTION_MANAGER');
+                                                        } else if (val === 'WORKER_BOOTH_MANAGER') {
+                                                            if (u.role !== 'WORKER') onUpdateRole(u.id, 'WORKER');
+                                                            if (onUpdateWorkerType) onUpdateWorkerType(u.id, 'BOOTH_MANAGER');
+                                                        } else if (val === 'WORKER_PANNA_PRAMUKH') {
+                                                            if (u.role !== 'WORKER') onUpdateRole(u.id, 'WORKER');
+                                                            if (onUpdateWorkerType) onUpdateWorkerType(u.id, 'PANNA_PRAMUKH');
+                                                        } else if (val === 'WORKER_FIELD') {
+                                                            if (u.role !== 'WORKER') onUpdateRole(u.id, 'WORKER');
+                                                            if (onUpdateWorkerType) onUpdateWorkerType(u.id, 'FIELD');
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        padding: '8px 12px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid #E2E8F0',
+                                                        fontSize: '13px',
+                                                        fontWeight: '700',
+                                                        color: '#334155',
+                                                        cursor: 'pointer',
+                                                        background: isElectionManager ? '#EFF6FF' : 'white'
+                                                    }}
+                                                >
+                                                    <option value="ELECTION_MANAGER">🗄️ इलेक्शन मैनेजर (Election Manager)</option>
+                                                    <optgroup label="कार्यकर्ता श्रेणी (Worker Roles)">
+                                                        <option value="WORKER_BOOTH_MANAGER">🏢 बूथ मैनेजर (Booth Manager)</option>
+                                                        <option value="WORKER_PANNA_PRAMUKH">📄 पन्ना प्रमुख (Panna Pramukh)</option>
+                                                        <option value="WORKER_FIELD">🚶‍♂️ ग्राउंड कार्यकर्ता (Ground Worker)</option>
+                                                    </optgroup>
+                                                </select>
+                                            </td>
+                                            <td style={{ padding: '14px' }}>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '100px', background: u.status === 'Active' ? '#DCFCE7' : u.status === 'Pending' ? '#FEF3C7' : '#FEE2E2', color: u.status === 'Active' ? '#15803D' : u.status === 'Pending' ? '#92400E' : '#991B1B', fontSize: '12px', fontWeight: '800' }}>
+                                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }}></div>
+                                                    {u.status === 'Active' ? 'सक्रिय' : u.status === 'Pending' ? 'पेंडिंग' : 'ब्लॉक'}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                                    {u.status === 'Pending' && (
+                                                        <button onClick={() => onUpdateStatus(u.id, 'Active')} style={{ padding: '6px 14px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>अप्रूव करें</button>
+                                                    )}
+                                                    {onEditName && <button onClick={() => onEditName(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', cursor: 'pointer' }} title="नाम सुधारें"><Edit size={14} /></button>}
+                                                    {onChangePassword && <button onClick={() => onChangePassword(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', cursor: 'pointer' }} title="पासवर्ड बदलें"><Key size={14} /></button>}
+                                                    <button onClick={() => onUpdateStatus(u.id, u.status === 'Active' ? 'Blocked' : 'Active')} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: u.status === 'Active' ? '#DC2626' : '#16A34A', cursor: 'pointer' }} title={u.status === 'Active' ? 'ब्लॉक करें' : 'अनब्लॉक करें'}>{u.status === 'Active' ? <Ban size={14} /> : <CheckCircle size={14} />}</button>
+                                                    {onDelete && <button onClick={() => onDelete(u)} style={{ width: '32px', height: '32px', border: '1px solid #FECACA', background: '#FEF2F2', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', cursor: 'pointer' }} title="हटाएं"><Trash2 size={14} /></button>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {(!workers || workers.length === 0) && (
+                                    <tr>
+                                        <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#94A3B8', fontWeight: '600' }}>इस टीम में अभी कोई कार्यकर्ता नहीं है</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/**
+ * 🛡️ Generic / Admin User Group Section
+ */
+function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdateStatus, onUpdateRole, onAssignAssembly, onEditName, onDelete, onChangePassword, isAdminSection }: any) {
     if (users.length === 0) return null;
     return (
         <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
@@ -510,72 +750,62 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map((u: any) => (
-                                <tr key={u.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#FCFDFF'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                    <td style={{ padding: '16px 24px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', background: '#F1F5F9', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}><User size={18} /></div>
-                                            <div>
-                                                <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '14px' }}>{u.name}</div>
-                                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                                                    <span>{u.mobile}</span>
-                                                    {u.assembly?.name && (
-                                                        <span style={{ padding: '2px 8px', background: '#F0F9FF', color: '#0284C7', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>
-                                                            📍 {u.assembly.nameHindi || u.assembly.name}
-                                                        </span>
-                                                    )}
+                            {users.map((u: any) => {
+                                const isArvind = u.mobile === '9723338321' || u.role === 'SUPERADMIN';
+                                return (
+                                    <tr key={u.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#FCFDFF'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                        <td style={{ padding: '16px 24px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ width: '36px', height: '36px', background: isArvind ? '#EEF2FF' : '#F1F5F9', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isArvind ? '#4F46E5' : '#64748B' }}>
+                                                    {isArvind ? <Shield size={20} /> : <User size={18} />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: '800', color: '#1E293B', fontSize: '14px' }}>{u.name}</div>
+                                                    <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                                                        <span>📞 {u.mobile}</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '16px' }}>
-                                        <select
-                                            value={u.role === 'WORKER' ? `WORKER_${u.worker?.type || 'GROUND'}` : (u.role === 'ELECTION_MANAGER' ? 'ELECTION_MANAGER' : u.role)}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                if (val.startsWith('WORKER_')) {
-                                                    const wType = val.replace('WORKER_', '');
-                                                    if (u.role !== 'WORKER') onUpdateRole(u.id, 'WORKER');
-                                                    if (onUpdateWorkerType) onUpdateWorkerType(u.id, wType);
-                                                } else {
-                                                    onUpdateRole(u.id, val);
-                                                }
-                                            }}
-                                            disabled={u.mobile === '9723338321'} // Protect Arvind
-                                            style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '13px', fontWeight: '700', color: '#475569', cursor: u.mobile === '9723338321' ? 'default' : 'pointer', background: u.mobile === '9723338321' ? '#F8FAFC' : 'white' }}
-                                        >
-                                            {u.role === 'SUPERADMIN' && <option value="SUPERADMIN">Super Admin</option>}
-                                            <option value="ELECTION_MANAGER">🗳️ इलेक्शन मैनेजर (Election Manager)</option>
-                                            <optgroup label="कार्यकर्ता श्रेणी (Worker Roles)">
-                                                <option value="WORKER_GROUND">ग्राउंड कार्यकर्ता (Ground Worker)</option>
-                                                <option value="WORKER_BOOTH">बूथ मैनेजर (Booth Manager)</option>
-                                                <option value="WORKER_PANNA">पन्ना प्रमुख (Panna Pramukh)</option>
-                                            </optgroup>
-                                        </select>
-                                    </td>
-                                    <td style={{ padding: '16px' }}>
-                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '100px', background: u.status === 'Active' ? '#DCFCE7' : u.status === 'Pending' ? '#FEF3C7' : '#FEE2E2', color: u.status === 'Active' ? '#15803D' : u.status === 'Pending' ? '#92400E' : '#991B1B', fontSize: '12px', fontWeight: '800' }}>
-                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }}></div>
-                                            {u.status === 'Active' ? 'सक्रिय' : u.status === 'Pending' ? 'पेंडिंग' : 'ब्लॉक'}
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                                            {u.status === 'Pending' && (
-                                                <button onClick={() => onUpdateStatus(u.id, 'Active')} style={{ padding: '8px 16px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>अप्रूव करें</button>
+                                        </td>
+                                        <td style={{ padding: '16px' }}>
+                                            {isArvind ? (
+                                                <span style={{ padding: '6px 12px', background: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE', borderRadius: '8px', fontSize: '13px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                    👑 सुपर एडमिन (Super Admin)
+                                                </span>
+                                            ) : isAdminSection ? (
+                                                <span style={{ padding: '6px 12px', background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: '8px', fontSize: '13px', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                    🛡️ सिस्टम एडमिन (Admin)
+                                                </span>
+                                            ) : (
+                                                <span style={{ padding: '6px 12px', background: '#F1F5F9', color: '#475569', borderRadius: '8px', fontSize: '13px', fontWeight: '700' }}>
+                                                    {u.role}
+                                                </span>
                                             )}
-                                            {u.mobile !== '9723338321' && (
-                                                <>
-                                                    {onEditName && <button onClick={() => onEditName(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', cursor: 'pointer' }} title="नाम सुधारें"><Edit size={14} /></button>}
-                                                    {onChangePassword && <button onClick={() => onChangePassword(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', cursor: 'pointer' }} title="पासवर्ड बदलें"><Key size={14} /></button>}
-                                                    <button onClick={() => onUpdateStatus(u.id, u.status === 'Active' ? 'Blocked' : 'Active')} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: u.status === 'Active' ? '#DC2626' : '#16A34A', cursor: 'pointer' }} title={u.status === 'Active' ? 'ब्लॉक करें' : 'अनब्लॉक करें'}>{u.status === 'Active' ? <Ban size={14} /> : <CheckCircle size={14} />}</button>
-                                                    {onDelete && <button onClick={() => onDelete(u)} style={{ width: '32px', height: '32px', border: '1px solid #FECACA', background: '#FEF2F2', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', cursor: 'pointer' }} title="हटाएं"><Trash2 size={14} /></button>}
-                                                </>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td style={{ padding: '16px' }}>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '100px', background: u.status === 'Active' ? '#DCFCE7' : u.status === 'Pending' ? '#FEF3C7' : '#FEE2E2', color: u.status === 'Active' ? '#15803D' : u.status === 'Pending' ? '#92400E' : '#991B1B', fontSize: '12px', fontWeight: '800' }}>
+                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }}></div>
+                                                {u.status === 'Active' ? 'सक्रिय' : u.status === 'Pending' ? 'पेंडिंग' : 'ब्लॉक'}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                                {u.status === 'Pending' && (
+                                                    <button onClick={() => onUpdateStatus(u.id, 'Active')} style={{ padding: '8px 16px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>अप्रूव करें</button>
+                                                )}
+                                                {!isArvind && (
+                                                    <>
+                                                        {onEditName && <button onClick={() => onEditName(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', cursor: 'pointer' }} title="नाम सुधारें"><Edit size={14} /></button>}
+                                                        {onChangePassword && <button onClick={() => onChangePassword(u)} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', cursor: 'pointer' }} title="पासवर्ड बदलें"><Key size={14} /></button>}
+                                                        <button onClick={() => onUpdateStatus(u.id, u.status === 'Active' ? 'Blocked' : 'Active')} style={{ width: '32px', height: '32px', border: '1px solid #E2E8F0', background: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: u.status === 'Active' ? '#DC2626' : '#16A34A', cursor: 'pointer' }} title={u.status === 'Active' ? 'ब्लॉक करें' : 'अनब्लॉक करें'}>{u.status === 'Active' ? <Ban size={14} /> : <CheckCircle size={14} />}</button>
+                                                        {onDelete && <button onClick={() => onDelete(u)} style={{ width: '32px', height: '32px', border: '1px solid #FECACA', background: '#FEF2F2', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', cursor: 'pointer' }} title="हटाएं"><Trash2 size={14} /></button>}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {users.length === 0 && (
                                 <tr>
                                     <td colSpan={4} style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontWeight: '600' }}>कोई सदस्य नहीं मिला</td>
@@ -589,6 +819,9 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
     );
 }
 
+/**
+ * ➕ Create User Modal (Supports Admin, Candidate, Election Manager, and Workers)
+ */
 function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
     const [formData, setFormData] = useState({ name: '', mobile: '', password: '', role: 'CANDIDATE', assemblyId: '', campaignId: '' });
 
@@ -606,18 +839,19 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                         <input type="text" placeholder="नाम लिखें" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px' }} />
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>मोबाइल नंबर</label>
-                        <input type="text" placeholder="मोबाइल नंबर" value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px' }} />
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>मोबाइल नंबर (लॉगिन आईडी)</label>
+                        <input type="text" placeholder="10 अंकों का मोबाइल नंबर" value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px' }} />
                     </div>
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>रोल (Role)</label>
                         <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>
-                            <option value="CANDIDATE">🏆 Candidate (प्रत्याशी)</option>
-                            <option value="ELECTION_MANAGER">🗳️ इलेक्शन मैनेजर (Election Manager)</option>
+                            <option value="ADMIN">🛡️ सिस्टम एडमिन (Admin)</option>
+                            <option value="CANDIDATE">🏆 विधानसभा प्रत्याशी (Candidate)</option>
+                            <option value="ELECTION_MANAGER">🗄️ इलेक्शन मैनेजर (Election Manager)</option>
                             <optgroup label="कार्यकर्ता (Worker Roles)">
-                                <option value="WORKER_GROUND">ग्राउंड कार्यकर्ता (Ground Worker)</option>
-                                <option value="WORKER_BOOTH">बूथ मैनेजर (Booth Manager)</option>
-                                <option value="WORKER_PANNA">पन्ना प्रमुख (Panna Pramukh)</option>
+                                <option value="WORKER_BOOTH_MANAGER">🏢 बूथ मैनेजर (Booth Manager)</option>
+                                <option value="WORKER_PANNA_PRAMUKH">📄 पन्ना प्रमुख (Panna Pramukh)</option>
+                                <option value="WORKER_FIELD">🚶‍♂️ ग्राउंड कार्यकर्ता (Ground Worker)</option>
                             </optgroup>
                         </select>
                     </div>
@@ -628,12 +862,12 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                             जरूरी: 1 बड़ा अक्षर (Caps), 1 स्पेशल चिन्ह (@, #, $), 1 अंक
                         </div>
                     </div>
-                    {(formData.role.startsWith('WORKER') || formData.role === 'CANDIDATE' || formData.role === 'ELECTION_MANAGER') && (
+                    {formData.role !== 'ADMIN' && (
                         <div>
                             <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>विधानसभा</label>
                             <select value={formData.assemblyId} onChange={e => setFormData({ ...formData, assemblyId: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>
                                 <option value="">विधानसभा चुनें</option>
-                                {assemblies.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                {assemblies.map((a: any) => <option key={a.id} value={a.id}>{a.nameHindi || a.name} ({a.number})</option>)}
                             </select>
                         </div>
                     )}

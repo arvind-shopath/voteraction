@@ -407,11 +407,14 @@ export async function createUserSecure(data: {
         roleToSave = 'WORKER';
     }
 
-    // Only SUPERADMIN can create ADMIN, SUPERADMIN, CANDIDATE
-    if (['ADMIN', 'SUPERADMIN', 'CANDIDATE'].includes(roleToSave)) {
-        if (currentUser?.role !== 'SUPERADMIN') {
+    // Only SUPERADMIN and ADMIN can create ADMIN, CANDIDATE, ELECTION_MANAGER
+    if (['ADMIN', 'CANDIDATE', 'ELECTION_MANAGER'].includes(roleToSave)) {
+        if (!['SUPERADMIN', 'ADMIN'].includes(currentUser?.role)) {
             throw new Error("You don't have permission to create this type of user.");
         }
+    }
+    if (roleToSave === 'SUPERADMIN') {
+        throw new Error("Super Admin cannot be created.");
     }
 
     if (data.password) {
@@ -435,13 +438,15 @@ export async function createUserSecure(data: {
         }
     });
 
-    if (roleToSave === 'WORKER' && workerTypeToSave) {
+    if (roleToSave === 'WORKER' || roleToSave === 'ELECTION_MANAGER') {
+        const asmId = data.assemblyId || (await prisma.assembly.findFirst())?.id || 1;
         await prisma.worker.create({
             data: {
                 name: data.name || data.mobile,
+                mobile: data.mobile,
                 userId: user.id,
-                type: workerTypeToSave,
-                assemblyId: data.assemblyId || (await prisma.assembly.findFirst())?.id || 1
+                type: roleToSave === 'ELECTION_MANAGER' ? 'ELECTION_MANAGER' : (workerTypeToSave || 'FIELD'),
+                assemblyId: asmId
             }
         });
     }
@@ -560,15 +565,15 @@ export async function setUserRole(id: number, role: string) {
         }
     }
 
-    // Protect Arbvind from being demoted by anyone
+    // Protect Arvind from being demoted by anyone
     if (isArvind && role !== 'SUPERADMIN') {
         throw new Error("Arvind's Super Admin status is permanent.");
     }
 
-    // Only SUPERADMIN can grant high-level roles
-    if (['ADMIN', 'SUPERADMIN', 'SOCIAL_MEDIA', 'CANDIDATE', 'ELECTION_MANAGER', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role)) {
-        if (currentUser?.role !== 'SUPERADMIN') {
-            throw new Error("Only Super Admin can grant this role.");
+    // Only SUPERADMIN and ADMIN can grant high-level roles
+    if (['ADMIN', 'CANDIDATE', 'ELECTION_MANAGER', 'SOCIAL_MEDIA', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role)) {
+        if (!['SUPERADMIN', 'ADMIN'].includes(currentUser?.role)) {
+            throw new Error("Only Super Admin or Admin can grant this role.");
         }
     }
 
