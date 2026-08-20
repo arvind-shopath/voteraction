@@ -2,10 +2,37 @@
 
 import { prisma as prismaClient } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 
 const prisma = prismaClient as any;
 
-export async function getJansamparkSupportStats(assemblyId: number) {
+async function resolveAssemblyId(assemblyIdRaw?: any) {
+    const session = await auth();
+    const user_s = session?.user as any;
+    
+    let targetAssemblyId: number | null = null;
+    if (assemblyIdRaw !== undefined && assemblyIdRaw !== null && assemblyIdRaw !== '') {
+        const parsed = parseInt(assemblyIdRaw.toString(), 10);
+        if (!isNaN(parsed) && parsed > 0) targetAssemblyId = parsed;
+    }
+
+    if (user_s?.assemblyId) {
+        const userAsm = parseInt(user_s.assemblyId.toString(), 10);
+        if (!targetAssemblyId || ['CANDIDATE', 'ELECTION_MANAGER', 'WORKER'].includes(user_s.role)) {
+            targetAssemblyId = userAsm;
+        }
+    }
+
+    if (!targetAssemblyId) {
+        const firstAsm = await prisma.assembly.findFirst();
+        targetAssemblyId = firstAsm ? firstAsm.id : 14;
+    }
+
+    return targetAssemblyId;
+}
+
+export async function getJansamparkSupportStats(assemblyIdRaw?: any) {
+    const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     // 1. Fetch Village-wise Support from Voter Feedback (Campaign Specific)
     const voters = await prisma.voter.findMany({
         where: { assemblyId },
@@ -31,7 +58,8 @@ export async function getJansamparkSupportStats(assemblyId: number) {
     return stats;
 }
 
-export async function getJansamparkRoutes(assemblyId: number, onlyUnmarked?: boolean) {
+export async function getJansamparkRoutes(assemblyIdRaw?: any, onlyUnmarked?: boolean) {
+    const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     const where: any = { assemblyId };
     if (onlyUnmarked !== undefined) {
         if (onlyUnmarked) {
@@ -207,7 +235,8 @@ export async function updateJansamparkVisit(visitId: number, data: { atmosphere?
     return { success: true };
 }
 
-export async function getVillageCoverageData(assemblyId: number, boothNumber?: number) {
+export async function getVillageCoverageData(assemblyIdRaw?: any, boothNumber?: number) {
+    const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     // 1. Get all unique villages from voters with their booth numbers
     const where: any = { assemblyId };
     if (boothNumber) {
