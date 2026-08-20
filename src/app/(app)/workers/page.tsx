@@ -168,18 +168,15 @@ export default function WorkersPage() {
     const handleUpdateWorker = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!showEdit) return;
-        setLoading(true);
         await updateWorker(showEdit.id, {
             name: editData.name,
             mobile: editData.mobile,
             type: editData.type,
-            boothId: editData.boothId ? parseInt(editData.boothId) : null,
-            boothIds: editData.type === 'BOOTH_MANAGER' && editData.boothIds.length > 0
-                ? editData.boothIds.map(id => parseInt(id))
-                : undefined,
-            assignedVillages: editData.type === 'FIELD'
-                ? editData.assignedVillages
-                : undefined
+            boothId: editData.type === 'PANNA_PRAMUKH' || editData.type === 'BOOTH_MANAGER'
+                ? (editData.boothIds.length > 0 ? parseInt(editData.boothIds[0]) : (editData.boothId ? parseInt(editData.boothId) : null))
+                : null,
+            boothIds: editData.type === 'BOOTH_MANAGER' ? editData.boothIds.map(id => parseInt(id)) : [],
+            assignedVillages: editData.type === 'FIELD' ? editData.assignedVillages : []
         });
         setShowEdit(null);
         fetchData();

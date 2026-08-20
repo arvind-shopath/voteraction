@@ -373,10 +373,12 @@ export async function updateWorker(workerId: number, data: {
         include: { user: true }
     });
 
-    if (!worker) throw new Error('Worker not found');
-
-    const idsJson = data.boothIds && data.boothIds.length > 0 ? JSON.stringify(data.boothIds) : null;
-    const primaryBoothId = data.boothIds && data.boothIds.length > 0 ? data.boothIds[0] : (data.boothId !== undefined ? data.boothId : worker.boothId);
+    const idsJson = data.boothIds !== undefined
+        ? (data.boothIds && data.boothIds.length > 0 ? JSON.stringify(data.boothIds) : null)
+        : worker.boothIds;
+    const primaryBoothId = data.boothIds !== undefined
+        ? (data.boothIds && data.boothIds.length > 0 ? data.boothIds[0] : (data.boothId !== undefined ? data.boothId : null))
+        : (data.boothId !== undefined ? data.boothId : worker.boothId);
     const villagesJson = data.assignedVillages !== undefined
         ? (data.assignedVillages && data.assignedVillages.length > 0 ? JSON.stringify(data.assignedVillages) : null)
         : worker.assignedVillages;
