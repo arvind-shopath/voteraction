@@ -796,6 +796,40 @@ export async function getVoterWithFamily(voterId: number) {
     };
 }
 
+export async function setHeadOfFamily(voterId: number) {
+    const voter = await prisma.voter.findUnique({
+        where: { id: voterId },
+        select: { id: true, familyId: true, boothNumber: true, houseNumber: true, assemblyId: true, village: true }
+    });
+    if (!voter) throw new Error('Voter not found');
+
+    // 1. Reset isHead for all other members in this family / household
+    if (voter.familyId) {
+        await prisma.voter.updateMany({
+            where: { familyId: voter.familyId, assemblyId: voter.assemblyId },
+            data: { isHead: false }
+        });
+    } else if (voter.boothNumber && voter.houseNumber) {
+        await prisma.voter.updateMany({
+            where: {
+                assemblyId: voter.assemblyId,
+                boothNumber: voter.boothNumber,
+                houseNumber: voter.houseNumber
+            },
+            data: { isHead: false }
+        });
+    }
+
+    // 2. Set this voter as head
+    const updated = await prisma.voter.update({
+        where: { id: voterId },
+        data: { isHead: true }
+    });
+
+    revalidatePath('/voters');
+    return { success: true, voter: updated };
+}
+
 export async function getFilterOptions(assemblyId?: number) {
     const where = assemblyId ? { assemblyId } : {};
 
@@ -851,31 +885,44 @@ export async function getFilterOptions(assemblyId?: number) {
             where: {
                 OR: [
                     { state: assemblyState },
-                    { state: 'National' }
+                    { state: 'National' },
+                    { state: null }
                 ]
             },
-            orderBy: [
-                { sortOrder: 'asc' },
-                { name: 'asc' }
-            ]
+            orderBy: { name: 'asc' }
         }),
         prisma.worker.findMany({
-            where: { ...where, type: { in: ['PANNA_PRAMUKH', 'PANNA'] }, deletedAt: null },
-            select: { id: true, name: true, booth: { select: { number: true } } }
+            where: {
+                ...where,
+                type: 'PANNA_PRAMUKH',
+                status: 'Active'
+            },
+            include: {
+                booth: true
+            },
+            orderBy: { name: 'asc' }
         }),
         prisma.worker.findMany({
-            where: { ...where, type: { in: ['BOOTH_MANAGER', 'BOOTH'] }, deletedAt: null },
-            select: { id: true, name: true, mobile: true, booth: { select: { number: true, name: true } }, user: { select: { mobile: true } } }
+            where: {
+                ...where,
+                type: 'BOOTH_MANAGER',
+                status: 'Active'
+            },
+            include: {
+                booth: true,
+                user: true
+            },
+            orderBy: { name: 'asc' }
         }),
         prisma.voter.findMany({
-            where: { ...where, village: { not: null }, boothNumber: { not: null } },
             select: { village: true, boothNumber: true },
-            distinct: ['village', 'boothNumber']
+            distinct: ['village', 'boothNumber'],
+            where: { ...where, village: { not: null }, boothNumber: { not: null } }
         })
     ]);
 
-    // Create a map of registered booths for quick lookup
-    const boothNameMap = new Map();
+    // Build complete booth list mapping numbers to names
+    const boothNameMap = new Map<number, string>();
     registeredBooths.forEach(b => {
         const bName = b.nameHi || b.name || b.nameEn;
         if (bName && !bName.startsWith('Booth No.')) {
@@ -906,23 +953,29 @@ export async function getFilterOptions(assemblyId?: number) {
         name: boothNameMap.get(num) || (registeredBooths.find(b => b.number === num)?.villageNameHi || null)
     }));
 
+    const englishToHindi: Record<string, string> = {
+        'OBC': 'ओबीसी', 'SC': 'एससी', 'ST': 'एसटी',
+        'General': 'सामान्य', 'GENERAL': 'सामान्य', 'GEN': 'सामान्य',
+        'Muslim': 'मुस्लिम', 'MUSLIM': 'मुस्लिम',
+        'Other': 'अन्य', 'OTHER': 'अन्य',
+        'Unknown': 'अज्ञात', 'UNKNOWN': 'अज्ञात',
+    };
+
     return {
         casteCategories: Array.from(new Set(
             casteCategories
                 .map(c => c.casteCategory as string)
                 .filter(Boolean)
-                .map(cat => {
-                    // Normalize English DB values to Hindi UI labels
-                    const englishToHindi: Record<string, string> = {
-                        'OBC': 'ओबीसी', 'SC': 'एससी', 'ST': 'एसटी',
-                        'General': 'सामान्य', 'GENERAL': 'सामान्य', 'GEN': 'सामान्य',
-                        'Muslim': 'मुस्लिम', 'MUSLIM': 'मुस्लिम',
-                        'Unknown': 'अज्ञात', 'UNKNOWN': 'अज्ञात',
-                    };
-                    return englishToHindi[cat] || cat;
-                })
+                .map(cat => englishToHindi[cat] || cat)
         )),
-        castes: castes.map(c => ({ caste: c.caste as string, category: c.casteCategory as string })).filter(c => Boolean(c.caste)),
+        castes: castes.map(c => {
+            const rawCat = (c.casteCategory as string) || '';
+            return {
+                caste: c.caste as string,
+                category: englishToHindi[rawCat] || rawCat,
+                rawCategory: rawCat
+            };
+        }).filter(c => Boolean(c.caste)),
         subCastes: subCastes.map(s => ({ value: s.subCaste as string, parent: s.caste as string })),
         surnames: surnames.map(s => ({ value: s.surname as string, parent: s.subCaste as string })),
         villages: villages.map(v => v.village as string).filter(Boolean),
@@ -940,8 +993,8 @@ export async function getFilterOptions(assemblyId?: number) {
         assemblyName,
         assemblyNumber
     };
-
 }
+
 export async function getUnassignedVoters(assemblyId: number, boothNumber: number) {
     const where: any = {
         assemblyId,

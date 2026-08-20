@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Search, Filter, Users, MapPin, Phone, Edit2, Eye, User, Home, ChevronDown, ChevronUp, X, Loader2, Share2, Crown, Activity, Star, Printer, UserPlus, ShieldCheck, UserMinus, AlertTriangle, RefreshCw, CloudDownload, Database, WifiOff, CheckCircle } from 'lucide-react';
-import { getVoters, getFilterOptions, updateVoterFeedback, updateVoter, getVoterWithFamily, updateEciStatus, createVoter, addToFamily, removeFromFamily, searchVotersForFamily, requestEciDeletion } from '@/app/actions/voters';
+import { getVoters, getFilterOptions, updateVoterFeedback, updateVoter, getVoterWithFamily, updateEciStatus, createVoter, addToFamily, removeFromFamily, searchVotersForFamily, requestEciDeletion, setHeadOfFamily } from '@/app/actions/voters';
 import { useView } from '@/context/ViewContext';
 import { getWorkerBooth } from '@/app/actions/worker';
 import { saveVotersLocally, getLocalVoters, updateLocalVoter, searchLocalVoters } from '@/lib/voter-store';
@@ -290,8 +290,23 @@ export default function WorkerVotersView() {
             alert('सदस्य को परिवार से हटा दिया गया है।');
             const fullData = await getVoterWithFamily(viewVoter.id);
             if (fullData) setViewVoter(fullData);
+            fetchVoters();
         } catch (error) {
             alert('Error removing from family');
+        }
+    };
+
+    const handleSetHeadAction = async (voterId: number) => {
+        try {
+            await setHeadOfFamily(voterId);
+            if (viewVoter) {
+                const fullData = await getVoterWithFamily(viewVoter.id);
+                if (fullData) setViewVoter(fullData);
+            }
+            fetchVoters();
+            alert('परिवार का मुखिया सफलतापूर्वक अपडेट कर दिया गया!');
+        } catch (error: any) {
+            alert(error.message || 'मुखिया अपडेट करने में त्रुटि हुई');
         }
     };
 
@@ -1030,6 +1045,29 @@ export default function WorkerVotersView() {
                                                     <InfoBox label="वर्ग / जाति (Category / Caste)" value={`${viewVoter.casteCategory || ''} ${viewVoter.caste ? `(${viewVoter.caste})` : ''}`.trim() || 'N/A'} />
                                                     <InfoBox label="Village" value={viewVoter.village} />
                                                     <InfoBox label="Booth Number" value={viewVoter.boothNumber} />
+
+                                                    {/* Family Head Status Box */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: viewVoter.isHead ? '#FEF3C7' : '#F8FAFC', borderRadius: '14px', border: viewVoter.isHead ? '1.5px solid #F59E0B' : '1px solid #E2E8F0', marginTop: '6px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <span style={{ fontSize: '20px' }}>👑</span>
+                                                            <div>
+                                                                <div style={{ fontSize: '13px', fontWeight: '800', color: viewVoter.isHead ? '#92400E' : '#334155' }}>
+                                                                    {viewVoter.isHead ? 'परिवार का मुखिया (Head of Family)' : 'सामान्य सदस्य (Not Head)'}
+                                                                </div>
+                                                                <div style={{ fontSize: '11px', color: '#64748B' }}>
+                                                                    {viewVoter.isHead ? 'इस परिवार के मुख्य संपर्क व्यक्ति' : 'इस सदस्य को मुखिया बनाने के लिए क्लिक करें'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {!viewVoter.isHead && (
+                                                            <button
+                                                                onClick={() => handleSetHeadAction(viewVoter.id)}
+                                                                style={{ background: '#F59E0B', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: '0 2px 6px rgba(245, 158, 11, 0.3)' }}
+                                                            >
+                                                                👑 मुखिया बनाएं
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </>
                                             ) : (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -1145,22 +1183,43 @@ export default function WorkerVotersView() {
 
                                             {isLoadingFamily ? <Loader2 className="animate-spin" /> : (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    {viewVoter.family?.map((f: any) => (
-                                                        <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0', opacity: f.id === viewVoter.id ? 0.7 : 1 }}>
-                                                            <div>
-                                                                <span style={{ fontWeight: '700', fontSize: '14px', color: '#1E293B' }}>{f.name}</span>
-                                                                <span style={{ fontSize: '11px', color: '#64748B', display: 'block' }}>{f.age} Yrs, {f.relationType}</span>
+                                                    {viewVoter.family?.map((f: any) => {
+                                                        const isCurrentHead = Boolean(f.isHead);
+                                                        return (
+                                                            <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '12px', borderRadius: '12px', border: isCurrentHead ? '1.5px solid #F59E0B' : '1px solid #E2E8F0', boxShadow: isCurrentHead ? '0 2px 8px rgba(245, 158, 11, 0.15)' : 'none', opacity: f.id === viewVoter.id ? 1 : 0.9 }}>
+                                                                <div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        <span style={{ fontWeight: '800', fontSize: '14px', color: '#1E293B' }}>{f.name}</span>
+                                                                        {isCurrentHead && (
+                                                                            <span style={{ background: '#FEF3C7', color: '#B45309', fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                👑 मुखिया (Head)
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <span style={{ fontSize: '11px', color: '#64748B', display: 'block', marginTop: '2px' }}>{f.age} Yrs, {f.relationType} {f.mobile ? `| 📞 ${f.mobile}` : ''}</span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    {!isCurrentHead ? (
+                                                                        <button
+                                                                            onClick={() => handleSetHeadAction(f.id)}
+                                                                            title="इस सदस्य को परिवार का मुखिया बनाएं"
+                                                                            style={{ background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                                        >
+                                                                            👑 मुखिया बनाएं
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span style={{ color: '#F59E0B', fontSize: '16px' }}>👑</span>
+                                                                    )}
+                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.supportStatus === 'Support' ? '#22C55E' : f.supportStatus === 'Oppose' ? '#EF4444' : '#CBD5E1' }}></div>
+                                                                    {f.id !== viewVoter.id && (
+                                                                        <button onClick={() => handleRemoveFromFamilyAction(f.id)} title="परिवार से अलग करें" style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}>
+                                                                            <UserMinus size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.supportStatus === 'Support' ? '#22C55E' : f.supportStatus === 'Oppose' ? '#EF4444' : '#CBD5E1' }}></div>
-                                                                {f.id !== viewVoter.id && (
-                                                                    <button onClick={() => handleRemoveFromFamilyAction(f.id)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}>
-                                                                        <UserMinus size={14} />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>

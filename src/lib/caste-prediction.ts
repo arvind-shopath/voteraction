@@ -283,7 +283,7 @@ export function predictVoterAttributes(name: string, relativeName?: string): Pre
         return {
             religion: 'मुस्लिम',
             caste: 'मुस्लिम समुदाय',
-            casteCategory: 'OBC',
+            casteCategory: 'Muslim' as any,
             surname: extractedSurname || 'खान'
         };
     }
