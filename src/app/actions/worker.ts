@@ -75,13 +75,12 @@ export async function createBulkTasks(data: {
 
 export async function getWorkersInAssembly(assemblyIdRaw?: any) {
     const session = await auth();
-    const user_s = session?.user as any;
-
-    // Support for Simulation: Check cookies for effective role
+    // Support for Simulation: ONLY for SUPERADMIN
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    const effectiveRole = cookieStore.get('effectiveRole')?.value || user_s?.role;
-    const effectiveWorkerType = cookieStore.get('effectiveWorkerType')?.value;
+    const isSuperAdmin = user_s?.role === 'SUPERADMIN';
+    const effectiveRole = (isSuperAdmin ? cookieStore.get('effectiveRole')?.value : null) || user_s?.role;
+    const effectiveWorkerType = isSuperAdmin ? cookieStore.get('effectiveWorkerType')?.value : (user_s?.workerType || null);
 
     const role = effectiveRole;
     const userId = user_s?.id;
@@ -602,11 +601,12 @@ export async function getWorkerBooth(userId: number, assemblyId?: number) {
     const session = await auth();
     const user_s = session?.user as any;
 
-    // Support for Simulation
+    // Support for Simulation: ONLY for SUPERADMIN
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    const effectiveRole = cookieStore.get('effectiveRole')?.value || user_s?.role;
-    const effectiveWorkerType = cookieStore.get('effectiveWorkerType')?.value;
+    const isSuperAdmin = user_s?.role === 'SUPERADMIN';
+    const effectiveRole = (isSuperAdmin ? cookieStore.get('effectiveRole')?.value : null) || user_s?.role;
+    const effectiveWorkerType = isSuperAdmin ? cookieStore.get('effectiveWorkerType')?.value : (user_s?.workerType || null);
 
     let worker = await (prisma as any).worker.findUnique({
         where: { userId },

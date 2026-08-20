@@ -69,11 +69,13 @@ export default function WorkersPage() {
     const [loading, setLoading] = useState(true);
     const { data: session, status: sessionStatus }: any = useSession();
     const { effectiveRole, effectiveWorkerType } = useView();
-    const role = effectiveRole || session?.user?.role;
+    const isSuperAdmin = (session?.user as any)?.role === 'SUPERADMIN';
+    const role = (isSuperAdmin ? effectiveRole : null) || (session?.user as any)?.role;
+    const currentWorkerType = isSuperAdmin ? effectiveWorkerType : (session?.user as any)?.workerType;
     const isAdmin = ['ADMIN', 'SUPERADMIN'].includes(role);
     const isCandidate = role === 'CANDIDATE' || role === 'ELECTION_MANAGER';
-    const isBoothManager = role === 'WORKER' && effectiveWorkerType === 'BOOTH_MANAGER';
-    const isPannaPramukh = role === 'WORKER' && effectiveWorkerType === 'PANNA_PRAMUKH';
+    const isBoothManager = role === 'WORKER' && currentWorkerType === 'BOOTH_MANAGER';
+    const isPannaPramukh = role === 'WORKER' && currentWorkerType === 'PANNA_PRAMUKH';
     const canEditWorkers = isAdmin || isCandidate;
 
     const userAsmId = (session?.user as any)?.assemblyId;

@@ -43,11 +43,12 @@ export async function getVoters(filters: {
         return { voters: [], totalCount: 0, page: 1, totalPages: 0 };
     }
 
-    // Support for Simulation: Check cookies for effective role
+    // Support for Simulation: ONLY for SUPERADMIN
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    const effectiveRole = cookieStore.get('effectiveRole')?.value || user?.role;
-    const effectiveWorkerType = cookieStore.get('effectiveWorkerType')?.value;
+    const isSuperAdmin = user?.role === 'SUPERADMIN';
+    const effectiveRole = (isSuperAdmin ? cookieStore.get('effectiveRole')?.value : null) || user?.role;
+    const effectiveWorkerType = isSuperAdmin ? cookieStore.get('effectiveWorkerType')?.value : (user?.workerType || null);
 
     const userRole = effectiveRole || user?.role;
     const workerType = effectiveWorkerType || user?.workerType;
