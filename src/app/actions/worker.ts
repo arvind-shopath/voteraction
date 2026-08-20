@@ -212,7 +212,7 @@ export async function createWorker(data: {
     const session = await auth();
     const currentUser = session?.user as any;
 
-    if (!['SUPERADMIN', 'ADMIN', 'CANDIDATE'].includes(currentUser?.role)) {
+    if (!['SUPERADMIN', 'ADMIN', 'CANDIDATE', 'ELECTION_MANAGER'].includes(currentUser?.role)) {
         throw new Error("You don't have permission to create workers.");
     }
 
@@ -222,6 +222,9 @@ export async function createWorker(data: {
     }
     // 1. Create User Account if password is provided
     let userId = null;
+    const isElectionManager = data.type === 'ELECTION_MANAGER';
+    const targetRole = isElectionManager ? 'ELECTION_MANAGER' : 'WORKER';
+
     if (data.password && data.mobile) {
         const validation = validatePasswordStrength(data.password);
         if (!validation.isValid) {
@@ -235,13 +238,11 @@ export async function createWorker(data: {
         });
 
         if (existingUser) {
-            // Update existing user to be a worker? Or just fail?
-            // For now, let's assume if user exists, use that ID, but update password
             await prisma.user.update({
                 where: { id: existingUser.id },
                 data: {
                     password: hashedPassword,
-                    role: 'WORKER',
+                    role: targetRole,
                     status: 'Active'
                 }
             });
@@ -253,7 +254,7 @@ export async function createWorker(data: {
                     username: data.mobile,
                     mobile: data.mobile,
                     password: hashedPassword,
-                    role: 'WORKER',
+                    role: targetRole,
                     status: 'Active',
                     assemblyId: data.assemblyId
                 }

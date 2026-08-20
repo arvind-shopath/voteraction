@@ -263,6 +263,7 @@ export default function WorkersPage() {
     const filteredWorkers = workers
         .filter(w => {
             if (filterType === 'ALL') return true;
+            if (filterType === 'ELECTION_MANAGER') return w.type === 'ELECTION_MANAGER';
             if (filterType === 'FIELD' || filterType === 'GROUND') return ['FIELD', 'GROUND'].includes(w.type);
             if (filterType === 'BOOTH_MANAGER' || filterType === 'BOOTH') return ['BOOTH_MANAGER', 'BOOTH'].includes(w.type);
             if (filterType === 'PANNA_PRAMUKH' || filterType === 'PANNA') return ['PANNA_PRAMUKH', 'PANNA'].includes(w.type);
@@ -360,8 +361,9 @@ export default function WorkersPage() {
                                 <option value="ALL">सभी कार्यकर्ता</option>
                                 {!isBoothManager && (
                                     <>
-                                        <option value="FIELD">ग्राउंड कार्यकर्ता</option>
+                                        <option value="ELECTION_MANAGER">इलेक्शन मैनेजर</option>
                                         <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
+                                        <option value="FIELD">ग्राउंड कार्यकर्ता</option>
                                     </>
                                 )}
                                 <option value="PANNA_PRAMUKH">पन्ना प्रमुख</option>
@@ -425,9 +427,8 @@ export default function WorkersPage() {
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: '800', fontSize: '18px' }}>{worker.name}</div>
-                                        <div style={{ fontSize: '13px', color: '#64748B' }}>{worker.mobile || worker.user?.mobile}</div>
-                                        <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: '800', color: '#2563EB', background: '#EFF6FF', padding: '2px 8px', borderRadius: '6px', display: 'inline-block' }}>
-                                            {['BOOTH_MANAGER', 'BOOTH'].includes(worker.type) ? 'बूथ मैनेजर' : ['PANNA_PRAMUKH', 'PANNA'].includes(worker.type) ? 'पन्ना प्रमुख' : 'ग्राउंड कार्यकर्ता'}
+                                        <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: '800', color: worker.type === 'ELECTION_MANAGER' ? '#7C3AED' : '#2563EB', background: worker.type === 'ELECTION_MANAGER' ? '#F5F3FF' : '#EFF6FF', padding: '2px 8px', borderRadius: '6px', display: 'inline-block' }}>
+                                            {worker.type === 'ELECTION_MANAGER' ? '🗄️ इलेक्शन मैनेजर' : ['BOOTH_MANAGER', 'BOOTH'].includes(worker.type) ? '🏢 बूथ मैनेजर' : ['PANNA_PRAMUKH', 'PANNA'].includes(worker.type) ? '📄 पन्ना प्रमुख' : '🚶‍♂️ ग्राउंड कार्यकर्ता'}
                                         </div>
                                     </div>
                                 </div>
@@ -561,20 +562,20 @@ export default function WorkersPage() {
 
             {/* Modals */}
             {showAdd && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '32px', borderRadius: '24px' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', overflowY: 'auto' }}>
+                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '28px 32px', borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto', margin: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ fontSize: '22px', fontWeight: '900' }}>नया सदस्य जोड़ें</h2>
-                            <button onClick={() => setShowAdd(false)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px' }}><X size={20} /></button>
+                            <button onClick={() => setShowAdd(false)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer' }}><X size={20} /></button>
                         </div>
                         <form onSubmit={handleCreateWorker}>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>नाम (Full Name)</label>
-                                <input required type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
+                                <input required type="text" placeholder="नाम लिखें" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>मोबाइल नंबर (वोटर हेल्पलाइन सर्च के लिए भी)</label>
-                                <input required type="text" value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
+                                <input required type="text" placeholder="10 अंकों का मोबाइल नंबर" value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>पासवर्ड (Login)</label>
@@ -584,11 +585,12 @@ export default function WorkersPage() {
                                 </div>
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>प्रकार</label>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>प्रकार (Role / पद)</label>
                                 <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value, boothId: '' })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
-                                    <option value="FIELD">ग्राउंड कार्यकर्ता</option>
-                                    <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
-                                    <option value="PANNA_PRAMUKH">पन्ना प्रमुख</option>
+                                    <option value="ELECTION_MANAGER">🗄️ इलेक्शन मैनेजर (Election Manager)</option>
+                                    <option value="BOOTH_MANAGER">🏢 बूथ मैनेजर (Booth Manager)</option>
+                                    <option value="PANNA_PRAMUKH">📄 पन्ना प्रमुख (Panna Pramukh)</option>
+                                    <option value="FIELD">🚶‍♂️ ग्राउंड कार्यकर्ता (Ground Worker)</option>
                                 </select>
                             </div>
                             {(formData.type === 'BOOTH_MANAGER' || formData.type === 'PANNA_PRAMUKH') && (
@@ -633,13 +635,13 @@ export default function WorkersPage() {
 
             {/* Edit Worker Modal */}
             {showEdit && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '32px', borderRadius: '24px' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
+                    <div className="card" style={{ background: 'white', width: '100%', maxWidth: '500px', padding: '28px 32px', borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto', margin: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ fontSize: '22px', fontWeight: '900' }}>कार्यकर्ता विवरण अपडेट करें</h2>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button type="button" onClick={() => setShowPasswordReset(showEdit)} style={{ background: '#FEF2F2', color: '#DC2626', border: 'none', borderRadius: '50%', padding: '8px', cursor: 'pointer' }}><Key size={18} /></button>
-                                <button onClick={() => setShowEdit(null)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px' }}><X size={20} /></button>
+                                <button onClick={() => setShowEdit(null)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer' }}><X size={20} /></button>
                             </div>
                         </div>
                         <form onSubmit={handleUpdateWorker}>
@@ -652,11 +654,12 @@ export default function WorkersPage() {
                                 <input required type="text" value={editData.mobile} onChange={e => setEditData({ ...editData, mobile: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px' }} />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>कार्यकर्ता टाइप</label>
+                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>कार्यकर्ता पद (Role)</label>
                                 <select value={editData.type} onChange={e => setEditData({ ...editData, type: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
-                                    <option value="FIELD">ग्राउंड कार्यकर्ता</option>
-                                    <option value="BOOTH_MANAGER">बूथ मैनेजर</option>
-                                    <option value="PANNA_PRAMUKH">पन्ना प्रमुख</option>
+                                    <option value="ELECTION_MANAGER">🗄️ इलेक्शन मैनेजर (Election Manager)</option>
+                                    <option value="BOOTH_MANAGER">🏢 बूथ मैनेजर (Booth Manager)</option>
+                                    <option value="PANNA_PRAMUKH">📄 पन्ना प्रमुख (Panna Pramukh)</option>
+                                    <option value="FIELD">🚶‍♂️ ग्राउंड कार्यकर्ता (Ground Worker)</option>
                                 </select>
                             </div>
                             {(editData.type === 'BOOTH_MANAGER' || editData.type === 'PANNA_PRAMUKH') && (
