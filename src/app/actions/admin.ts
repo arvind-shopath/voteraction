@@ -777,6 +777,16 @@ export async function updateCampaignSocialAccess(campaignId: number, access: boo
     revalidatePath('/admin/candidates');
 }
 
+export async function updateCampaignMasterMobileAccess(campaignId: number, access: boolean) {
+    if (!campaignId) return;
+    await prisma.campaign.update({
+        where: { id: campaignId },
+        data: { allowMasterMobileAccess: access }
+    });
+    revalidatePath('/admin/candidates');
+    revalidatePath('/voters');
+}
+
 export async function setUserWorkerType(userId: number, workerType: string | null) {
     const user = await prisma.user.findUnique({
         where: { id: userId },

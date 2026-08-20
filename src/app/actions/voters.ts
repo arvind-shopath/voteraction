@@ -236,6 +236,17 @@ export async function getVoters(filters: {
 
     const campaignId = user?.campaignId;
 
+    let canAccessMasterMobile = true;
+    if (campaignId) {
+        const campaign = await (prisma as any).campaign.findUnique({
+            where: { id: campaignId },
+            select: { allowMasterMobileAccess: true }
+        });
+        if (campaign && campaign.allowMasterMobileAccess === false) {
+            canAccessMasterMobile = false;
+        }
+    }
+
     const [voters, totalCount] = await Promise.all([
         (prisma.voter as any).findMany({
             where,
@@ -257,6 +268,7 @@ export async function getVoters(filters: {
 
     const votersWithBoothInfo = voters.map((v: any) => {
         const feedback = (v as any).feedbacks?.[0];
+        const effectiveMobile = feedback?.mobile ?? (canAccessMasterMobile ? v.mobile : null);
         return {
             ...v,
             // Shadowing global fields with campaign-specific feedback if it exists
@@ -266,7 +278,7 @@ export async function getVoters(filters: {
             votedPartyId: feedback?.votedPartyId ?? v.votedPartyId,
             votedParty: feedback?.votedParty ?? v.votedParty,
             status: feedback?.status ?? v.status,
-            mobile: feedback?.mobile ?? v.mobile,
+            mobile: effectiveMobile,
             updatedByName: feedback?.updatedByName ?? v.updatedByName,
             verificationStatus: feedback?.verificationStatus ?? v.verificationStatus,
             eciStatus: feedback?.eciStatus ?? v.eciStatus,
@@ -356,6 +368,7 @@ export async function updateVoter(voterId: number, data: any) {
         caste: data.caste,
         subCaste: data.subCaste,
         surname: data.surname,
+        mobile: data.mobile, // ALSO SAVED TO MASTER VOTER RECORD
         isHead: data.isHead,
         isPwD: data.isPwD,
         isImportant: data.isImportant,

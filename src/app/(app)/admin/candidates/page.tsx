@@ -4,11 +4,11 @@ import React, { useState, useEffect } from 'react';
 import {
     getAssemblies, getUsers, getCampaigns, updateAssembly, deleteAssembly,
     toggleCandidateStatus, setUserStatus, deleteUser, updateUserName, assignUserToAssembly, assignUserToCampaign,
-    clearAppCache, assignTeamToAssembly, removeTeamMember, updateCampaignSocialAccess
+    clearAppCache, assignTeamToAssembly, removeTeamMember, updateCampaignSocialAccess, updateCampaignMasterMobileAccess
 } from '@/app/actions/admin';
 import {
     Users, Star, MapPin, Search, Filter,
-    ChevronDown, ChevronRight, Edit,
+    ChevronDown, ChevronRight, Edit, Phone,
     LayoutGrid, List, Search as SearchIcon,
     Shield, Share2, Users as UsersIcon, Settings, X, CheckCircle, Trash2, UserPlus, Building2,
     AlertCircle, Trash, Lock, Key, Ghost, RefreshCw, ToggleLeft, ToggleRight
@@ -305,10 +305,44 @@ export default function CandidatesPage() {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '24px' }}>
-                                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '24px', border: '1px solid #F1F5F9' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px', textTransform: 'uppercase' }}>कार्यकर्ता (Workers)</div>
-                                            <div style={{ fontSize: '20px', fontWeight: '900', color: '#334155' }}>{fieldCount} <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B' }}>फील्ड कार्यकर्ता</span></div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '24px' }}>
+                                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '24px', border: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '2px', textTransform: 'uppercase' }}>कार्यकर्ता (Workers)</div>
+                                                <div style={{ fontSize: '18px', fontWeight: '900', color: '#334155' }}>{fieldCount} <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B' }}>फील्ड कार्यकर्ता</span></div>
+                                            </div>
+                                            {campaign && (
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const currentVal = campaign.allowMasterMobileAccess !== false;
+                                                            await updateCampaignMasterMobileAccess(campaign.id, !currentVal);
+                                                            showMsg("सफलता", !currentVal ? "मास्टर मोबाइल डेटा एक्सेस चालू (₹10k Extra Plan)" : "मास्टर मोबाइल डेटा एक्सेस बंद (बेसिक प्लान)");
+                                                            fetchData();
+                                                        } catch (e: any) {
+                                                            showMsg("त्रुटि", e.message, "error");
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        padding: '8px 14px',
+                                                        borderRadius: '16px',
+                                                        border: 'none',
+                                                        background: campaign.allowMasterMobileAccess !== false ? '#DCFCE7' : '#F1F5F9',
+                                                        color: campaign.allowMasterMobileAccess !== false ? '#15803D' : '#64748B',
+                                                        fontSize: '12px',
+                                                        fontWeight: '800',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        boxShadow: campaign.allowMasterMobileAccess !== false ? '0 2px 4px rgba(21,128,61,0.15)' : 'none'
+                                                    }}
+                                                    title="क्लिक करके मास्टर मोबाइल नंबर एक्सेस चालू/बंद करें"
+                                                >
+                                                    <Phone size={14} />
+                                                    {campaign.allowMasterMobileAccess !== false ? '📱 मास्टर मोबाइल चालू (₹10k Extra)' : '🔒 केवल खुद के नंबर (बेसिक)'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
@@ -414,6 +448,7 @@ function ManageTeamModal({ candidate, campaigns, users, onAssign, onClose }: any
     // Safety check: campaigns might be undefined if not passed down or empty
     const campaign = campaigns ? campaigns.find((c: any) => c.id === candidate.campaignId) : null;
     const [socialAccess, setSocialAccess] = useState(campaign?.accessToSocialSena || false);
+    const [masterMobileAccess, setMasterMobileAccess] = useState(campaign?.allowMasterMobileAccess !== false);
 
     const handleToggleSocialAccess = async () => {
         if (!campaign) return;
@@ -425,6 +460,19 @@ function ManageTeamModal({ candidate, campaigns, users, onAssign, onClose }: any
         } catch (e: any) {
             alert(e.message);
             setSocialAccess(!newState); // Revert on error
+        }
+    };
+
+    const handleToggleMasterMobile = async () => {
+        if (!campaign) return;
+        const newState = !masterMobileAccess;
+        setMasterMobileAccess(newState);
+        try {
+            await updateCampaignMasterMobileAccess(campaign.id, newState);
+            onAssign(null, null); // Refresh data
+        } catch (e: any) {
+            alert(e.message);
+            setMasterMobileAccess(!newState);
         }
     };
 
@@ -475,6 +523,34 @@ function ManageTeamModal({ candidate, campaigns, users, onAssign, onClose }: any
                 </div>
 
                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                    {/* Master Mobile Access Permission Row */}
+                    <div style={{ padding: '16px', background: masterMobileAccess ? '#F0FDF4' : '#F8FAFC', borderRadius: '20px', border: masterMobileAccess ? '1px solid #BBF7D0' : '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontSize: '14px', fontWeight: '800', color: masterMobileAccess ? '#166534' : '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Phone size={16} /> 📱 मास्टर मोबाइल डेटा (Master Mobile Access)
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600', marginTop: '2px' }}>
+                                {masterMobileAccess ? '✅ प्रत्याशी को सिस्टम के सभी जुटाए गए मोबाइल नंबर दिखेंगे (₹10k Extra Plan)' : '🔒 केवल खुद के कार्यकर्ताओं द्वारा जुटाए गए मोबाइल नंबर दिखेंगे (बेसिक प्लान)'}
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleToggleMasterMobile}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                background: masterMobileAccess ? '#166534' : '#64748B',
+                                color: 'white',
+                                fontSize: '12px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {masterMobileAccess ? 'चालू (ON)' : 'बंद (OFF)'}
+                        </button>
+                    </div>
 
                     {/* Current Team Section */}
                     <div>

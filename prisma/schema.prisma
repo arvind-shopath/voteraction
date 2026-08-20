@@ -73,8 +73,9 @@ model Campaign {
   assemblyId     Int
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  accessToSocialSena Boolean     @default(false)
-  assembly       Assembly        @relation(fields: [assemblyId], references: [id])
+  accessToSocialSena      Boolean         @default(false)
+  allowMasterMobileAccess Boolean         @default(true)
+  assembly                Assembly        @relation(fields: [assemblyId], references: [id])
   users          User[]
   voterFeedbacks VoterFeedback[]
   workers        Worker[]
