@@ -330,7 +330,8 @@ model Worker {
   mobile            String?            @unique
   type              String             @default("FIELD")
   userId            Int?               @unique
-  boothId           Int?
+  boothId           Int?               // Primary booth (backward compat)
+  boothIds          String?            // JSON array of all assigned booth IDs e.g. "[1,2,3]"
   housesCovered     Int                @default(0)
   attendanceRate    Int                @default(0)
   performanceScore  Int                @default(0)
@@ -353,6 +354,7 @@ model Worker {
 
   @@index([assemblyId])
 }
+
 
 model WorkerPointLog {
   id          Int      @id @default(autoincrement())

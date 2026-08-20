@@ -566,7 +566,7 @@ export async function setUserRole(id: number, role: string) {
     }
 
     // Only SUPERADMIN can grant high-level roles
-    if (['ADMIN', 'SUPERADMIN', 'SOCIAL_MEDIA', 'CANDIDATE', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role)) {
+    if (['ADMIN', 'SUPERADMIN', 'SOCIAL_MEDIA', 'CANDIDATE', 'ELECTION_MANAGER', 'SM_MANAGER', 'DESIGNER', 'EDITOR'].includes(role)) {
         if (currentUser?.role !== 'SUPERADMIN') {
             throw new Error("Only Super Admin can grant this role.");
         }

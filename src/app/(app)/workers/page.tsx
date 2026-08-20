@@ -59,7 +59,8 @@ export default function WorkersPage() {
         name: '',
         mobile: '',
         type: '',
-        boothId: ''
+        boothId: '',
+        boothIds: [] as string[]  // Multi-booth support for Booth Manager
     });
 
     const [newPassword, setNewPassword] = useState('');
@@ -70,7 +71,7 @@ export default function WorkersPage() {
     const { effectiveRole, effectiveWorkerType } = useView();
     const role = effectiveRole || session?.user?.role;
     const isAdmin = ['ADMIN', 'SUPERADMIN'].includes(role);
-    const isCandidate = role === 'CANDIDATE';
+    const isCandidate = role === 'CANDIDATE' || role === 'ELECTION_MANAGER';
     const isBoothManager = role === 'WORKER' && effectiveWorkerType === 'BOOTH_MANAGER';
     const isPannaPramukh = role === 'WORKER' && effectiveWorkerType === 'PANNA_PRAMUKH';
     const canEditWorkers = isAdmin || isCandidate;
@@ -149,7 +150,11 @@ export default function WorkersPage() {
             name: editData.name,
             mobile: editData.mobile,
             type: editData.type,
-            boothId: editData.boothId ? parseInt(editData.boothId) : null
+            boothId: editData.boothId ? parseInt(editData.boothId) : null,
+            // Multi-booth: pass boothIds array for Booth Manager
+            boothIds: editData.type === 'BOOTH_MANAGER' && editData.boothIds.length > 0
+                ? editData.boothIds.map(id => parseInt(id))
+                : undefined
         });
         setShowEdit(null);
         fetchData();
@@ -173,11 +178,19 @@ export default function WorkersPage() {
     };
 
     const openEditModal = (worker: any) => {
+        // Parse existing boothIds JSON if available
+        let existingBoothIds: string[] = [];
+        if (worker.boothIds) {
+            try { existingBoothIds = JSON.parse(worker.boothIds).map(String); } catch { existingBoothIds = []; }
+        } else if (worker.boothId) {
+            existingBoothIds = [worker.boothId.toString()];
+        }
         setEditData({
             name: worker.name,
             mobile: worker.mobile || worker.user?.mobile || '',
             type: worker.type,
-            boothId: worker.boothId?.toString() || ''
+            boothId: worker.boothId?.toString() || '',
+            boothIds: existingBoothIds
         });
         setShowEdit(worker);
     };
@@ -260,13 +273,9 @@ export default function WorkersPage() {
             if (sortBy === 'POINTS_LOW') return (a.totalPoints || 0) - (b.totalPoints || 0);
             return 0; // Default order from API
         });
-    const availableBoothsForForm = booths.filter(b => formData.type === 'BOOTH_MANAGER' ? b.workers.length === 0 : true);
-    const availableBoothsForEdit = booths.filter(b => {
-        if (editData.type === 'BOOTH_MANAGER') {
-            return b.id.toString() === editData.boothId || b.workers.length === 0;
-        }
-        return true;
-    });
+    // For Booth Manager: all booths available (no restriction - one BM can manage multiple booths)
+    const availableBoothsForForm = booths;
+    const availableBoothsForEdit = booths;
 
     const hierarchyData = useMemo(() => {
         const isBoothMgr = (w: any) => ['BOOTH_MANAGER', 'BOOTH'].includes(w.type);
@@ -584,11 +593,33 @@ export default function WorkersPage() {
                             </div>
                             {(formData.type === 'BOOTH_MANAGER' || formData.type === 'PANNA_PRAMUKH') && (
                                 <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>बूथ असाइन करें</label>
-                                    <select required value={formData.boothId} onChange={e => setFormData({ ...formData, boothId: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
-                                        <option value="">बूथ चुनें...</option>
-                                        {availableBoothsForForm.map(b => <option key={b.id} value={b.id}>बूथ {b.number}: {b.name || 'N/A'}</option>)}
-                                    </select>
+                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>
+                                        {formData.type === 'BOOTH_MANAGER' ? '🗳️ बूथ असाइन करें (एक से अधिक चुन सकते हैं)' : 'बूथ असाइन करें'}
+                                    </label>
+                                    {formData.type === 'BOOTH_MANAGER' ? (
+                                        <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '8px' }}>
+                                            {availableBoothsForForm.map(b => (
+                                                <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', background: formData.boothId === b.id.toString() ? '#EFF6FF' : 'transparent' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        value={b.id}
+                                                        checked={formData.boothId === b.id.toString()}
+                                                        onChange={e => setFormData({ ...formData, boothId: e.target.checked ? b.id.toString() : '' })}
+                                                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                                    />
+                                                    <span style={{ fontSize: '14px', fontWeight: '600' }}>बूथ {b.number}: {b.name || 'N/A'}</span>
+                                                    {b.workers?.some((w: any) => ['BOOTH_MANAGER', 'BOOTH'].includes(w.type)) && (
+                                                        <span style={{ fontSize: '11px', padding: '2px 6px', background: '#FEF9C3', color: '#92400E', borderRadius: '6px', fontWeight: '700' }}>असाइन है</span>
+                                                    )}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <select required value={formData.boothId} onChange={e => setFormData({ ...formData, boothId: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
+                                            <option value="">बूथ चुनें...</option>
+                                            {availableBoothsForForm.map(b => <option key={b.id} value={b.id}>बूथ {b.number}: {b.name || 'N/A'}</option>)}
+                                        </select>
+                                    )}
                                 </div>
                             )}
                             <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
@@ -630,11 +661,49 @@ export default function WorkersPage() {
                             </div>
                             {(editData.type === 'BOOTH_MANAGER' || editData.type === 'PANNA_PRAMUKH') && (
                                 <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>बूथ बदलें</label>
-                                    <select value={editData.boothId} onChange={e => setEditData({ ...editData, boothId: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
-                                        <option value="">कोई बूथ नहीं</option>
-                                        {availableBoothsForEdit.map(b => <option key={b.id} value={b.id}>बूथ {b.number}: {b.name || 'N/A'}</option>)}
-                                    </select>
+                                    <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', marginBottom: '8px' }}>
+                                        {editData.type === 'BOOTH_MANAGER' ? '🗳️ बूथ चुनें (एक से अधिक)' : 'बूथ बदलें'}
+                                    </label>
+                                    {editData.type === 'BOOTH_MANAGER' ? (
+                                        <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '8px', background: '#FAFAFA' }}>
+                                            {availableBoothsForEdit.map((b: any) => {
+                                                const isChecked = editData.boothIds.includes(b.id.toString());
+                                                return (
+                                                    <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', background: isChecked ? '#EFF6FF' : 'transparent', marginBottom: '4px', border: isChecked ? '1px solid #BFDBFE' : '1px solid transparent' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            value={b.id}
+                                                            checked={isChecked}
+                                                            onChange={e => {
+                                                                const newIds = e.target.checked
+                                                                    ? [...editData.boothIds, b.id.toString()]
+                                                                    : editData.boothIds.filter(id => id !== b.id.toString());
+                                                                const primaryBooth = newIds.length > 0 ? newIds[0] : '';
+                                                                setEditData({ ...editData, boothIds: newIds, boothId: primaryBooth });
+                                                            }}
+                                                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563EB' }}
+                                                        />
+                                                        <div>
+                                                            <div style={{ fontSize: '14px', fontWeight: '700', color: '#1E293B' }}>बूथ {b.number}: {b.name || 'N/A'}</div>
+                                                            {b.workers?.some((w: any) => ['BOOTH_MANAGER', 'BOOTH'].includes(w.type) && w.id !== showEdit?.id) && (
+                                                                <div style={{ fontSize: '11px', color: '#F59E0B', fontWeight: '600' }}>⚠️ पहले से असाइन है</div>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })}
+                                            {editData.boothIds.length > 0 && (
+                                                <div style={{ marginTop: '8px', padding: '8px 12px', background: '#DCFCE7', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#15803D' }}>
+                                                    ✅ {editData.boothIds.length} बूथ चुने गए — प्राइमरी: बूथ #{availableBoothsForEdit.find((b: any) => b.id.toString() === editData.boothIds[0])?.number || '-'}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <select value={editData.boothId} onChange={e => setEditData({ ...editData, boothId: e.target.value })} style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: 'white' }}>
+                                            <option value="">कोई बूथ नहीं</option>
+                                            {availableBoothsForEdit.map((b: any) => <option key={b.id} value={b.id}>बूथ {b.number}: {b.name || 'N/A'}</option>)}
+                                        </select>
+                                    )}
                                 </div>
                             )}
                             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>

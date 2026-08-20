@@ -294,6 +294,7 @@ export default function UsersPage() {
                     <option value="ALL">सभी रोल्स</option>
                     <option value="ADMIN">एडमिन</option>
                     <option value="CANDIDATE">कैंडिडेट</option>
+                    <option value="ELECTION_MANAGER">इलेक्शन मैनेजर</option>
                     <option value="WORKER">कार्यकर्ता</option>
                 </select>
             </div>
@@ -529,7 +530,7 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                                     </td>
                                     <td style={{ padding: '16px' }}>
                                         <select
-                                            value={u.role === 'WORKER' ? `WORKER_${u.worker?.type || 'GROUND'}` : u.role}
+                                            value={u.role === 'WORKER' ? `WORKER_${u.worker?.type || 'GROUND'}` : (u.role === 'ELECTION_MANAGER' ? 'ELECTION_MANAGER' : u.role)}
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 if (val.startsWith('WORKER_')) {
@@ -544,8 +545,7 @@ function UserGroupSection({ title, icon, users, id, expanded, onToggle, onUpdate
                                             style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '13px', fontWeight: '700', color: '#475569', cursor: u.mobile === '9723338321' ? 'default' : 'pointer', background: u.mobile === '9723338321' ? '#F8FAFC' : 'white' }}
                                         >
                                             {u.role === 'SUPERADMIN' && <option value="SUPERADMIN">Super Admin</option>}
-                                            <option value="ADMIN">Admin</option>
-                                            <option value="CANDIDATE">Candidate (प्रत्याशी)</option>
+                                            <option value="ELECTION_MANAGER">🗳️ इलेक्शन मैनेजर (Election Manager)</option>
                                             <optgroup label="कार्यकर्ता श्रेणी (Worker Roles)">
                                                 <option value="WORKER_GROUND">ग्राउंड कार्यकर्ता (Ground Worker)</option>
                                                 <option value="WORKER_BOOTH">बूथ मैनेजर (Booth Manager)</option>
@@ -612,13 +612,13 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>रोल (Role)</label>
                         <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>
-                            <option value="CANDIDATE">Candidate (प्रत्याशी)</option>
+                            <option value="CANDIDATE">🏆 Candidate (प्रत्याशी)</option>
+                            <option value="ELECTION_MANAGER">🗳️ इलेक्शन मैनेजर (Election Manager)</option>
                             <optgroup label="कार्यकर्ता (Worker Roles)">
                                 <option value="WORKER_GROUND">ग्राउंड कार्यकर्ता (Ground Worker)</option>
                                 <option value="WORKER_BOOTH">बूथ मैनेजर (Booth Manager)</option>
                                 <option value="WORKER_PANNA">पन्ना प्रमुख (Panna Pramukh)</option>
                             </optgroup>
-                            <option value="ADMIN">Admin</option>
                         </select>
                     </div>
                     <div>
@@ -628,7 +628,7 @@ function CreateUserModal({ onClose, onSave, assemblies, campaigns }: any) {
                             जरूरी: 1 बड़ा अक्षर (Caps), 1 स्पेशल चिन्ह (@, #, $), 1 अंक
                         </div>
                     </div>
-                    {(formData.role.startsWith('WORKER') || formData.role === 'CANDIDATE') && (
+                    {(formData.role.startsWith('WORKER') || formData.role === 'CANDIDATE' || formData.role === 'ELECTION_MANAGER') && (
                         <div>
                             <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#64748B', marginBottom: '8px' }}>विधानसभा</label>
                             <select value={formData.assemblyId} onChange={e => setFormData({ ...formData, assemblyId: e.target.value })} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white' }}>

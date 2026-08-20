@@ -322,10 +322,14 @@ export async function updateWorkerPassword(workerId: number, password: string) {
     return { success: true };
 }
 
-export async function updateWorkerBooth(workerId: number, boothId: number | null) {
+export async function updateWorkerBooth(workerId: number, boothId: number | null, boothIds?: number[]) {
+    const idsJson = boothIds && boothIds.length > 0 ? JSON.stringify(boothIds) : null;
     await prisma.worker.update({
         where: { id: workerId },
-        data: { boothId }
+        data: { 
+            boothId: boothIds && boothIds.length > 0 ? boothIds[0] : boothId,
+            boothIds: idsJson
+        }
     });
     revalidatePath('/workers');
 }
@@ -446,11 +450,24 @@ export async function updateWorker(id: number, data: {
     name?: string,
     mobile?: string,
     type?: string,
-    boothId?: number | null
+    boothId?: number | null,
+    boothIds?: number[] | null  // Multi-booth support for BOOTH_MANAGER
 }) {
+    const { boothIds, ...rest } = data;
+    
+    // Handle multi-booth IDs
+    const updateData: any = { ...rest };
+    if (boothIds !== undefined) {
+        updateData.boothIds = boothIds && boothIds.length > 0 ? JSON.stringify(boothIds) : null;
+        // Primary boothId = first selected booth
+        if (boothIds && boothIds.length > 0) {
+            updateData.boothId = boothIds[0];
+        }
+    }
+    
     const worker = await prisma.worker.update({
         where: { id },
-        data
+        data: updateData
     });
 
     // Also update User if name/mobile changed
