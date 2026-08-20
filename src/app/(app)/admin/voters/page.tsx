@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import {
     Search, Filter, Users, MapPin, Phone, Edit2, Eye, User, Home,
@@ -132,6 +132,35 @@ export default function AdminVotersPage() {
         supportStatus: 'Neutral'
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+    const [printAllVoters, setPrintAllVoters] = useState(false);
+    const [printVoters, setPrintVoters] = useState<any[]>([]);
+    const [isPrintLoading, setIsPrintLoading] = useState(false);
+
+    const handleOpenPrintDialog = () => {
+        setPrintAllVoters(false);
+        setIsPrintDialogOpen(true);
+    };
+
+    const handlePrint = async () => {
+        setIsPrintLoading(true);
+        try {
+            let votersToPrint: any[] = [];
+            if (printAllVoters) {
+                const result = await getAllVotersForExport({ assemblyId: selectedAssembly! });
+                votersToPrint = result;
+            } else {
+                const payload = { ...filters, assemblyId: selectedAssembly!, page: 1, pageSize: 99999 };
+                const result = await getVoters(payload);
+                votersToPrint = result.voters;
+            }
+            setPrintVoters(votersToPrint);
+            setIsPrintDialogOpen(false);
+            setTimeout(() => { window.print(); }, 300);
+        } finally {
+            setIsPrintLoading(false);
+        }
+    };
 
     const [pagination, setPagination] = useState({
         totalCount: 0,
@@ -408,7 +437,7 @@ export default function AdminVotersPage() {
                             {loading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                             डाउनलोड
                         </button>
-                        <button style={glassButtonStyle} onClick={() => window.print()}>
+                        <button style={glassButtonStyle} onClick={handleOpenPrintDialog}>
                             <Printer size={16} /> प्रिंट
                         </button>
                         <button style={{ ...glassButtonStyle, background: 'white', color: '#0F766E' }} onClick={() => setIsAddModalOpen(true)}>
@@ -849,6 +878,125 @@ export default function AdminVotersPage() {
                                 )}
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== PRINT DIALOG MODAL ===== */}
+            {isPrintDialogOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ background: 'white', borderRadius: '24px', padding: '36px', width: '90%', maxWidth: '480px', boxShadow: '0 30px 60px rgba(0,0,0,0.3)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Printer size={24} color="#0D9488" />
+                                <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A' }}>प्रिंट विकल्प</h2>
+                            </div>
+                            <button onClick={() => setIsPrintDialogOpen(false)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '8px', cursor: 'pointer' }}><X size={18} /></button>
+                        </div>
+
+                        {/* Option 1: All voters */}
+                        <div
+                            onClick={() => setPrintAllVoters(true)}
+                            style={{ padding: '16px 20px', borderRadius: '14px', border: `2px solid ${printAllVoters ? '#0D9488' : '#E2E8F0'}`, background: printAllVoters ? '#F0FDF9' : '#F8FAFC', cursor: 'pointer', marginBottom: '12px', transition: 'all 0.2s' }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${printAllVoters ? '#0D9488' : '#CBD5E1'}`, background: printAllVoters ? '#0D9488' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {printAllVoters && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }} />}
+                                </div>
+                                <div>
+                                    <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A' }}>पूरी मतदाता सूची</div>
+                                    <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>विधानसभा के सभी {pagination.totalCount.toLocaleString()}+ मतदाताओं को प्रिंट करें</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Option 2: Filtered */}
+                        <div
+                            onClick={() => setPrintAllVoters(false)}
+                            style={{ padding: '16px 20px', borderRadius: '14px', border: `2px solid ${!printAllVoters ? '#0D9488' : '#E2E8F0'}`, background: !printAllVoters ? '#F0FDF9' : '#F8FAFC', cursor: 'pointer', marginBottom: '24px', transition: 'all 0.2s' }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${!printAllVoters ? '#0D9488' : '#CBD5E1'}`, background: !printAllVoters ? '#0D9488' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {!printAllVoters && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }} />}
+                                </div>
+                                <div>
+                                    <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A' }}>फिल्टर के अनुसार</div>
+                                    <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>वर्तमान फिल्टर लागू करके {pagination.totalCount.toLocaleString()} मतदाता प्रिंट करें</div>
+                                    {/* Show active filters */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+                                        {filters.village !== 'सभी गांव' && <span style={{ fontSize: '11px', background: '#0D948820', color: '#0D9488', padding: '2px 8px', borderRadius: '20px', fontWeight: '600' }}>गांव: {filters.village}</span>}
+                                        {filters.booth !== 'सभी बूथ' && <span style={{ fontSize: '11px', background: '#0D948820', color: '#0D9488', padding: '2px 8px', borderRadius: '20px', fontWeight: '600' }}>बूथ: {filters.booth}</span>}
+                                        {filters.gender !== 'सभी' && <span style={{ fontSize: '11px', background: '#0D948820', color: '#0D9488', padding: '2px 8px', borderRadius: '20px', fontWeight: '600' }}>{filters.gender === 'M' ? 'पुरुष' : 'महिला'}</span>}
+                                        {filters.caste !== 'सभी जाति' && <span style={{ fontSize: '11px', background: '#0D948820', color: '#0D9488', padding: '2px 8px', borderRadius: '20px', fontWeight: '600' }}>जाति: {filters.caste}</span>}
+                                        {filters.status !== 'सभी स्थिति' && <span style={{ fontSize: '11px', background: '#0D948820', color: '#0D9488', padding: '2px 8px', borderRadius: '20px', fontWeight: '600' }}>{filters.status}</span>}
+                                        {filters.village === 'सभी गांव' && filters.booth === 'सभी बूथ' && filters.gender === 'सभी' && filters.caste === 'सभी जाति' && filters.status === 'सभी स्थिति' && <span style={{ fontSize: '11px', color: '#94A3B8' }}>कोई फिल्टर नहीं (पूरी सूची)</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handlePrint}
+                            disabled={isPrintLoading}
+                            style={{ width: '100%', background: '#0D9488', color: 'white', padding: '14px', borderRadius: '14px', border: 'none', fontWeight: '800', fontSize: '16px', cursor: isPrintLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        >
+                            {isPrintLoading ? <><Loader2 size={18} className="animate-spin" /> डेटा लोड हो रहा है...</> : <><Printer size={18} /> प्रिंट करें</>}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== PRINT-ONLY VOTER TABLE ===== */}
+            {printVoters.length > 0 && (
+                <div className="print-only" style={{ display: 'none' }}>
+                    <style>{`
+                        @media print {
+                            body * { visibility: hidden !important; }
+                            .print-only, .print-only * { visibility: visible !important; }
+                            .print-only { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; background: white !important; z-index: 99999 !important; display: block !important; padding: 16px !important; }
+                            @page { size: A4 landscape; margin: 10mm; }
+                        }
+                    `}</style>
+                    <div style={{ fontFamily: 'Arial, sans-serif' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '16px', borderBottom: '2px solid #0D9488', paddingBottom: '12px' }}>
+                            <h1 style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A', margin: 0 }}>मतदाता सूची</h1>
+                            <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0' }}>कुल मतदाता: {printVoters.length} | {printAllVoters ? 'पूरी सूची' : 'फिल्टर: ' + [filters.village !== 'सभी गांव' ? filters.village : '', filters.booth !== 'सभी बूथ' ? 'बूथ ' + filters.booth : '', filters.gender !== 'सभी' ? (filters.gender === 'M' ? 'पुरुष' : 'महिला') : ''].filter(Boolean).join(', ') || 'कोई फिल्टर नहीं'}</p>
+                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                            <thead>
+                                <tr style={{ background: '#0D9488', color: 'white' }}>
+                                    <th style={{ padding: '8px 6px', textAlign: 'left', border: '1px solid #ccc' }}>#</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'left', border: '1px solid #ccc' }}>नाम</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'left', border: '1px solid #ccc' }}>रिश्तेदार का नाम</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'center', border: '1px solid #ccc' }}>आयु</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'center', border: '1px solid #ccc' }}>लिंग</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'left', border: '1px solid #ccc' }}>गांव/वार्ड</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'left', border: '1px solid #ccc' }}>जाति/वर्ग</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'center', border: '1px solid #ccc' }}>बूथ #</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'left', border: '1px solid #ccc', fontFamily: 'monospace' }}>EPIC</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'left', border: '1px solid #ccc' }}>मोबाइल</th>
+                                    <th style={{ padding: '8px 6px', textAlign: 'center', border: '1px solid #ccc' }}>समर्थन</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {printVoters.map((v: any, idx: number) => (
+                                    <tr key={v.id} style={{ background: idx % 2 === 0 ? '#F8FAFC' : 'white' }}>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0', color: '#94A3B8', fontSize: '10px' }}>{idx + 1}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0', fontWeight: '700' }}>{v.nameHi || v.name}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0', color: '#475569' }}>{v.relativeNameHi || v.relativeName || '-'}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0', textAlign: 'center' }}>{v.age || '-'}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0', textAlign: 'center' }}>{v.gender === 'F' ? 'म' : 'पु'}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0' }}>{v.villageHi || v.village || '-'}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0' }}>{v.caste || '-'} {v.casteCategory ? `(${v.casteCategory})` : ''}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0', textAlign: 'center', fontWeight: '700', color: '#0D9488' }}>#{v.boothNumber}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0', fontFamily: 'monospace', fontSize: '10px' }}>{v.epic || '-'}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0' }}>{v.mobile || '-'}</td>
+                                        <td style={{ padding: '6px', border: '1px solid #E2E8F0', textAlign: 'center', fontWeight: '700', color: v.supportStatus === 'Support' ? '#16A34A' : v.supportStatus === 'Oppose' ? '#DC2626' : '#94A3B8', fontSize: '10px' }}>{v.supportStatus || 'N'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <div style={{ marginTop: '12px', textAlign: 'center', fontSize: '11px', color: '#94A3B8' }}>VoterAction Pro — मतदाता सूची प्रिंट | {new Date().toLocaleDateString('hi-IN')}</div>
                     </div>
                 </div>
             )}
