@@ -90,8 +90,14 @@ export async function getWorkersInAssembly(assemblyId: number) {
     let whereClause: any = {
         assemblyId,
         deletedAt: null, // Only active workers
-        campaignId: campaignId || undefined
     };
+
+    if (campaignId) {
+        whereClause.OR = [
+            { campaignId },
+            { campaignId: null }
+        ];
+    }
 
     // Isolation: If Booth Manager, only see their own booth workers
     if (role === 'WORKER' && userId) {

@@ -476,6 +476,29 @@ export default function WorkerVotersView() {
 
     const activeFilterCount = Object.values(filters).filter(v => v !== 'All' && v !== false && v !== '' && !String(v).includes('सभी')).length;
 
+    const handleClearFilters = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setFilters({
+            search: '',
+            status: 'सभी स्थिति',
+            gender: 'सभी',
+            village: 'सभी गांव',
+            casteCategory: 'सभी वर्ग',
+            caste: 'सभी जाति',
+            subCaste: 'सभी उपजाति',
+            surname: 'सभी उपनाम',
+            familySize: 'सभी परिवार',
+            ageFilter: 'सभी आयु',
+            isHead: false,
+            isPwD: false,
+            isImportant: false,
+            isVoted: 'All',
+            votedPartyId: '',
+            page: 1,
+            pageSize: 50
+        });
+    };
+
     return (
         <div style={{ paddingBottom: '100px', fontFamily: 'var(--font-geist-sans)', background: '#F1F5F9', minHeight: '100vh' }}>
 
@@ -571,19 +594,43 @@ export default function WorkerVotersView() {
                     position: 'relative',
                     zIndex: 10
                 }}>
-                    <div onClick={() => setIsFilterExpanded(!isFilterExpanded)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', marginBottom: isFilterExpanded ? '20px' : 0 }}>
-                        <h3 style={{ fontSize: isMobile ? '14px' : '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px', color: '#0F172A' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isFilterExpanded ? '20px' : 0 }}>
+                        <div onClick={() => setIsFilterExpanded(!isFilterExpanded)} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                             <div style={{ background: '#F0FDFA', padding: '8px', borderRadius: '10px' }}><Filter size={isMobile ? 16 : 20} color="#0D9488" /></div>
-                            फिल्टर (Filters)
-                            {activeFilterCount > 0 && <span style={{ background: '#0D9488', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>{activeFilterCount}</span>}
-                            {isOfflineMode && (
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#FEF2F2', color: '#B91C1C', padding: '4px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: '800' }}>
-                                    <WifiOff size={10} /> Offline
-                                </span>
+                            <h3 style={{ fontSize: isMobile ? '14px' : '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px', color: '#0F172A', margin: 0 }}>
+                                फिल्टर (Filters)
+                                {activeFilterCount > 0 && <span style={{ background: '#0D9488', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>{activeFilterCount}</span>}
+                                {isOfflineMode && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#FEF2F2', color: '#B91C1C', padding: '4px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: '800' }}>
+                                        <WifiOff size={10} /> Offline
+                                    </span>
+                                )}
+                            </h3>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {activeFilterCount > 0 && (
+                                <button
+                                    onClick={handleClearFilters}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '6px 12px',
+                                        borderRadius: '12px',
+                                        border: '1px solid #FECACA',
+                                        background: '#FEF2F2',
+                                        color: '#DC2626',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <X size={14} /> फ़िल्टर साफ़ करें (Clear)
+                                </button>
                             )}
-                        </h3>
-                        <div style={{ padding: '8px', background: '#F8FAFC', borderRadius: '50%' }}>
-                            {isFilterExpanded ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+                            <div onClick={() => setIsFilterExpanded(!isFilterExpanded)} style={{ padding: '8px', background: '#F8FAFC', borderRadius: '50%', cursor: 'pointer' }}>
+                                {isFilterExpanded ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+                            </div>
                         </div>
                     </div>
 

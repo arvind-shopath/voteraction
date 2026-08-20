@@ -557,7 +557,32 @@ export default function CandidateVotersView() {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const activeFilterCount = Object.values(filters).filter(v => v !== 'All' && v !== false && v !== '' && !String(v).includes('सभी')).length;
+    const handleClearFilters = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setFilters({
+            search: '',
+            booth: isBoothManager && assignedBooth ? assignedBooth.number.toString() : 'सभी बूथ',
+            boothName: 'सभी बूथ नाम',
+            status: 'सभी स्थिति',
+            contactStatus: 'सभी',
+            gender: 'सभी',
+            village: 'सभी गांव',
+            casteCategory: 'सभी वर्ग',
+            caste: 'सभी जाति',
+            subCaste: 'सभी उपजाति',
+            surname: 'सभी उपनाम',
+            familySize: 'सभी परिवार',
+            ageFilter: 'सभी आयु',
+            pannaId: 'सभी पन्ना प्रमुख',
+            isHead: false,
+            isPwD: false,
+            isImportant: false,
+            isVoted: 'All',
+            votedPartyId: '',
+            page: 1,
+            pageSize: 50
+        });
+    };
 
     return (
         <div style={{ paddingBottom: '100px', fontFamily: 'var(--font-geist-sans)', background: '#F1F5F9', minHeight: '100vh', width: '100%', overflowX: 'hidden' }}>
@@ -664,15 +689,39 @@ export default function CandidateVotersView() {
                     position: 'relative',
                     zIndex: 10
                 }}>
-                    <div onClick={() => setIsFilterExpanded(!isFilterExpanded)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', marginBottom: isFilterExpanded ? '16px' : 0 }}>
-                        <h3 style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#0F172A' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isFilterExpanded ? '16px' : 0 }}>
+                        <div onClick={() => setIsFilterExpanded(!isFilterExpanded)} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                             <div style={{ background: '#F0FDFA', padding: '6px', borderRadius: '10px' }}><Filter size={18} color="#0D9488" /></div>
-                            फिल्टर (Filters)
-                            {activeFilterCount > 0 && <span style={{ background: '#0D9488', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>{activeFilterCount}</span>}
-                            {isOfflineMode && <span style={{ color: '#B91C1C', fontSize: '10px' }}>(Offline)</span>}
-                        </h3>
-                        <div style={{ padding: '6px', background: '#F8FAFC', borderRadius: '50%' }}>
-                            {isFilterExpanded ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+                            <h3 style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', color: '#0F172A', margin: 0 }}>
+                                फिल्टर (Filters)
+                                {activeFilterCount > 0 && <span style={{ background: '#0D9488', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '10px' }}>{activeFilterCount}</span>}
+                                {isOfflineMode && <span style={{ color: '#B91C1C', fontSize: '10px' }}>(Offline)</span>}
+                            </h3>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {activeFilterCount > 0 && (
+                                <button
+                                    onClick={handleClearFilters}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '6px 12px',
+                                        borderRadius: '12px',
+                                        border: '1px solid #FECACA',
+                                        background: '#FEF2F2',
+                                        color: '#DC2626',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <X size={14} /> फ़िल्टर साफ़ करें (Clear)
+                                </button>
+                            )}
+                            <div onClick={() => setIsFilterExpanded(!isFilterExpanded)} style={{ padding: '6px', background: '#F8FAFC', borderRadius: '50%', cursor: 'pointer' }}>
+                                {isFilterExpanded ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+                            </div>
                         </div>
                     </div>
 
