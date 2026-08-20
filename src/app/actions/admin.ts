@@ -591,20 +591,36 @@ export async function updateUserName(id: number, name: string, mobile?: string) 
     const session = await auth();
     const currentUser = session?.user as any;
 
-    if (currentUser?.role !== 'SUPERADMIN') {
-        throw new Error("Only Super Admin can update user details.");
+    if (!currentUser || !['SUPERADMIN', 'ADMIN'].includes(currentUser.role)) {
+        throw new Error("Only Super Admin or Admin can update user details.");
     }
 
-    const data: any = { name };
+    const data: any = { name: name.trim() };
     if (mobile) {
-        data.mobile = mobile;
-        data.username = mobile; // syncing username with mobile
+        data.mobile = mobile.trim();
+        data.username = mobile.trim(); // syncing username with mobile
     }
     await prisma.user.update({
         where: { id },
         data
     });
+
+    // CRITICAL: Synchronize Worker table as well so candidate dashboard and worker lists update!
+    const workerData: any = { name: name.trim() };
+    if (mobile) {
+        workerData.mobile = mobile.trim();
+    }
+    await prisma.worker.updateMany({
+        where: { userId: id },
+        data: workerData
+    });
+
     revalidatePath('/admin/users');
+    revalidatePath('/admin/candidates');
+    revalidatePath('/admin/candidates/[id]');
+    revalidatePath('/dashboard');
+    revalidatePath('/workers');
+    revalidatePath('/booths');
 }
 
 export async function updateCandidateProfile(idRaw: any, data: {
