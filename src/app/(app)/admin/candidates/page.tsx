@@ -317,7 +317,7 @@ export default function CandidatesPage() {
                                                         try {
                                                             const currentVal = campaign.allowMasterMobileAccess !== false;
                                                             await updateCampaignMasterMobileAccess(campaign.id, !currentVal);
-                                                            showMsg("सफलता", !currentVal ? "मास्टर मोबाइल डेटा एक्सेस चालू (₹10k Extra Plan)" : "मास्टर मोबाइल डेटा एक्सेस बंद (बेसिक प्लान)");
+                                                            showMsg("सफलता", !currentVal ? "मास्टर मोबाइल डेटा एक्सेस चालू किया गया।" : "मास्टर मोबाइल डेटा एक्सेस बंद किया गया।");
                                                             fetchData();
                                                         } catch (e: any) {
                                                             showMsg("त्रुटि", e.message, "error");
@@ -340,7 +340,7 @@ export default function CandidatesPage() {
                                                     title="क्लिक करके मास्टर मोबाइल नंबर एक्सेस चालू/बंद करें"
                                                 >
                                                     <Phone size={14} />
-                                                    {campaign.allowMasterMobileAccess !== false ? '📱 मास्टर मोबाइल चालू (₹10k Extra)' : '🔒 केवल खुद के नंबर (बेसिक)'}
+                                                    {campaign.allowMasterMobileAccess !== false ? '📱 मास्टर मोबाइल एक्सेस ऑन' : '🔒 केवल खुद के नंबर'}
                                                 </button>
                                             )}
                                         </div>
@@ -531,7 +531,7 @@ function ManageTeamModal({ candidate, campaigns, users, onAssign, onClose }: any
                                 <Phone size={16} /> 📱 मास्टर मोबाइल डेटा (Master Mobile Access)
                             </div>
                             <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600', marginTop: '2px' }}>
-                                {masterMobileAccess ? '✅ प्रत्याशी को सिस्टम के सभी जुटाए गए मोबाइल नंबर दिखेंगे (₹10k Extra Plan)' : '🔒 केवल खुद के कार्यकर्ताओं द्वारा जुटाए गए मोबाइल नंबर दिखेंगे (बेसिक प्लान)'}
+                                {masterMobileAccess ? '✅ प्रत्याशी को सिस्टम के सभी जुटाए गए मोबाइल नंबर दिखेंगे' : '🔒 केवल खुद के कार्यकर्ताओं द्वारा जुटाए गए मोबाइल नंबर दिखेंगे'}
                             </div>
                         </div>
                         <button
