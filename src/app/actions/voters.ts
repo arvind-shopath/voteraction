@@ -195,7 +195,18 @@ export async function getVoters(filters: {
     }
 
     if (filters.eciStatus && filters.eciStatus !== 'सभी') {
-        where.eciStatus = filters.eciStatus;
+        if (filters.eciStatus === 'NEW_REQUEST' || filters.eciStatus === 'NOT_IN_LIST') {
+            where.eciStatus = { in: ['NEW_REQUEST', 'NOT_IN_LIST'] };
+        } else if (filters.eciStatus === 'DELETE_REQUESTED' || filters.eciStatus === 'CORRECTION_REQUIRED') {
+            where.eciStatus = { in: ['DELETE_REQUESTED', 'CORRECTION_REQUIRED'] };
+        } else if (filters.eciStatus === 'RESOLVED') {
+            where.eciStatus = { in: ['RESOLVED_ADDED', 'RESOLVED_DELETED'] };
+        } else {
+            where.eciStatus = filters.eciStatus;
+        }
+    } else {
+        // By default, exclude unapproved new card requests and deleted voters from regular list
+        where.eciStatus = { notIn: ['NEW_REQUEST', 'NOT_IN_LIST', 'RESOLVED_DELETED'] };
     }
 
     if (village && village !== 'सभी गांव') {
@@ -1064,6 +1075,112 @@ export async function updateEciStatus(voterId: number, status: string) {
     revalidatePath('/voters');
     revalidatePath('/eci-updates');
     return { success: true };
+}
+
+export async function requestEciDeletion(voterId: number, reason: string, notes?: string) {
+    const session = await auth();
+    const userName = session?.user?.name || 'कार्यकर्ता';
+
+    const noteText = notes ? `[विलोपन कारण: ${reason}] ${notes}` : `[विलोपन कारण: ${reason}]`;
+
+    await prisma.voter.update({
+        where: { id: voterId },
+        data: {
+            eciStatus: 'DELETE_REQUESTED',
+            notes: noteText,
+            status: 'In-active',
+            updatedByName: userName
+        }
+    });
+
+    revalidatePath('/voters');
+    revalidatePath('/eci-updates');
+    return { success: true, message: 'मतदाता को ECI से हटवाने हेतु सफलतापूर्वक दर्ज किया गया।' };
+}
+
+export async function resolveEciAddition(voterId: number, epic: string, boothNumber?: number) {
+    const session = await auth();
+    const userName = session?.user?.name || 'ECI Team';
+
+    if (!epic || !epic.trim()) {
+        throw new Error("EPIC नंबर अनिवार्य है।");
+    }
+
+    const cleanEpic = epic.trim();
+
+    // Check existing EPIC
+    const existing = await prisma.voter.findUnique({
+        where: { epic: cleanEpic }
+    });
+    if (existing && existing.id !== voterId) {
+        throw new Error(`EPIC ${cleanEpic} पहले से मतदाता "${existing.name}" के पास दर्ज है।`);
+    }
+
+    const updateData: any = {
+        epic: cleanEpic,
+        eciStatus: 'RESOLVED_ADDED',
+        verificationStatus: 'VERIFIED',
+        status: 'Active',
+        updatedByName: `${userName} (कार्ड जारी)`
+    };
+
+    if (boothNumber) {
+        updateData.boothNumber = parseInt(boothNumber.toString());
+    }
+
+    await prisma.voter.update({
+        where: { id: voterId },
+        data: updateData
+    });
+
+    revalidatePath('/voters');
+    revalidatePath('/eci-updates');
+    return { success: true, message: 'कार्ड बन गया! मतदाता को सक्रिय मतदाता सूची में सफलतापूर्वक जोड़ दिया गया।' };
+}
+
+export async function resolveEciDeletion(voterId: number) {
+    const session = await auth();
+    const userName = session?.user?.name || 'ECI Team';
+
+    await prisma.voter.update({
+        where: { id: voterId },
+        data: {
+            eciStatus: 'RESOLVED_DELETED',
+            status: 'Dead',
+            updatedByName: `${userName} (नाम हटाया गया)`
+        }
+    });
+
+    revalidatePath('/voters');
+    revalidatePath('/eci-updates');
+    return { success: true, message: 'मतदाता का नाम ECI से सफलतापूर्वक हटा दिया गया।' };
+}
+
+export async function rejectEciRequest(voterId: number) {
+    const session = await auth();
+    const userName = session?.user?.name || 'ECI Team';
+
+    const voter = await prisma.voter.findUnique({ where: { id: voterId } });
+    if (!voter) throw new Error("Voter not found");
+
+    if (voter.eciStatus === 'NEW_REQUEST' || voter.eciStatus === 'NOT_IN_LIST') {
+        // Delete pending addition request
+        await prisma.voter.delete({ where: { id: voterId } });
+    } else {
+        // Revert deletion request back to active in-list
+        await prisma.voter.update({
+            where: { id: voterId },
+            data: {
+                eciStatus: 'IN_LIST',
+                status: 'Active',
+                updatedByName: `${userName} (अनुरोध अस्वीकृत/सक्रिय)`
+            }
+        });
+    }
+
+    revalidatePath('/voters');
+    revalidatePath('/eci-updates');
+    return { success: true, message: 'अनुरोध निरस्त कर दिया गया।' };
 }
 export async function getAllVotersForExport(assemblyId: number) {
     const session = await auth();

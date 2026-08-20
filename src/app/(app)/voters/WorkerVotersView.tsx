@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Search, Filter, Users, MapPin, Phone, Edit2, Eye, User, Home, ChevronDown, ChevronUp, X, Loader2, Share2, Crown, Activity, Star, Printer, UserPlus, ShieldCheck, UserMinus, AlertTriangle, RefreshCw, CloudDownload, Database, WifiOff, CheckCircle } from 'lucide-react';
-import { getVoters, getFilterOptions, updateVoterFeedback, updateVoter, getVoterWithFamily, updateEciStatus, createVoter, addToFamily, removeFromFamily, searchVotersForFamily } from '@/app/actions/voters';
+import { getVoters, getFilterOptions, updateVoterFeedback, updateVoter, getVoterWithFamily, updateEciStatus, createVoter, addToFamily, removeFromFamily, searchVotersForFamily, requestEciDeletion } from '@/app/actions/voters';
 import { useView } from '@/context/ViewContext';
 import { getWorkerBooth } from '@/app/actions/worker';
 import { saveVotersLocally, getLocalVoters, updateLocalVoter, searchLocalVoters } from '@/lib/voter-store';
@@ -210,11 +210,18 @@ export default function WorkerVotersView() {
 
     // Add Voter State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [addVoterCardType, setAddVoterCardType] = useState<'HAS_CARD' | 'MAKE_CARD'>('MAKE_CARD');
     const [newVoter, setNewVoter] = useState<any>({
         name: '', age: '', gender: 'M', relativeName: '', relationshipType: '',
         mobile: '', epic: '', village: '', boothNumber: '', houseNumber: '', address: '',
         supportStatus: 'Neutral', caste: '', subCaste: ''
     });
+
+    // ECI Deletion Modal State
+    const [deleteEciModalVoter, setDeleteEciModalVoter] = useState<any | null>(null);
+    const [deleteReason, setDeleteReason] = useState('मृत्यु (Deceased)');
+    const [deleteNotes, setDeleteNotes] = useState('');
+    const [isSubmittingEciDelete, setIsSubmittingEciDelete] = useState(false);
 
     const handleUpdateEciStatus = async (voterId: number, status: string) => {
         setIsSaving(true);
@@ -291,11 +298,11 @@ export default function WorkerVotersView() {
     const handleAddVoterSubmit = async () => {
         setIsSaving(true);
         try {
-            // Workers always add with eciStatus: NOT_IN_LIST as per requirement
+            const eciStatusToUse = addVoterCardType === 'MAKE_CARD' ? 'NEW_REQUEST' : 'IN_LIST';
             await createVoter({
                 ...newVoter,
                 assemblyId,
-                eciStatus: 'NOT_IN_LIST',
+                eciStatus: eciStatusToUse,
                 boothNumber: newVoter.boothNumber || assignedBooth?.number || session?.user?.boothNumber
             });
             setIsAddModalOpen(false);
@@ -304,11 +311,15 @@ export default function WorkerVotersView() {
                 mobile: '', epic: '', village: '', boothNumber: '', houseNumber: '', address: '',
                 supportStatus: 'Neutral', caste: '', subCaste: ''
             });
-            alert(lang === 'hi' ? 'नाम जुड़वाने का अनुरोध भेज दिया गया है' : 'Enrolment request sent');
+            if (addVoterCardType === 'MAKE_CARD') {
+                alert('मतदाता कार्ड बनवाने का अनुरोध दर्ज हो गया और ECI में जुड़वाएं सेक्शन में भेज दिया गया!');
+            } else {
+                alert('वोटर सफलतापूर्वक सूची में जोड़ दिया गया!');
+            }
             fetchVoters();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert(error instanceof Error ? error.message : 'Error');
+            alert(error.message || 'त्रुटि हुई');
         } finally {
             setIsSaving(false);
         }
@@ -962,7 +973,16 @@ export default function WorkerVotersView() {
                                     <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0F172A' }}>{viewVoter.name}</h2>
                                     <div style={{ color: '#64748B', fontSize: '14px', fontWeight: '500' }}>EPIC: <span style={{ fontFamily: 'monospace', color: '#4338CA' }}>{viewVoter.epic}</span></div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <button
+                                        onClick={() => {
+                                            setDeleteEciModalVoter(viewVoter);
+                                            setViewVoter(null);
+                                        }}
+                                        style={{ ...glassButtonStyle, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <Trash2 size={16} /> ECI से हटाएं
+                                    </button>
                                     {!isEditing ? (
                                         <button onClick={() => setIsEditing(true)} style={{ ...glassButtonStyle, background: '#4338CA', color: 'white', border: 'none' }}>
                                             <Edit2 size={16} /> एडिट (Edit)
@@ -1215,22 +1235,67 @@ export default function WorkerVotersView() {
                     </div>
                 )
             }
-            {/* ADD VOTER MODAL (ECI MISSING) */}
+            {/* ADD VOTER MODAL (ECI MISSING / NEW VOTER) */}
             {
                 isAddModalOpen && (
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s' }}>
                         <div style={{ background: 'white', width: '90%', maxWidth: '600px', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
                             <div style={{ padding: '24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
-                                <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A' }}>{lang === 'hi' ? 'ECI में नाम जुड़वाएं (Missing)' : 'Add to ECI List'}</h2>
+                                <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A' }}>{lang === 'hi' ? 'नया वोटर / ECI अनुरोध' : 'Add Voter / ECI Request'}</h2>
                                 <button onClick={() => setIsAddModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={20} color="#64748B" /></button>
                             </div>
                             <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ background: '#FFF1F2', padding: '12px', borderRadius: '12px', fontSize: '12px', color: '#E11D48', fontWeight: '600', display: 'flex', gap: '8px' }}>
-                                    <AlertTriangle size={16} /> {lang === 'hi' ? 'सूचना: यह व्यक्ति जो वास्तव में है पर मतदाता सूची में नहीं है' : 'Note: This person is really present but missing in voter list'}
+
+                                {/* Top Toggle Switch */}
+                                <div style={{ display: 'flex', background: '#F1F5F9', padding: '6px', borderRadius: '16px', gap: '6px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAddVoterCardType('HAS_CARD')}
+                                        style={{
+                                            flex: 1,
+                                            padding: '12px 14px',
+                                            borderRadius: '12px',
+                                            border: 'none',
+                                            fontWeight: '800',
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                            background: addVoterCardType === 'HAS_CARD' ? '#0D9488' : 'transparent',
+                                            color: addVoterCardType === 'HAS_CARD' ? 'white' : '#64748B',
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: addVoterCardType === 'HAS_CARD' ? '0 4px 12px rgba(13, 148, 136, 0.25)' : 'none'
+                                        }}
+                                    >
+                                        🪪 मतदाता कार्ड है
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAddVoterCardType('MAKE_CARD')}
+                                        style={{
+                                            flex: 1,
+                                            padding: '12px 14px',
+                                            borderRadius: '12px',
+                                            border: 'none',
+                                            fontWeight: '800',
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                            background: addVoterCardType === 'MAKE_CARD' ? '#2563EB' : 'transparent',
+                                            color: addVoterCardType === 'MAKE_CARD' ? 'white' : '#64748B',
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: addVoterCardType === 'MAKE_CARD' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : 'none'
+                                        }}
+                                    >
+                                        ➕ मतदाता कार्ड बनवाना है
+                                    </button>
                                 </div>
 
+                                {addVoterCardType === 'MAKE_CARD' && (
+                                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '10px 14px', fontSize: '12px', color: '#1E40AF', fontWeight: '700', lineHeight: '1.4' }}>
+                                        ℹ️ यह रिकॉर्ड सीधे <b>निर्वाचन आयोग अपडेट (ECI में जुड़वाएं)</b> में भेजा जाएगा।
+                                    </div>
+                                )}
+
                                 <div>
-                                    <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>{lang === 'hi' ? 'मतदाता का नाम' : 'Voter Name'}</label>
+                                    <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>{lang === 'hi' ? 'मतदाता का नाम' : 'Voter Name'} <span style={{ color: '#DC2626' }}>*</span></label>
                                     <input style={inputStyle} placeholder={lang === 'hi' ? 'नाम लिखें...' : 'Type name...'} value={newVoter.name} onChange={(e) => setNewVoter({ ...newVoter, name: e.target.value })} />
                                 </div>
                                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -1249,7 +1314,7 @@ export default function WorkerVotersView() {
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                     <div>
-                                        <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>{lang === 'hi' ? 'रिश्ता' : 'Relation'}</label>
+                                        <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>{lang === 'hi' ? 'रिश्ता' : 'Relation'} <span style={{ color: '#DC2626' }}>*</span></label>
                                         <select style={inputStyle} value={newVoter.relationshipType} onChange={(e) => setNewVoter({ ...newVoter, relationshipType: e.target.value })}>
                                             <option value="">{lang === 'hi' ? '--चुनें--' : '--Select--'}</option>
                                             <option value="Father">{lang === 'hi' ? 'पिता (Father)' : 'Father'}</option>
@@ -1268,10 +1333,19 @@ export default function WorkerVotersView() {
                                         <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>{lang === 'hi' ? 'मोबाइल नंबर' : 'Mobile Number'}</label>
                                         <input style={inputStyle} placeholder="9911..." value={newVoter.mobile} onChange={(e) => setNewVoter({ ...newVoter, mobile: e.target.value })} />
                                     </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>{lang === 'hi' ? 'EPIC (वोटर आईडी)' : 'EPIC (Voter ID)'}</label>
-                                        <input style={inputStyle} placeholder="---N/A---" value={newVoter.epic} onChange={(e) => setNewVoter({ ...newVoter, epic: e.target.value })} />
-                                    </div>
+                                    {addVoterCardType === 'HAS_CARD' ? (
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', display: 'block' }}>{lang === 'hi' ? 'EPIC (वोटर आईडी)' : 'EPIC (Voter ID)'}</label>
+                                            <input style={inputStyle} placeholder="XYZ123..." value={newVoter.epic} onChange={(e) => setNewVoter({ ...newVoter, epic: e.target.value })} />
+                                        </div>
+                                    ) : (
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '13px', fontWeight: '700', color: '#94A3B8', marginBottom: '8px', display: 'block' }}>EPIC (वोटर आईडी)</label>
+                                            <div style={{ padding: '10px 14px', background: '#F8FAFC', border: '1px dashed #CBD5E1', borderRadius: '12px', fontSize: '12px', color: '#64748B', fontWeight: '600' }}>
+                                                कार्ड बनने के बाद ECI द्वारा जारी होगा
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -1366,8 +1440,93 @@ export default function WorkerVotersView() {
                                 <button
                                     disabled={isSaving}
                                     onClick={handleAddVoterSubmit}
-                                    style={{ background: '#0D9488', color: 'white', padding: '16px', borderRadius: '16px', border: 'none', fontWeight: '800', cursor: 'pointer', marginTop: '12px' }}>
-                                    {isSaving ? (lang === 'hi' ? 'प्रक्रिया जारी है...' : 'Processing...') : (lang === 'hi' ? 'जुड़वाने के लिए भेजें (Send for Enrollment)' : 'Send for Enrollment')}
+                                    style={{ background: addVoterCardType === 'MAKE_CARD' ? '#2563EB' : '#0D9488', color: 'white', padding: '16px', borderRadius: '16px', border: 'none', fontWeight: '800', cursor: 'pointer', marginTop: '12px' }}>
+                                    {isSaving ? (lang === 'hi' ? 'प्रक्रिया जारी है...' : 'Processing...') : (addVoterCardType === 'MAKE_CARD' ? '➕ ECI जुड़वाने हेतु अनुरोध भेजें' : (lang === 'hi' ? 'वोटर सुरक्षित करें' : 'Save Voter'))}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ECI DELETION MODAL */}
+            {
+                deleteEciModalVoter && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                        <div style={{ background: 'white', width: '100%', maxWidth: '480px', borderRadius: '24px', padding: '28px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#DC2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Trash2 size={20} /> ECI से नाम हटवाएं
+                                    </h3>
+                                    <p style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                                        {deleteEciModalVoter.name} (EPIC: {deleteEciModalVoter.epic || '-'})
+                                    </p>
+                                </div>
+                                <button onClick={() => setDeleteEciModalVoter(null)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer' }}><X size={18} /></button>
+                            </div>
+
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                                    विलोपन का कारण चुनें <span style={{ color: '#DC2626' }}>*</span>
+                                </label>
+                                <select
+                                    value={deleteReason}
+                                    onChange={e => setDeleteReason(e.target.value)}
+                                    style={{ ...inputStyle, width: '100%', padding: '12px', fontWeight: '700' }}
+                                >
+                                    <option value="मृत्यु (Deceased)">💀 मृत्यु (Deceased)</option>
+                                    <option value="स्थान परिवर्तन (Shifted / Moved)">🚚 स्थान परिवर्तन (Shifted / Moved)</option>
+                                    <option value="दोहरा या फर्जी मतदाता (Duplicate / Fake)">👥 दोहरा या फर्जी मतदाता (Duplicate / Fake)</option>
+                                    <option value="वास्तविक मतदाता नहीं (Not Real Voter)">❓ वास्तविक मतदाता नहीं (Not Real Voter)</option>
+                                    <option value="अन्य (Other)">📝 अन्य (Other)</option>
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
+                                    विवरण / टिप्पणी (वैकल्पिक)
+                                </label>
+                                <textarea
+                                    placeholder="उदा. 2 वर्ष पूर्व निधन हो चुका है..."
+                                    value={deleteNotes}
+                                    onChange={e => setDeleteNotes(e.target.value)}
+                                    style={{ ...inputStyle, width: '100%', padding: '12px', height: '70px', resize: 'none' }}
+                                />
+                            </div>
+
+                            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: '12px', borderRadius: '12px', marginBottom: '20px', fontSize: '12px', color: '#991B1B' }}>
+                                ⚠️ यह अनुरोध सीधे <b>निर्वाचन आयोग अपडेट (ECI से हटवाएं)</b> सेक्शन में भेज दिया जाएगा।
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleteEciModalVoter(null)}
+                                    style={{ flex: 1, padding: '12px', border: '1px solid #CBD5E1', background: 'white', borderRadius: '12px', fontWeight: '700', color: '#64748B', cursor: 'pointer' }}
+                                >
+                                    कैंसिल
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isSubmittingEciDelete}
+                                    onClick={async () => {
+                                        setIsSubmittingEciDelete(true);
+                                        try {
+                                            const res = await requestEciDeletion(deleteEciModalVoter.id, deleteReason, deleteNotes);
+                                            alert(res.message || 'सफलतापूर्वक ECI से हटवाने हेतु दर्ज किया गया!');
+                                            setDeleteEciModalVoter(null);
+                                            setDeleteNotes('');
+                                            fetchVoters();
+                                        } catch (e: any) {
+                                            alert(e.message || 'त्रुटि हुई।');
+                                        } finally {
+                                            setIsSubmittingEciDelete(false);
+                                        }
+                                    }}
+                                    style={{ flex: 2, padding: '12px', background: '#DC2626', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                >
+                                    {isSubmittingEciDelete ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />} ECI से हटाने का अनुरोध भेजें
                                 </button>
                             </div>
                         </div>
