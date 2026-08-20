@@ -26,7 +26,7 @@ export default function LandingPage() {
       const user = session?.user as any;
       if (user?.role === "ADMIN" || user?.role === "SUPERADMIN") {
         router.push("/admin");
-      } else if (user?.status === "Active") {
+      } else if (user?.status?.toLowerCase() === "active") {
         router.push("/dashboard");
       } else {
         router.push("/pending");

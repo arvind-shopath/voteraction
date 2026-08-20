@@ -31,20 +31,21 @@ export default auth((req) => {
             return NextResponse.redirect(new URL("/", nextUrl));
         }
 
-        const userStatus = (req.auth?.user as any)?.status;
+        // SUPERADMIN and ADMIN users bypass pending checks completely
+        if (userRole !== "SUPERADMIN" && userRole !== "ADMIN") {
+            const userStatus = (req.auth?.user as any)?.status;
 
-        // If not active, redirect to pending page
-        if (userStatus?.toLowerCase() !== "active") {
-            const res = NextResponse.redirect(new URL("/pending", nextUrl));
-            return res;
+            // If not active, redirect to pending page
+            if (userStatus?.toLowerCase() !== "active") {
+                return NextResponse.redirect(new URL("/pending", nextUrl));
+            }
+
+            // If active but no assembly assigned, redirect to pending-assembly
+            if (!(req.auth?.user as any)?.assemblyId) {
+                return NextResponse.redirect(new URL("/pending-assembly", nextUrl));
+            }
         }
 
-
-        // If active but no assembly assigned, still pending assembly
-        if (!userRole || (userRole !== "ADMIN" && userRole !== "SUPERADMIN" && !(req.auth?.user as any)?.assemblyId)) {
-            const res = NextResponse.redirect(new URL("/pending-assembly", nextUrl));
-            return res;
-        }
     }
 
     return NextResponse.next({
