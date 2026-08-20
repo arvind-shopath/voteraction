@@ -342,28 +342,76 @@ export async function assignVotersToWorker(workerId: number, voterIds: number[])
     revalidatePath('/workers');
 }
 
-export async function autoAssignVotersByCount(workerId: number, count: number, assemblyId: number, boothNumber: number) {
+export async function autoAssignVotersByCount(workerId: number, targetCount: number, assemblyId: number, boothNumber: number) {
+    // 1. Fetch unassigned voters ordered by address/serial
     const unassigned = await prisma.voter.findMany({
         where: {
-            assemblyId,
-            boothNumber,
+            assemblyId: parseInt(assemblyId.toString()),
+            boothNumber: parseInt(boothNumber.toString()),
             pannaPramukhId: null
         },
-        take: count,
-        orderBy: { id: 'asc' }
+        orderBy: [
+            { village: 'asc' },
+            { houseNumber: 'asc' },
+            { id: 'asc' }
+        ]
     });
 
-    const voterIds = unassigned.map((v: any) => v.id);
+    if (unassigned.length === 0) {
+        return { success: false, message: 'इस बूथ में कोई अनअसाइन मतदाता उपलब्ध नहीं है।', count: 0, familiesCount: 0 };
+    }
 
-    if (voterIds.length > 0) {
+    // 2. Group into atomic households (Families by village + houseNumber)
+    const householdMap = new Map<string, typeof unassigned>();
+    for (const v of unassigned) {
+        const key = `${v.village || ''}_${v.houseNumber || v.familyId || ('solo_' + v.id)}`;
+        if (!householdMap.has(key)) {
+            householdMap.set(key, []);
+        }
+        householdMap.get(key)!.push(v);
+    }
+
+    // 3. Accumulate full families sequentially until ~targetCount is reached
+    const selectedVoterIds: number[] = [];
+    let familiesCount = 0;
+    const houseNumbersSet = new Set<string>();
+
+    for (const [, familyMembers] of householdMap.entries()) {
+        // If we have already reached or exceeded targetCount with full families, stop
+        if (selectedVoterIds.length >= targetCount) {
+            break;
+        }
+
+        // Add the entire family (atomic - never break a family)
+        for (const m of familyMembers) {
+            selectedVoterIds.push(m.id);
+            if (m.houseNumber) houseNumbersSet.add(m.houseNumber);
+        }
+        familiesCount++;
+    }
+
+    if (selectedVoterIds.length > 0) {
         await prisma.voter.updateMany({
-            where: { id: { in: voterIds } },
-            data: { pannaPramukhId: workerId }
+            where: { id: { in: selectedVoterIds } },
+            data: { pannaPramukhId: parseInt(workerId.toString()) }
         });
     }
 
     revalidatePath('/workers');
-    return { success: true, count: voterIds.length };
+    revalidatePath('/voters');
+
+    const houseList = Array.from(houseNumbersSet);
+    const houseRange = houseList.length > 1 
+        ? `मकान नं. ${houseList[0]} से ${houseList[houseList.length - 1]}` 
+        : houseList.length === 1 ? `मकान नं. ${houseList[0]}` : '';
+
+    return { 
+        success: true, 
+        count: selectedVoterIds.length, 
+        familiesCount,
+        houseRange,
+        message: `${familiesCount} परिवारों के कुल ${selectedVoterIds.length} मतदाता (${houseRange}) सफलतापूर्वक असाइन किए गए।`
+    };
 }
 
 export async function getWorkerAssignedVoters(workerId: number) {

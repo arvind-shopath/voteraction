@@ -209,7 +209,11 @@ export default function WorkersPage() {
         setLoading(false);
         setShowAssignVoters(null);
         fetchData();
-        alert(`${res.count} वोटर सफलतापूर्वक असाइन किए गए।`);
+        if (res.success) {
+            alert(res.message);
+        } else {
+            alert(res.message || 'कोई अनअसाइन वोटर नहीं मिला।');
+        }
     };
 
     const handleViewVoters = async (worker: any) => {
@@ -691,24 +695,26 @@ export default function WorkersPage() {
                     <div className="card" style={{ background: 'white', width: '100%', maxWidth: '600px', padding: '32px', borderRadius: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <div>
-                                <h2 style={{ fontSize: '20px', fontWeight: '900' }}>वोटर असाइनमेंट</h2>
+                                <h2 style={{ fontSize: '20px', fontWeight: '900' }}>परिवारवार वोटर असाइनमेंट</h2>
                                 <p style={{ fontSize: '13px', color: '#64748B' }}>{showAssignVoters.name} (बूथ {showAssignVoters.booth.number})</p>
                             </div>
                             <button onClick={() => setShowAssignVoters(null)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', padding: '6px' }}><X size={20} /></button>
                         </div>
 
                         {/* Quick Preference Buttons */}
-                        <div style={{ marginBottom: '24px', padding: '16px', background: '#F0F9FF', borderRadius: '16px', border: '1px solid #BAE6FD' }}>
-                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#0369A1', marginBottom: '12px' }}>कितने वोटर असाइन करना चाहते हैं? (Preference)</label>
+                        <div style={{ marginBottom: '24px', padding: '16px', background: '#F0FDF4', borderRadius: '16px', border: '1px solid #BBF7D0' }}>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#166534', marginBottom: '12px' }}>मकान क्रम से परिवार असाइन करें (Family-Atomic Assignment)</label>
                             <div style={{ display: 'flex', gap: '12px' }}>
-                                <button onClick={() => handleAutoAssign(50)} style={{ flex: 1, padding: '12px', background: 'white', border: '1px solid #7DD3FC', borderRadius: '12px', color: '#0369A1', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                    <Zap size={16} /> 50 वोटर
+                                <button onClick={() => handleAutoAssign(50)} style={{ flex: 1, padding: '12px', background: 'white', border: '1px solid #86EFAC', borderRadius: '12px', color: '#15803D', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <Zap size={16} /> ~50 वोटर (मकानवार)
                                 </button>
-                                <button onClick={() => handleAutoAssign(100)} style={{ flex: 1, padding: '12px', background: 'white', border: '1px solid #7DD3FC', borderRadius: '12px', color: '#0369A1', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                    <Zap size={16} /> 100 वोटर
+                                <button onClick={() => handleAutoAssign(100)} style={{ flex: 1, padding: '12px', background: 'white', border: '1px solid #86EFAC', borderRadius: '12px', color: '#15803D', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <Zap size={16} /> ~100 वोटर (मकानवार)
                                 </button>
                             </div>
-                            <p style={{ fontSize: '11px', color: '#64748B', marginTop: '10px' }}>*यह उस बूथ के अनमैप मतदाताओं में से क्रमवार असाइन करेगा।</p>
+                            <p style={{ fontSize: '11px', color: '#475569', marginTop: '10px', lineHeight: '1.5' }}>
+                                💡 <b>नियम:</b> एड्रेस/मकान संख्या के क्रम में पूरे-पूरे परिवार असाइन होंगे ताकि किसी भी परिवार के सदस्य अलग-अलग पन्ना प्रमुखों में न बंटें (उदा. 92 के बाद अगला मकान 8 सदस्यों का होने पर कुल 100 मतदाता पूरे परिवार सहित असाइन होंगे)।
+                            </p>
                         </div>
 
                         <div style={{ marginBottom: '16px' }}>
@@ -725,8 +731,8 @@ export default function WorkersPage() {
                                             }}
                                         />
                                         <div style={{ fontSize: '13px' }}>
-                                            <div style={{ fontWeight: '700' }}>{v.name}</div>
-                                            <div style={{ fontSize: '11px', color: '#64748B' }}>{v.gender}, {v.age} | EPIC: {v.epic}</div>
+                                            <div style={{ fontWeight: '700' }}>{v.name} {v.houseNumber ? <span style={{ color: '#2563EB', fontSize: '11px', fontWeight: '800' }}>(मकान: {v.houseNumber})</span> : ''}</div>
+                                            <div style={{ fontSize: '11px', color: '#64748B' }}>{v.gender === 'M' ? 'पुरुष' : 'महिला'}, {v.age} वर्ष | EPIC: {v.epic || 'N/A'}</div>
                                         </div>
                                     </div>
                                 ))}
