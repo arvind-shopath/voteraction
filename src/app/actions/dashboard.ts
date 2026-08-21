@@ -323,6 +323,9 @@ export async function getBoothDashboardStats(userId: number, assemblyId?: number
 async function getStatsForBooth(booth: any, assemblyId: number, workerId: number | null) {
     const boothId = booth.id;
     const boothNumber = booth.number;
+    const now = new Date();
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
 
     // 1. Calculate Real-time Sentiment for this booth
     const boothVoters = await prisma.voter.findMany({
@@ -335,33 +338,97 @@ async function getStatsForBooth(booth: any, assemblyId: number, workerId: number
     const casteCounts: Record<string, number> = {};
 
     boothVoters.forEach((v: any) => {
-        // Sentiment
         const st = v.supportStatus || 'Neutral';
         if (st === 'Support') sentiment.support++;
         else if (st === 'Oppose') sentiment.oppose++;
         else sentiment.neutral++;
 
-        // Age
         if (!v.age) ageGroups['Unknown']++;
         else if (v.age <= 25) ageGroups['18-25']++;
         else if (v.age <= 45) ageGroups['26-45']++;
         else if (v.age <= 60) ageGroups['46-60']++;
         else ageGroups['60+']++;
 
-        // Caste
         const c = v.caste || 'अन्य / अज्ञात';
         casteCounts[c] = (casteCounts[c] || 0) + 1;
     });
 
-    // 2. Count Panna Pramukhs in this booth
-    const pannaPramukhs = await prisma.worker.count({
-        where: { boothId, type: 'PANNA_PRAMUKH' }
-    });
+    // 2. Count Panna Pramukhs & Workers in this booth
+    const pannaPramukhsList = await prisma.worker.findMany({
+        where: { boothId, type: 'PANNA_PRAMUKH' },
+        select: { id: true, name: true, mobile: true, points: true, lastActiveAt: true }
+    }).catch(() => []);
+    const pannaPramukhs = pannaPramukhsList.length;
 
-    // 3. Pending Tasks for this booth manger
-    const taskCount = workerId ? await prisma.task.count({
+    // 3. Household stats for this booth
+    const totalHouseholds = await prisma.household.count({ where: { assemblyId, boothNumber } }).catch(() => 0);
+    const visitedHouseholds = await prisma.householdVisit.groupBy({
+        by: ['householdId'],
+        where: { household: { assemblyId, boothNumber } }
+    }).catch(() => []);
+    const visitedCount = visitedHouseholds.length;
+    const pendingHouseholds = Math.max(0, totalHouseholds - visitedCount);
+    const revisitHouseholds = await prisma.householdVisit.count({
+        where: { household: { assemblyId, boothNumber }, status: 'Revisit_Required' }
+    }).catch(() => 0);
+
+    // 4. Today's visits in this booth
+    const todayVisits = await prisma.householdVisit.count({
+        where: { household: { assemblyId, boothNumber }, createdAt: { gte: todayStart, lte: todayEnd } }
+    }).catch(() => 0);
+
+    // 5. Tasks for this booth / booth manager
+    const completedTasks = workerId ? await prisma.task.count({
         where: { workerId: workerId, status: 'Completed' }
-    }) : 0;
+    }).catch(() => 0) : 0;
+    const pendingTasksCount = workerId ? await prisma.task.count({
+        where: { workerId: workerId, status: { in: ['Pending', 'In_Progress'] } }
+    }).catch(() => 0) : 0;
+    const overdueTasks = workerId ? await prisma.task.count({
+        where: { workerId: workerId, status: { notIn: ['Completed'] }, dueDate: { lt: now } }
+    }).catch(() => 0) : 0;
+
+    // 6. Issues in this booth
+    const criticalIssues = await prisma.issue.count({
+        where: { assemblyId, boothNumber, priority: 'Critical', status: { notIn: ['Resolved', 'Closed'] } }
+    }).catch(() => 0);
+    const totalOpenIssues = await prisma.issue.count({
+        where: { assemblyId, boothNumber, status: { notIn: ['Resolved', 'Closed'] } }
+    }).catch(() => 0);
+    const topIssues = await prisma.issue.findMany({
+        where: { assemblyId, boothNumber, status: { notIn: ['Resolved', 'Closed'] } },
+        orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
+        take: 3,
+        select: { id: true, title: true, priority: true, boothNumber: true }
+    }).catch(() => []);
+
+    // 7. Upcoming Events
+    const upcomingEvents = await prisma.event.findMany({
+        where: { assemblyId, date: { gte: now } },
+        orderBy: { date: 'asc' },
+        take: 3,
+        select: { id: true, title: true, date: true, location: true, type: true, expectedAttendance: true }
+    }).catch(() => []);
+
+    const todayEventsCount = await prisma.event.count({
+        where: { assemblyId, date: { gte: todayStart, lte: todayEnd } }
+    }).catch(() => 0);
+
+    // 8. Booth Election Readiness Score
+    const hhCoverage = totalHouseholds > 0 ? Math.round((visitedCount / totalHouseholds) * 100) : null;
+    const pannaReady = pannaPramukhs >= 5 ? 100 : Math.round((pannaPramukhs / 5) * 100);
+    const taskReady = (completedTasks + pendingTasksCount) > 0 ? Math.round((completedTasks / (completedTasks + pendingTasksCount)) * 100) : 100;
+    const readinessComponents = [
+        { label: 'Household Coverage', weight: 35, score: hhCoverage, icon: '🏠' },
+        { label: 'Door-to-Door Visits', weight: 25, score: hhCoverage, icon: '🚪' },
+        { label: 'Panna Pramukhs', weight: 20, score: pannaReady, icon: '📋' },
+        { label: 'Task Completion', weight: 20, score: taskReady, icon: '✅' },
+    ];
+    const availableComponents = readinessComponents.filter(c => c.score !== null);
+    const totalWeight = availableComponents.reduce((s, c) => s + c.weight, 0);
+    const weightedScore = totalWeight > 0
+        ? Math.round(availableComponents.reduce((s, c) => s + (c.score! * c.weight), 0) / totalWeight)
+        : null;
 
     let workerObj = null;
     if (workerId) {
@@ -402,14 +469,32 @@ async function getStatsForBooth(booth: any, assemblyId: number, workerId: number
         stats: {
             voters: boothVoters.length,
             pannaPramukhs,
-            tasks: taskCount
+            tasks: completedTasks
+        },
+        householdStats: {
+            total: totalHouseholds,
+            visited: visitedCount,
+            pending: pendingHouseholds,
+            revisit: revisitHouseholds
+        },
+        todayVisits,
+        todayEventsCount,
+        pendingTasksCount,
+        overdueTasks,
+        criticalIssues,
+        totalOpenIssues,
+        topIssues,
+        upcomingEvents,
+        pannaPramukhsList,
+        electionReadiness: {
+            score: weightedScore,
+            components: readinessComponents
         },
         realTimeAnalytics: {
             sentiment,
             age: Object.entries(ageGroups).map(([range, count]) => ({ range, count })),
             caste: Object.entries(casteCounts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
         },
-        // Admin overrides/Manual data
         historicalResults: booth.historicalResults,
         casteEquation: booth.casteEquation
     };
@@ -528,6 +613,72 @@ export async function getPannaDashboardStats(userId: number, assemblyId?: number
         select: { name: true, mobile: true, image: true }
     });
 
+    const now = new Date();
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+    // Household Stats for Panna Pramukh
+    const assignedHouseholdsCount = await prisma.household.count({
+        where: { assignedWorkerId: worker.id }
+    }).catch(() => 0);
+    const visitedHouseholds = await prisma.householdVisit.groupBy({
+        by: ['householdId'],
+        where: { workerId: worker.id }
+    }).catch(() => []);
+    const visitedCount = visitedHouseholds.length;
+    const totalHouseholds = assignedHouseholdsCount > 0 ? assignedHouseholdsCount : Math.ceil(voters.length / 3);
+    const pendingHouseholds = Math.max(0, totalHouseholds - visitedCount);
+    const revisitHouseholds = await prisma.householdVisit.count({
+        where: { workerId: worker.id, status: 'Revisit_Required' }
+    }).catch(() => 0);
+
+    const todayVisits = await prisma.householdVisit.count({
+        where: { workerId: worker.id, createdAt: { gte: todayStart, lte: todayEnd } }
+    }).catch(() => 0);
+
+    const completedTasks = await prisma.task.count({ where: { workerId: worker.id, status: 'Completed' } }).catch(() => 0);
+    const pendingTasksCount = await prisma.task.count({ where: { workerId: worker.id, status: { in: ['Pending', 'In_Progress'] } } }).catch(() => 0);
+    const overdueTasks = await prisma.task.count({ where: { workerId: worker.id, status: { notIn: ['Completed'] }, dueDate: { lt: now } } }).catch(() => 0);
+
+    const upcomingEvents = workerAssemblyId ? await prisma.event.findMany({
+        where: { assemblyId: workerAssemblyId, date: { gte: now } },
+        orderBy: { date: 'asc' },
+        take: 3,
+        select: { id: true, title: true, date: true, location: true, type: true, expectedAttendance: true }
+    }).catch(() => []) : [];
+
+    const todayEventsCount = workerAssemblyId ? await prisma.event.count({
+        where: { assemblyId: workerAssemblyId, date: { gte: todayStart, lte: todayEnd } }
+    }).catch(() => 0) : 0;
+
+    const criticalIssues = workerAssemblyId ? await prisma.issue.count({
+        where: { assemblyId: workerAssemblyId, boothNumber: booth?.number, priority: 'Critical', status: { notIn: ['Resolved', 'Closed'] } }
+    }).catch(() => 0) : 0;
+    const totalOpenIssues = workerAssemblyId ? await prisma.issue.count({
+        where: { assemblyId: workerAssemblyId, boothNumber: booth?.number, status: { notIn: ['Resolved', 'Closed'] } }
+    }).catch(() => 0) : 0;
+    const topIssues = workerAssemblyId ? await prisma.issue.findMany({
+        where: { assemblyId: workerAssemblyId, boothNumber: booth?.number, status: { notIn: ['Resolved', 'Closed'] } },
+        orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
+        take: 3,
+        select: { id: true, title: true, priority: true, boothNumber: true }
+    }).catch(() => []) : [];
+
+    // Panna Readiness Score
+    const voterCoverage = voters.length > 0 ? Math.round((voters.filter((v: any) => v.supportStatus !== 'Neutral').length / voters.length) * 100) : 0;
+    const hhCoverage = totalHouseholds > 0 ? Math.round((visitedCount / totalHouseholds) * 100) : null;
+    const taskReady = (completedTasks + pendingTasksCount) > 0 ? Math.round((completedTasks / (completedTasks + pendingTasksCount)) * 100) : 100;
+    const readinessComponents = [
+        { label: 'Voter Contact', weight: 40, score: voterCoverage, icon: '👥' },
+        { label: 'Household Visits', weight: 35, score: hhCoverage, icon: '🚪' },
+        { label: 'Task Completion', weight: 25, score: taskReady, icon: '✅' },
+    ];
+    const availableComponents = readinessComponents.filter(c => c.score !== null);
+    const totalWeight = availableComponents.reduce((s, c) => s + c.weight, 0);
+    const weightedScore = totalWeight > 0
+        ? Math.round(availableComponents.reduce((s, c) => s + (c.score! * c.weight), 0) / totalWeight)
+        : null;
+
     return {
         worker: {
             ...worker,
@@ -539,9 +690,27 @@ export async function getPannaDashboardStats(userId: number, assemblyId?: number
         assembly,
         stats: {
             totalVoters: voters.length,
-            completedTasks: await prisma.task.count({ where: { workerId: worker.id, status: 'Completed' } }),
-            pendingTasks: await prisma.task.count({ where: { workerId: worker.id, status: 'Pending' } }),
-            coverage: voters.length > 0 ? Math.round((voters.filter((v: any) => v.supportStatus !== 'Neutral').length / voters.length) * 100) : 0
+            completedTasks,
+            pendingTasks: pendingTasksCount,
+            coverage: voterCoverage
+        },
+        householdStats: {
+            total: totalHouseholds,
+            visited: visitedCount,
+            pending: pendingHouseholds,
+            revisit: revisitHouseholds
+        },
+        todayVisits,
+        todayEventsCount,
+        pendingTasksCount,
+        overdueTasks,
+        criticalIssues,
+        totalOpenIssues,
+        topIssues,
+        upcomingEvents,
+        electionReadiness: {
+            score: weightedScore,
+            components: readinessComponents
         },
         analytics: {
             sentiment,
