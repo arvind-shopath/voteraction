@@ -62,17 +62,23 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
         // Core Admin View (Switching to other views via Header View Switcher)
         if (role === 'SUPERADMIN' || role === 'ADMIN') {
             return [
+                // 📊 Overview
                 { name: lang === 'hi' ? 'कंट्रोल हाउस' : 'Control House', path: '/admin', icon: Activity },
                 { name: lang === 'hi' ? 'कैंपेन प्रोग्रेस' : 'Campaign Progress', path: '/campaign-progress', icon: TrendingUp },
+                // 🗂️ Electoral Data
+                { name: lang === 'hi' ? 'मतदाता मास्टर डेटा' : 'Voter Master Data', path: '/admin/voters', icon: Vote },
+                { name: lang === 'hi' ? 'हाउसहोल्ड व नक्शा' : 'Household Map', path: '/households', icon: Compass },
+                { name: lang === 'hi' ? 'निर्वाचन आयोग अपडेट' : 'ECI Updates', path: '/eci-updates', icon: ShieldCheck },
+                // 🏛️ Administration
                 { name: lang === 'hi' ? 'प्रत्याशी और टीमें' : 'Candidates & Teams', path: '/admin/candidates', icon: Star },
                 { name: lang === 'hi' ? 'यूजर मास्टर' : 'User Master', path: '/admin/users', icon: Users },
                 { name: lang === 'hi' ? 'विधानसभा प्रबंधन' : 'Assembly Management', path: '/admin/assemblies', icon: Tent },
                 { name: lang === 'hi' ? 'पार्टी प्रबंधन' : 'Party Management', path: '/admin/parties', icon: Flag },
-                { name: lang === 'hi' ? 'मतदाता मास्टर डेटा' : 'Voter Master Data', path: '/admin/voters', icon: Vote },
-                { name: lang === 'hi' ? 'हाउसहोल्ड व नक्शा' : 'Household Map', path: '/households', icon: Compass },
+                // 📅 Field & Events
                 { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
-                { name: lang === 'hi' ? 'निर्वाचन आयोग अपडेट' : 'ECI Updates', path: '/eci-updates', icon: ShieldCheck },
+                // ⚡ Live
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
+                // ⚙️ System
                 { name: lang === 'hi' ? 'सिस्टम लॉग्स' : 'System Logs', path: '/admin/logs', icon: Activity },
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
@@ -80,18 +86,25 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
 
         if (role === 'CANDIDATE') {
             return [
+                // 📊 Overview
                 { name: lang === 'hi' ? 'प्रत्याशी डैशबोर्ड' : 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
                 { name: lang === 'hi' ? 'कैंपेन प्रोग्रेस' : 'Campaign Progress', path: '/campaign-progress', icon: TrendingUp },
+                // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Vote },
                 { name: lang === 'hi' ? 'हाउसहोल्ड व नक्शा' : 'Household Map', path: '/households', icon: Compass },
-                { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
                 { name: lang === 'hi' ? 'निर्वाचन आयोग अपडेट' : 'ECI Updates', path: '/eci-updates', icon: ShieldCheck },
+                // 🏛️ Booth & Team
                 { name: lang === 'hi' ? 'बूथ प्रबंधन' : 'Booth Management', path: '/booths', icon: Tent },
                 { name: lang === 'hi' ? 'कार्यकर्ता और टीम' : 'Workers & Team', path: '/workers', icon: Users },
+                // 📋 Task & Issues
                 { name: lang === 'hi' ? 'कार्य प्रबंधन' : 'Task Management', path: '/tasks', icon: ListTodo },
                 { name: lang === 'hi' ? 'समस्याएं' : 'Issues', path: '/issues', icon: AlertTriangle },
+                // 📅 Field & Events
+                { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
                 { name: lang === 'hi' ? 'जनसंपर्क' : 'Public Relations', path: '/jansampark', icon: Handshake },
+                // ⚡ Live
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
+                // ⚙️ Settings
                 { name: lang === 'hi' ? 'सेटिंग्स और ब्रांडिंग' : 'Settings & Branding', path: '/settings', icon: Settings },
             ];
         }
@@ -99,15 +112,22 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
         // BOOTH MANAGER (Worker with type BOOTH_MANAGER)
         if (role === 'WORKER' && workerType === 'BOOTH_MANAGER') {
             return [
+                // 📊 Overview
                 { name: lang === 'hi' ? 'बूथ डैशबोर्ड' : 'Booth Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'My Booth Voters', path: '/voters', icon: Vote },
                 { name: lang === 'hi' ? 'हाउसहोल्ड मैपिंग' : 'Household Mapping', path: '/households', icon: Compass },
-                { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
-                { name: lang === 'hi' ? 'जनसंपर्क' : 'Public Relations', path: '/jansampark', icon: Handshake },
+                // 🏛️ Team
                 { name: lang === 'hi' ? 'बूथ कार्यकर्ता' : 'Booth Workers', path: '/workers', icon: Users },
+                // 📋 Tasks & Issues
                 { name: lang === 'hi' ? 'मेरे कार्य' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
                 { name: lang === 'hi' ? 'समस्या रिपोर्ट' : 'Report Issue', path: '/issues', icon: AlertTriangle },
+                // 📅 Field & Events
+                { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
+                { name: lang === 'hi' ? 'जनसंपर्क' : 'Public Relations', path: '/jansampark', icon: Handshake },
+                // ⚡ Live
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
+                // ⚙️ Settings
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
@@ -115,15 +135,21 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
         // PANNA PRAMUKH (Worker with type PANNA_PRAMUKH)
         if (role === 'WORKER' && workerType === 'PANNA_PRAMUKH') {
             return [
+                // 📊 Overview
                 { name: lang === 'hi' ? 'पन्ना डैशबोर्ड' : 'Page Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'आपका पन्ना' : 'Your Panna', path: '/voters?filter=my-panna', icon: BookOpen },
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Booth Voters', path: '/voters', icon: Users },
                 { name: lang === 'hi' ? 'हाउसहोल्ड मैपिंग' : 'Household Mapping', path: '/households', icon: Compass },
+                // 📋 Tasks & Issues
+                { name: lang === 'hi' ? 'मेरे कार्य' : 'Tasks', path: '/worker/tasks', icon: ListTodo },
+                { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Help/Issue', path: '/issues', icon: AlertTriangle },
+                // 📅 Field & Events
                 { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
                 { name: lang === 'hi' ? 'जनसंपर्क' : 'PR Entry', path: '/jansampark', icon: Handshake },
-                { name: lang === 'hi' ? 'मेरे कार्य' : 'Tasks', path: '/worker/tasks', icon: ListTodo },
+                // ⚡ Live
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
-                { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Help/Issue', path: '/issues', icon: AlertTriangle },
+                // ⚙️ Settings
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
@@ -131,14 +157,20 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
         // FIELD WORKER / GROUND WORKER (Worker with type FIELD or GROUND)
         if (role === 'WORKER' && (workerType === 'FIELD' || workerType === 'GROUND')) {
             return [
+                // 📊 Overview
                 { name: lang === 'hi' ? 'कार्यकर्ता डैशबोर्ड' : 'Ground Worker Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Users },
                 { name: lang === 'hi' ? 'हाउसहोल्ड मैपिंग' : 'Household Mapping', path: '/households', icon: Compass },
+                // 📋 Tasks & Issues
+                { name: lang === 'hi' ? 'मेरे कार्य' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
+                { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Report Issue', path: '/issues', icon: AlertTriangle },
+                // 📅 Field & Events
                 { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
                 { name: lang === 'hi' ? 'जनसंपर्क' : 'PR Entry', path: '/jansampark', icon: Handshake },
-                { name: lang === 'hi' ? 'मेरे कार्य' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
+                // ⚡ Live
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
-                { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Report Issue', path: '/issues', icon: AlertTriangle },
+                // ⚙️ Settings
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
@@ -146,14 +178,20 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
         // Generic fallback for WORKER (if no workerType)
         if (role === 'WORKER') {
             return [
+                // 📊 Overview
                 { name: lang === 'hi' ? 'कार्यकर्ता डैशबोर्ड' : 'Worker Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Vote },
                 { name: lang === 'hi' ? 'हाउसहोल्ड मैपिंग' : 'Household Mapping', path: '/households', icon: Compass },
-                { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
-                { name: lang === 'hi' ? 'जनसंपर्क' : 'PR Entry', path: '/jansampark', icon: Handshake },
+                // 📋 Tasks & Issues
                 { name: lang === 'hi' ? 'मेरे कार्य' : 'My Tasks', path: '/worker/tasks', icon: ListTodo },
                 { name: lang === 'hi' ? 'समस्या दर्ज करें' : 'Report Issue', path: '/issues', icon: AlertTriangle },
+                // 📅 Field & Events
+                { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
+                { name: lang === 'hi' ? 'जनसंपर्क' : 'PR Entry', path: '/jansampark', icon: Handshake },
+                // ⚡ Live
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
+                // ⚙️ Settings
                 { name: lang === 'hi' ? 'प्रोफाइल सेटिंग' : 'Profile Settings', path: '/profile', icon: Settings },
             ];
         }
