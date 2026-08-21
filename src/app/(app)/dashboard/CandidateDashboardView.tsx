@@ -504,17 +504,17 @@ export default function CandidateDashboardView({
                                     {stats.upcomingEvents.map((ev: any, i: number) => (
                                         <div key={i} style={{ display: 'flex', gap: '16px', padding: '14px 16px', background: '#F8FAFC', borderRadius: '14px', alignItems: 'center' }}>
                                             <div style={{ background: '#EFF6FF', borderRadius: '12px', padding: '10px 12px', textAlign: 'center', minWidth: '52px' }}>
-                                                <div style={{ fontSize: '11px', fontWeight: '900', color: '#2563EB' }}>{formatEventDate(ev.eventDate)}</div>
-                                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '700' }}>{formatTime(ev.eventDate)}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: '900', color: '#2563EB' }}>{formatEventDate(ev.date)}</div>
+                                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '700' }}>{formatTime(ev.date)}</div>
                                             </div>
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#0F172A' }}>{ev.name}</div>
+                                                <div style={{ fontWeight: '800', fontSize: '14px', color: '#0F172A' }}>{ev.title}</div>
                                                 <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                                                     <MapPin size={11} /> {ev.location || 'स्थान अनिर्धारित'}
-                                                    {ev.expectedAttendance && <span style={{ marginLeft: '8px' }}>👥 {ev.expectedAttendance}</span>}
+                                                    {ev.expectedAttendance > 0 && <span style={{ marginLeft: '8px' }}>👥 {ev.expectedAttendance}</span>}
                                                 </div>
                                             </div>
-                                            {ev.eventType && <span style={{ fontSize: '11px', fontWeight: '800', background: '#EFF6FF', color: '#2563EB', padding: '4px 10px', borderRadius: '20px' }}>{ev.eventType}</span>}
+                                            {ev.type && <span style={{ fontSize: '11px', fontWeight: '800', background: '#EFF6FF', color: '#2563EB', padding: '4px 10px', borderRadius: '20px' }}>{ev.type}</span>}
                                         </div>
                                     ))}
                                 </div>

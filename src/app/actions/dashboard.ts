@@ -102,14 +102,14 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
         const tasks = await prisma.task.count({ where: { assemblyId, status: 'Completed' } });
 
         // === NEW: Household Coverage Stats ===
-        const totalHouseholds = await prisma.household.count({ where: { assemblyId } });
+        const totalHouseholds = await prisma.household.count({ where: { assemblyId } }).catch(() => 0);
         const visitedHouseholds = await prisma.householdVisit.groupBy({
             by: ['householdId'],
             where: { household: { assemblyId } }
-        });
+        }).catch(() => []);
         const revisitHouseholds = await prisma.householdVisit.count({
-            where: { household: { assemblyId }, visitStatus: 'Revisit_Required' }
-        });
+            where: { household: { assemblyId }, status: 'Revisit_Required' }
+        }).catch(() => 0);
         const visitedCount = visitedHouseholds.length;
         const pendingHouseholds = Math.max(0, totalHouseholds - visitedCount);
 
@@ -118,12 +118,12 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
             by: ['boothNumber'],
             where: { assemblyId },
             _count: { id: true }
-        });
+        }).catch(() => []);
         const boothVisited = await prisma.householdVisit.findMany({
             where: { household: { assemblyId } },
             select: { household: { select: { boothNumber: true } } },
             distinct: ['householdId']
-        });
+        }).catch(() => []);
         const boothVisitedMap: Record<number, number> = {};
         boothVisited.forEach((v: any) => {
             const bn = v.household?.boothNumber;
@@ -139,17 +139,17 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
         // === NEW: Upcoming Events (next 3) ===
         const now = new Date();
         const upcomingEvents = await prisma.event.findMany({
-            where: { assemblyId, eventDate: { gte: now } },
-            orderBy: { eventDate: 'asc' },
+            where: { assemblyId, date: { gte: now } },
+            orderBy: { date: 'asc' },
             take: 3,
-            select: { id: true, name: true, eventDate: true, location: true, eventType: true, expectedAttendance: true }
+            select: { id: true, title: true, date: true, location: true, type: true, expectedAttendance: true }
         }).catch(() => []);
 
         // === NEW: Today's Events count ===
         const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
         const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
         const todayEventsCount = await prisma.event.count({
-            where: { assemblyId, eventDate: { gte: todayStart, lte: todayEnd } }
+            where: { assemblyId, date: { gte: todayStart, lte: todayEnd } }
         }).catch(() => 0);
 
         // === NEW: Today's Field Visits (household visits created today) ===
