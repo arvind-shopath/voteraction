@@ -2,7 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const SURNAME_MAP = {
-    // 1. ब्राह्मण
+    // 1. ब्राह्मण (General)
     'ब्राह्मण': { caste: 'ब्राह्मण', category: 'General', subCaste: 'ब्राह्मण' },
     'शुक्ला': { caste: 'ब्राह्मण', category: 'General', subCaste: 'शुक्ला' },
     'shukla': { caste: 'ब्राह्मण', category: 'General', subCaste: 'शुक्ला' },
@@ -30,11 +30,20 @@ const SURNAME_MAP = {
     'pathak': { caste: 'ब्राह्मण', category: 'General', subCaste: 'पाठक' },
     'जोशी': { caste: 'ब्राह्मण', category: 'General', subCaste: 'जोशी' },
     'दीक्षित': { caste: 'ब्राह्मण', category: 'General', subCaste: 'दीक्षित' },
-    'त्यागी': { caste: 'ब्राह्मण', category: 'General', subCaste: 'त्यागी' },
     'झा': { caste: 'ब्राह्मण', category: 'General', subCaste: 'झा' },
     'ओझा': { caste: 'ब्राह्मण', category: 'General', subCaste: 'ओझा' },
+    'शास्त्री': { caste: 'ब्राह्मण', category: 'General', subCaste: 'शास्त्री' },
+    'अवस्थी': { caste: 'ब्राह्मण', category: 'General', subCaste: 'अवस्थी' },
+    'बाजपेयी': { caste: 'ब्राह्मण', category: 'General', subCaste: 'बाजपेयी' },
 
-    // 2. क्षत्रिय / राजपूत
+    // 2. भूमिहार (General)
+    'राय': { caste: 'भूमिहार', category: 'General', subCaste: 'राय' },
+    'rai': { caste: 'भूमिहार', category: 'General', subCaste: 'राय' },
+    'त्यागी': { caste: 'भूमिहार', category: 'General', subCaste: 'त्यागी' },
+    'भूमिहार': { caste: 'भूमिहार', category: 'General', subCaste: 'भूमिहार' },
+    'शाही': { caste: 'भूमिहार', category: 'General', subCaste: 'शाही' },
+
+    // 3. क्षत्रिय / राजपूत (General)
     'क्षत्रिय': { caste: 'क्षत्रिय/राजपूत', category: 'General', subCaste: 'क्षत्रिय' },
     'राजपूत': { caste: 'क्षत्रिय/राजपूत', category: 'General', subCaste: 'राजपूत' },
     'rajput': { caste: 'क्षत्रिय/राजपूत', category: 'General', subCaste: 'राजपूत' },
@@ -48,9 +57,9 @@ const SURNAME_MAP = {
     'सोलंकी': { caste: 'क्षत्रिय/राजपूत', category: 'General', subCaste: 'सोलंकी' },
     'तोमर': { caste: 'क्षत्रिय/राजपूत', category: 'General', subCaste: 'तोमर' },
     'रघुवंशी': { caste: 'क्षत्रिय/राजपूत', category: 'General', subCaste: 'रघुवंशी' },
-    'बघेल': { caste: 'क्षत्रिय/राजपूत', category: 'General', subCaste: 'बघेल' },
+    'बघेल_ठाकुर': { caste: 'क्षत्रिय/राजपूत', category: 'General', subCaste: 'बघेल' },
 
-    // 3. कायस्थ
+    // 4. कायस्थ (General)
     'कायस्थ': { caste: 'कायस्थ/लाला', category: 'General', subCaste: 'कायस्थ' },
     'लाला': { caste: 'कायस्थ/लाला', category: 'General', subCaste: 'लाला' },
     'श्रीवास्तव': { caste: 'कायस्थ/लाला', category: 'General', subCaste: 'श्रीवास्तव' },
@@ -62,8 +71,9 @@ const SURNAME_MAP = {
     'भटनागर': { caste: 'कायस्थ/लाला', category: 'General', subCaste: 'भटनागर' },
     'अस्थाना': { caste: 'कायस्थ/लाला', category: 'General', subCaste: 'अस्थाना' },
     'खरे': { caste: 'कायस्थ/लाला', category: 'General', subCaste: 'खरे' },
+    'सिन्हा': { caste: 'कायस्थ/लाला', category: 'General', subCaste: 'सिन्हा' },
 
-    // 4. वैश्य
+    // 5. वैश्य / बनिया (General)
     'वैश्य': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'वैश्य' },
     'बनिया': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'बनिया' },
     'गुप्त': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'गुप्ता' },
@@ -79,8 +89,13 @@ const SURNAME_MAP = {
     'केसरी': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'केसरी' },
     'साहू': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'साहू' },
     'sahu': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'साहू' },
+    'मोदनवाल': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'मोदनवाल' },
+    'बरनवाल': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'बरनवाल' },
+    'कसौधन': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'कसौधन' },
+    'रस्तोगी': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'रस्तोगी' },
+    'पटवा': { caste: 'वैश्य/बनिया', category: 'General', subCaste: 'पटवा' },
 
-    // 5. ओबीसी
+    // 6. ओबीसी (OBC)
     'यादव': { caste: 'यादव', category: 'OBC', subCaste: 'यादव' },
     'yadav': { caste: 'यादव', category: 'OBC', subCaste: 'यादव' },
     'अहीर': { caste: 'यादव', category: 'OBC', subCaste: 'अहीर' },
@@ -98,6 +113,7 @@ const SURNAME_MAP = {
     'शाक्य': { caste: 'मौर्य/कुशवाहा', category: 'OBC', subCaste: 'शाक्य' },
     'राजभर': { caste: 'राजभर', category: 'OBC', subCaste: 'राजभर' },
     'rajbhar': { caste: 'राजभर', category: 'OBC', subCaste: 'राजभर' },
+    'भर': { caste: 'राजभर', category: 'OBC', subCaste: 'भर' },
     'बिंद': { caste: 'बिंद', category: 'OBC', subCaste: 'बिंद' },
     'bind': { caste: 'बिंद', category: 'OBC', subCaste: 'बिंद' },
     'निषाद': { caste: 'कश्यप/निषाद', category: 'OBC', subCaste: 'निषाद' },
@@ -105,6 +121,8 @@ const SURNAME_MAP = {
     'मल्लाह': { caste: 'कश्यप/निषाद', category: 'OBC', subCaste: 'मल्लाह' },
     'कश्यप': { caste: 'कश्यप/निषाद', category: 'OBC', subCaste: 'कश्यप' },
     'kashyap': { caste: 'कश्यप/निषाद', category: 'OBC', subCaste: 'कश्यप' },
+    'केवट': { caste: 'कश्यप/निषाद', category: 'OBC', subCaste: 'केवट' },
+    'साहनी': { caste: 'कश्यप/निषाद', category: 'OBC', subCaste: 'साहनी' },
     'प्रजापति': { caste: 'प्रजापति/कुम्हार', category: 'OBC', subCaste: 'प्रजापति' },
     'prajapati': { caste: 'प्रजापति/कुम्हार', category: 'OBC', subCaste: 'प्रजापति' },
     'कुम्हार': { caste: 'प्रजापति/कुम्हार', category: 'OBC', subCaste: 'कुम्हार' },
@@ -115,13 +133,15 @@ const SURNAME_MAP = {
     'पाल': { caste: 'पाल/बघेल', category: 'OBC', subCaste: 'पाल' },
     'pal': { caste: 'पाल/बघेल', category: 'OBC', subCaste: 'पाल' },
     'गडरिया': { caste: 'पाल/बघेल', category: 'OBC', subCaste: 'गडरिया' },
+    'बघेल': { caste: 'पाल/बघेल', category: 'OBC', subCaste: 'बघेल' },
 
-    // 6. एससी
+    // 7. एससी (SC)
     'राम': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'राम' },
     'ram': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'राम' },
     'जाटव': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'जाटव' },
     'jatav': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'जाटव' },
     'चमार': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'चमार' },
+    'रविदास': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'रविदास' },
     'भारती': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'भारती' },
     'bharti': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'भारती' },
     'गौतम': { caste: 'जाटव/रविदास', category: 'SC', subCaste: 'गौतम' },
@@ -139,26 +159,26 @@ const SURNAME_MAP = {
     'कनौजिया': { caste: 'धोबी/कनौजिया', category: 'SC', subCaste: 'कनौजिया' },
     'कोरी': { caste: 'कोरी', category: 'SC', subCaste: 'कोरी' },
 
-    // 7. एसटी
+    // 8. एसटी (ST)
     'मीणा': { caste: 'मीणा', category: 'ST', subCaste: 'मीणा' },
     'गोंड': { caste: 'गोंड', category: 'ST', subCaste: 'गोंड' },
     'खरवार': { caste: 'खरवार', category: 'ST', subCaste: 'खरवार' },
 
-    // 8. मुस्लिम
-    'अंसारी': { caste: 'अंसारी', category: 'OBC', subCaste: 'अंसारी' },
-    'ansari': { caste: 'अंसारी', category: 'OBC', subCaste: 'अंसारी' },
-    'खान': { caste: 'खान', category: 'General', subCaste: 'खान' },
-    'khan': { caste: 'खान', category: 'General', subCaste: 'खान' },
-    'सिद्दीकी': { caste: 'सिद्दीकी', category: 'General', subCaste: 'सिद्दीकी' },
-    'siddiqui': { caste: 'सिद्दीकी', category: 'General', subCaste: 'सिद्दीकी' },
-    'कुरैशी': { caste: 'कुरैशी', category: 'OBC', subCaste: 'कुरैशी' },
-    'qureshi': { caste: 'कुरैशी', category: 'OBC', subCaste: 'कुरैशी' },
-    'मंसूरी': { caste: 'मंसूरी', category: 'OBC', subCaste: 'मंसूरी' },
-    'mansoori': { caste: 'मंसूरी', category: 'OBC', subCaste: 'मंसूरी' },
-    'सैयद': { caste: 'सैयद', category: 'General', subCaste: 'सैयद' },
-    'syed': { caste: 'सैयद', category: 'General', subCaste: 'सैयद' },
-    'पठान': { caste: 'पठान', category: 'General', subCaste: 'पठान' },
-    'शेख': { caste: 'शेख', category: 'General', subCaste: 'शेख' }
+    // 9. मुस्लिम (Muslim)
+    'अंसारी': { caste: 'अंसारी', category: 'Muslim', subCaste: 'अंसारी' },
+    'ansari': { caste: 'अंसारी', category: 'Muslim', subCaste: 'अंसारी' },
+    'खान': { caste: 'खान', category: 'Muslim', subCaste: 'खान' },
+    'khan': { caste: 'खान', category: 'Muslim', subCaste: 'खान' },
+    'सिद्दीकी': { caste: 'सिद्दीकी', category: 'Muslim', subCaste: 'सिद्दीकी' },
+    'siddiqui': { caste: 'सिद्दीकी', category: 'Muslim', subCaste: 'सिद्दीकी' },
+    'कुरैशी': { caste: 'कुरैशी', category: 'Muslim', subCaste: 'कुरैशी' },
+    'qureshi': { caste: 'कुरैशी', category: 'Muslim', subCaste: 'कुरैशी' },
+    'मंसूरी': { caste: 'मंसूरी', category: 'Muslim', subCaste: 'मंसूरी' },
+    'mansoori': { caste: 'मंसूरी', category: 'Muslim', subCaste: 'मंसूरी' },
+    'सैयद': { caste: 'सैयद', category: 'Muslim', subCaste: 'सैयद' },
+    'syed': { caste: 'सैयद', category: 'Muslim', subCaste: 'सैयद' },
+    'पठान': { caste: 'पठान', category: 'Muslim', subCaste: 'पठान' },
+    'शेख': { caste: 'शेख', category: 'Muslim', subCaste: 'शेख' }
 };
 
 const MUSLIM_STANDALONE_WORDS = new Set([
@@ -170,10 +190,6 @@ const MUSLIM_STANDALONE_WORDS = new Set([
     'उस्मानी', 'usmani', 'हसन', 'hasan', 'अख्तर', 'akhtar', 'इरफान', 'irfan', 'इमरान', 'imran',
     'जावेद', 'javed', 'तारीक', 'tariq', 'शबनम', 'shabnam', 'रुबीना', 'rubina', 'नसीम', 'naseem',
     'शमशाद', 'shamshad', 'सलीम', 'saleem', 'salim', 'वाहिद', 'wahid', 'जमील', 'jameel'
-]);
-
-const CHRISTIAN_STANDALONE_WORDS = new Set([
-    'मसीह', 'masih', 'जॉसफ', 'joseph', 'डिसूज़ा', "d'souza", 'dsouza', 'पीटर', 'peter', 'जॉन', 'john', 'पॉल', 'paul'
 ]);
 
 const HINDU_FIRST_NAMES = new Set([
@@ -255,7 +271,7 @@ function predict(name, relativeName) {
     }
 
     if (mapped) {
-        const isMuslim = mapped.caste === 'खान' || mapped.caste === 'अंसारी' || mapped.caste === 'सिद्दीकी' || mapped.caste === 'कुरैशी' || mapped.caste === 'मंसूरी' || mapped.caste === 'सैयद' || mapped.caste === 'पठान' || mapped.caste === 'शेख';
+        const isMuslim = mapped.category === 'Muslim';
         return {
             religion: isMuslim ? 'मुस्लिम' : 'हिंदू',
             caste: mapped.caste,
@@ -269,23 +285,25 @@ function predict(name, relativeName) {
         return {
             religion: 'मुस्लिम',
             caste: 'मुस्लिम समुदाय',
-            casteCategory: 'Other',
+            casteCategory: 'Muslim',
             surname: extractedSurname || 'खान'
         };
     }
 
+    // Voters whose surname does not match any caste dictionary MUST be classified as Unknown / अज्ञात
     return {
         religion: 'हिंदू',
-        caste: 'सामान्य / अन्य',
-        casteCategory: 'General',
-        surname: extractedSurname || 'सामान्य'
+        caste: 'अज्ञात / अनिर्धारित',
+        casteCategory: 'Unknown',
+        subCaste: null,
+        surname: extractedSurname || null
     };
 }
 
 async function run() {
-    console.log('Recalculating all voter castes with enhanced SC, OBC, and General mappings...');
+    console.log('Recalculating all voter castes with strict Unknown classification for undetermined voters...');
     const voters = await prisma.voter.findMany({
-        select: { id: true, name: true, relativeName: true, caste: true, religion: true, casteCategory: true, subCaste: true }
+        select: { id: true, name: true, relativeName: true, caste: true, religion: true, casteCategory: true, subCaste: true, surname: true }
     });
 
     console.log(`Analyzing ${voters.length} voters...`);
@@ -299,7 +317,7 @@ async function run() {
                 data: {
                     caste: pred.caste,
                     subCaste: pred.subCaste || null,
-                    casteCategory: pred.casteCategory || 'Other',
+                    casteCategory: pred.casteCategory || 'Unknown',
                     religion: pred.religion,
                     surname: pred.surname || null
                 }
@@ -309,6 +327,19 @@ async function run() {
     }
 
     console.log(`Successfully updated ${updated} voters!`);
+
+    const categories = await prisma.voter.groupBy({
+        by: ['casteCategory'],
+        _count: { id: true }
+    });
+    console.log('Categories Summary:', categories);
+
+    const generalCastes = await prisma.voter.groupBy({
+        by: ['caste'],
+        where: { casteCategory: 'General' },
+        _count: { id: true }
+    });
+    console.log('General Castes:', generalCastes);
 }
 
 run()

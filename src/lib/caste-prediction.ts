@@ -311,15 +311,17 @@ export function predictVoterAttributes(name: string, relativeName?: string): Pre
         return {
             religion: 'मुस्लिम',
             caste: 'मुस्लिम समुदाय',
-            casteCategory: 'Other',
+            casteCategory: 'Muslim',
             surname: extractedSurname || 'खान'
         };
     }
 
+    // Undetermined voters are classified as Unknown / अज्ञात
     return {
         religion: 'हिंदू',
-        caste: 'सामान्य / अन्य',
-        casteCategory: 'General',
-        surname: extractedSurname || 'सामान्य'
+        caste: 'अज्ञात / अनिर्धारित',
+        casteCategory: 'Unknown',
+        subCaste: undefined,
+        surname: extractedSurname || undefined
     };
 }
