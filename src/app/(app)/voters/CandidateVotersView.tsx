@@ -526,6 +526,31 @@ export default function CandidateVotersView() {
         'मुस्लिम': ['मुस्लिम समुदाय', 'अंसारी', 'खान', 'सिद्दीकी', 'कुरैशी', 'शेख', 'सैयद', 'पठान', 'मंसूरी']
     };
 
+    const MASTER_SUB_CASTES: Record<string, string[]> = {
+        'ब्राह्मण': ['शुक्ला', 'मिश्रा', 'पांडेय', 'तिवारी', 'दूबे', 'चौबे', 'उपाध्याय', 'द्विवेदी', 'त्रिवेदी', 'चतुर्वेदी', 'पाठक', 'जोशी', 'दीक्षित', 'त्यागी', 'झा', 'शर्मा', 'ओझा'],
+        'क्षत्रिय/राजपूत': ['सिंह', 'ठाकुर', 'चौहान', 'राठौड़', 'सोलंकी', 'तोमर', 'रघुवंशी', 'बघेल'],
+        'कायस्थ/लाला': ['श्रीवास्तव', 'सक्सेना', 'निगम', 'माथुर', 'भटनागर', 'अस्थाना', 'खरे', 'लाला'],
+        'वैश्य/बनिया': ['गुप्ता', 'अग्रवाल', 'बंसल', 'जायसवाल', 'चौरसिया', 'साहू', 'केसरी', 'गर्ग', 'गोयल', 'मित्तल'],
+        'यादव': ['यादव', 'अहीर'],
+        'कुर्मी/पटेल': ['पटेल', 'कुर्मी', 'वर्मा', 'कटियार', 'गंगवार'],
+        'मौर्य/कुशवाहा': ['मौर्य', 'कुशवाहा', 'सैनी', 'शाक्य'],
+        'बिंद': ['बिंद', 'निषाद', 'मल्लाह', 'कश्यप'],
+        'कश्यप/निषाद': ['निषाद', 'मल्लाह', 'कश्यप', 'केवट', 'साहनी'],
+        'प्रजापति/कुम्हार': ['प्रजापति', 'कुम्हार'],
+        'विश्वकर्मा': ['विश्वकर्मा', 'लोहार', 'बढ़ई', 'शर्मा'],
+        'पाल/बघेल': ['पाल', 'गडरिया', 'बघेल'],
+        'जाटव/रविदास': ['जाटव', 'चमार', 'राम', 'भारती', 'गौतम'],
+        'पासी': ['पासी', 'सरोज', 'रावत'],
+        'धोबी/कनौजिया': ['धोबी', 'कनौजिया'],
+        'सोनकर/खटीक': ['सोनकर', 'खटीक'],
+        'अंसारी': ['अंसारी'],
+        'खान': ['खान', 'पठान'],
+        'सिद्दीकी': ['सिद्दीकी', 'शेख'],
+        'कुरैशी': ['कुरैशी'],
+        'मंसूरी': ['मंसूरी'],
+        'मुस्लिम समुदाय': ['अंसारी', 'खान', 'सिद्दीकी', 'कुरैशी', 'मंसूरी', 'सैयद', 'पठान', 'शेख']
+    };
+
     const filteredCastes = useMemo(() => {
         if (!filters.casteCategory || filters.casteCategory === 'सभी वर्ग') {
             const dbCastes = Array.isArray(options.castes)
@@ -552,6 +577,25 @@ export default function CandidateVotersView() {
         const defaultForCat = CATEGORY_DEFAULT_CASTES[cat] || [];
         return Array.from(new Set([...dbCastesForCat, ...defaultForCat])).filter(Boolean);
     }, [options.castes, filters.casteCategory]);
+
+    const availableSubCastes = useMemo(() => {
+        if (filters.caste && filters.caste !== 'सभी जाति') {
+            const masterList = MASTER_SUB_CASTES[filters.caste] || [];
+            const dbList = Array.isArray(options.subCastes)
+                ? options.subCastes.filter((s: any) => typeof s === 'object' ? s.parent === filters.caste : true).map((s: any) => typeof s === 'object' ? s.value : s)
+                : [];
+            return Array.from(new Set([...masterList, ...dbList])).filter(Boolean);
+        }
+
+        if (filters.casteCategory && filters.casteCategory !== 'सभी वर्ग') {
+            const castesForCat = CATEGORY_DEFAULT_CASTES[filters.casteCategory] || [];
+            const allSub = castesForCat.flatMap(c => MASTER_SUB_CASTES[c] || []);
+            return Array.from(new Set(allSub)).filter(Boolean);
+        }
+
+        const all = Object.values(MASTER_SUB_CASTES).flat();
+        return Array.from(new Set(all)).filter(Boolean);
+    }, [filters.caste, filters.casteCategory, options.subCastes]);
 
     // Fetch Voters
     const fetchOptions = async () => {
@@ -1013,12 +1057,7 @@ export default function CandidateVotersView() {
                             />
 
                             <SearchableSelect
-                                options={[
-                                    'सभी उपजाति',
-                                    ...(Array.isArray(options.subCastes) ? options.subCastes
-                                        .filter((s: any) => typeof s === 'object' ? (!filters.caste || filters.caste === 'सभी जाति' || s.parent === filters.caste) : true)
-                                        .map((s: any) => typeof s === 'object' ? s.value : s) : [])
-                                ]}
+                                options={['सभी उपजाति', ...availableSubCastes]}
                                 value={filters.subCaste}
                                 onChange={(val) => setFilters(prev => ({ ...prev, subCaste: val, page: 1 }))}
                                 placeholder="3. उपजाति / उपनाम (Surname)"
