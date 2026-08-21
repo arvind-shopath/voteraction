@@ -75,16 +75,19 @@ export async function autoGenerateHouseholdsFromVoters(assemblyId: number) {
         });
 
         if (!household) {
-            const countInBooth = await db.household.count({
-                where: { assemblyId, boothNumber }
-            });
-            const code = `H-${boothNumber}-${String(countInBooth + 1).padStart(4, '0')}`;
-
             const center = boothGeo[boothNumber] || { lat: 25.580 + (boothNumber * 0.003), lng: 83.570 + (boothNumber * 0.003) };
-            const jitterLat = (Math.sin(createdCount * 7) * 0.0045) + ((createdCount % 5) * 0.0008);
-            const jitterLng = (Math.cos(createdCount * 7) * 0.0045) + ((createdCount % 5) * 0.0008);
-
-            const locStatus = createdCount % 4 === 0 ? 'Field_Verified' : (createdCount % 3 === 0 ? 'Geocoded' : 'Approximate');
+            
+            // Deterministic 2D Gaussian scatter for natural street distribution
+            let hash = 0;
+            const seedStr = `b_${boothNumber}_v_${village}_h_${houseNo}_${createdCount}`;
+            for (let i = 0; i < seedStr.length; i++) {
+                hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+                hash |= 0;
+            }
+            const u1 = Math.abs(Math.sin(hash * 12.9898)) % 1;
+            const u2 = Math.abs(Math.cos(hash * 78.233)) % 1;
+            const r = Math.sqrt(-2.0 * Math.log(Math.max(1e-5, u1))) * 0.0040;
+            const theta = 2.0 * Math.PI * u2;
 
             household = await db.household.create({
                 data: {
@@ -96,23 +99,11 @@ export async function autoGenerateHouseholdsFromVoters(assemblyId: number) {
                     villageEn: firstVoter.villageEn || village,
                     houseNumber: houseNo,
                     fullAddress: firstVoter.fullAddressHi || firstVoter.fullAddressEn || `${village}, मकान नं ${houseNo}`,
-                    locationStatus: locStatus,
-                    latitude: center.lat + jitterLat,
-                    longitude: center.lng + jitterLng
+                    locationStatus: 'Approximate',
+                    latitude: center.lat + (r * Math.sin(theta)),
+                    longitude: center.lng + (r * Math.cos(theta))
                 }
             });
-
-            if (locStatus === 'Field_Verified' || createdCount % 2 === 0) {
-                await db.householdVisit.create({
-                    data: {
-                        householdId: household.id,
-                        status: 'Visited',
-                        notes: 'परिवार से संपर्क किया गया, समर्थन सकारात्मक है।',
-                        latitude: center.lat + jitterLat,
-                        longitude: center.lng + jitterLng
-                    }
-                });
-            }
             createdCount++;
         }
 

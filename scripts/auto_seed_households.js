@@ -1,13 +1,44 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function run() {
-    console.log('Resetting and regenerating clean, realistic households...');
-
-    // 1. Clear previous auto-visits that were artificially added
-    await prisma.householdVisit.deleteMany({});
+// Deterministic 2D distribution function
+function getRealisticOffset(seedStr, stdDev = 0.0035) {
+    let hash = 0;
+    for (let i = 0; i < seedStr.length; i++) {
+        hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+        hash |= 0;
+    }
+    const u1 = Math.abs(Math.sin(hash * 12.9898)) % 1;
+    const u2 = Math.abs(Math.cos(hash * 78.233)) % 1;
     
-    // 2. Clear previous household linkages
+    // Box-Muller transform for Gaussian scatter along roads & streets
+    const r = Math.sqrt(-2.0 * Math.log(Math.max(1e-5, u1))) * stdDev;
+    const theta = 2.0 * Math.PI * u2;
+    
+    return {
+        dLat: r * Math.sin(theta),
+        dLng: r * Math.cos(theta)
+    };
+}
+
+const BOOTH_CENTROIDS = {
+    1: { lat: 25.5920, lng: 83.5680 }, // सौरी
+    2: { lat: 25.5830, lng: 83.5780 }, // महुआबाग
+    3: { lat: 25.5750, lng: 83.5820 }, // लंका / विशेश्वरगंज
+    4: { lat: 25.5680, lng: 83.5620 }, // गोराबाजार
+    5: { lat: 25.5980, lng: 83.5550 }, // रौज़ा / नुरुद्दीनपुरा
+    6: { lat: 25.6050, lng: 83.5880 }, // रजदेपुर
+    7: { lat: 25.5800, lng: 83.5750 }, // मिश्रबाजार
+    8: { lat: 25.5600, lng: 83.5900 }, // बिंदोलिया
+    9: { lat: 25.5880, lng: 83.6020 }, // सुखदेवपुर
+    10: { lat: 25.5720, lng: 83.5700 }, // फतेहउल्लाहपुर
+};
+
+async function run() {
+    console.log('Regenerating households with realistic natural spatial distribution (no circles)...');
+
+    // 1. Clear previous records
+    await prisma.householdVisit.deleteMany({});
     await prisma.voter.updateMany({
         data: { householdId: null }
     });
@@ -30,9 +61,7 @@ async function run() {
 
     console.log(`Processing ${voters.length} voters...`);
 
-    // Group voters by boothNumber, village, and houseNumber
     const boothGroups = new Map();
-
     for (const v of voters) {
         const bNum = v.boothNumber || 1;
         if (!boothGroups.has(bNum)) {
@@ -50,33 +79,19 @@ async function run() {
         bMap.get(key).push(v);
     }
 
-    const boothGeo = {
-        1: { lat: 25.584, lng: 83.572 },
-        2: { lat: 25.591, lng: 83.580 },
-        3: { lat: 25.578, lng: 83.565 },
-        4: { lat: 25.586, lng: 83.592 },
-        5: { lat: 25.569, lng: 83.555 },
-        6: { lat: 25.602, lng: 83.585 },
-        7: { lat: 25.572, lng: 83.588 },
-        8: { lat: 25.595, lng: 83.560 },
-        9: { lat: 25.580, lng: 83.605 },
-        10: { lat: 25.565, lng: 83.570 },
-    };
-
     let totalHouseholds = 0;
 
     for (const [boothNumber, householdsMap] of boothGroups.entries()) {
         let seq = 1;
-        const center = boothGeo[boothNumber] || { lat: 25.580 + (boothNumber * 0.003), lng: 83.570 + (boothNumber * 0.003) };
+        const center = BOOTH_CENTROIDS[boothNumber] || { lat: 25.580 + (boothNumber * 0.003), lng: 83.570 + (boothNumber * 0.003) };
 
         for (const [key, vList] of householdsMap.entries()) {
             const [village, houseNo] = key.split('__');
             const assemblyId = vList[0].assemblyId || 1;
             const code = `H-${boothNumber}-${seq}`;
 
-            // Real approximate spread across the village/booth area
-            const jitterLat = (Math.sin(seq * 13) * 0.0035);
-            const jitterLng = (Math.cos(seq * 13) * 0.0035);
+            // Natural 2D distribution based on booth and house unique seed
+            const offset = getRealisticOffset(`b_${boothNumber}_v_${village}_h_${houseNo}_${seq}`, 0.0040);
 
             const hh = await prisma.household.create({
                 data: {
@@ -87,9 +102,9 @@ async function run() {
                     villageHi: vList[0].villageHi || village,
                     houseNumber: houseNo,
                     fullAddress: vList[0].fullAddressHi || `${village}, मकान नं ${houseNo}`,
-                    locationStatus: 'Approximate', // Strictly unverified until real field verification
-                    latitude: center.lat + jitterLat,
-                    longitude: center.lng + jitterLng
+                    locationStatus: 'Approximate',
+                    latitude: center.lat + offset.dLat,
+                    longitude: center.lng + offset.dLng
                 }
             });
 
@@ -104,7 +119,7 @@ async function run() {
         }
     }
 
-    console.log(`Successfully generated ${totalHouseholds} clean households with sequential numbering (1, 2, 3, ...) and pure real status!`);
+    console.log(`Successfully generated ${totalHouseholds} households distributed realistically across Ghazipur neighborhoods!`);
 }
 
 run()
