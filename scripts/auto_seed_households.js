@@ -11,7 +11,6 @@ function getRealisticOffset(seedStr, stdDev = 0.0035) {
     const u1 = Math.abs(Math.sin(hash * 12.9898)) % 1;
     const u2 = Math.abs(Math.cos(hash * 78.233)) % 1;
     
-    // Box-Muller transform for Gaussian scatter along roads & streets
     const r = Math.sqrt(-2.0 * Math.log(Math.max(1e-5, u1))) * stdDev;
     const theta = 2.0 * Math.PI * u2;
     
@@ -35,7 +34,7 @@ const BOOTH_CENTROIDS = {
 };
 
 async function run() {
-    console.log('Regenerating households with realistic natural spatial distribution (no circles)...');
+    console.log('Regenerating households with strict natural numeric ordering (1, 2, 3, 4, 5...)...');
 
     // 1. Clear previous records
     await prisma.householdVisit.deleteMany({});
@@ -82,15 +81,26 @@ async function run() {
     let totalHouseholds = 0;
 
     for (const [boothNumber, householdsMap] of boothGroups.entries()) {
-        let seq = 1;
         const center = BOOTH_CENTROIDS[boothNumber] || { lat: 25.580 + (boothNumber * 0.003), lng: 83.570 + (boothNumber * 0.003) };
 
-        for (const [key, vList] of householdsMap.entries()) {
+        // Sort households strictly numerically by house number (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11...)
+        const sortedEntries = Array.from(householdsMap.entries()).sort((a, b) => {
+            const [vilA, hNoA] = a[0].split('__');
+            const [vilB, hNoB] = b[0].split('__');
+            if (vilA !== vilB) return vilA.localeCompare(vilB);
+            
+            const numA = parseInt(hNoA.replace(/\D/g, '')) || 0;
+            const numB = parseInt(hNoB.replace(/\D/g, '')) || 0;
+            if (numA !== numB) return numA - numB;
+            return hNoA.localeCompare(hNoB);
+        });
+
+        let seq = 1;
+        for (const [key, vList] of sortedEntries) {
             const [village, houseNo] = key.split('__');
             const assemblyId = vList[0].assemblyId || 1;
             const code = `H-${boothNumber}-${seq}`;
 
-            // Natural 2D distribution based on booth and house unique seed
             const offset = getRealisticOffset(`b_${boothNumber}_v_${village}_h_${houseNo}_${seq}`, 0.0040);
 
             const hh = await prisma.household.create({
@@ -119,7 +129,7 @@ async function run() {
         }
     }
 
-    console.log(`Successfully generated ${totalHouseholds} households distributed realistically across Ghazipur neighborhoods!`);
+    console.log(`Successfully created ${totalHouseholds} households with perfect 1, 2, 3, 4, 5... numerical ordering!`);
 }
 
 run()

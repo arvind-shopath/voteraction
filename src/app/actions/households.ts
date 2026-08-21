@@ -202,7 +202,7 @@ export async function getHouseholds(filters: {
                     take: 1
                 }
             },
-            orderBy: [{ boothNumber: 'asc' }, { houseNumber: 'asc' }],
+            orderBy: [{ boothNumber: 'asc' }, { id: 'asc' }],
             skip,
             take: pageSize
         }),
