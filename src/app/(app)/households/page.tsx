@@ -174,27 +174,6 @@ export default function HouseholdsPage() {
                     >
                         <Compass size={16} color="#38BDF8" /> 🗺️ लाइव नक्शा (Map View)
                     </Link>
-
-                    <button
-                        onClick={handleAutoGenerate}
-                        disabled={generating}
-                        style={{
-                            background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-                            color: 'white',
-                            border: 'none',
-                            padding: '10px 16px',
-                            borderRadius: '12px',
-                            fontWeight: 800,
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
-                        }}
-                    >
-                        <Sparkles size={16} /> {generating ? 'जनरेट हो रहा है...' : 'वोटर लिस्ट से हाउसहोल्ड बनाएं'}
-                    </button>
                 </div>
             </div>
 
@@ -282,13 +261,7 @@ export default function HouseholdsPage() {
                 <div style={{ background: 'white', padding: '40px 20px', borderRadius: '20px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
                     <Home size={48} color="#94A3B8" style={{ margin: '0 auto 12px auto', opacity: 0.5 }} />
                     <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#1E293B', marginBottom: '4px' }}>कोई हाउसहोल्ड नहीं मिला</h3>
-                    <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>क्या आपने वोटर डेटा से हाउसहोल्ड जनरेट कर लिए हैं?</p>
-                    <button
-                        onClick={handleAutoGenerate}
-                        style={{ background: '#2563EB', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: 800, fontSize: '13px', cursor: 'pointer' }}
-                    >
-                        ✨ अभी वोटर डेटा से हाउसहोल्ड्स बनाएं
-                    </button>
+                    <p style={{ fontSize: '13px', color: '#64748B' }}>कृपया सर्च कीवर्ड या बूथ फ़िल्टर बदलकर पुनः प्रयास करें।</p>
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
