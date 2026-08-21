@@ -109,6 +109,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
             return [
                 // 📊 Overview
                 { name: lang === 'hi' ? 'बूथ डैशबोर्ड' : 'Booth Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                { name: lang === 'hi' ? 'कैंपेन प्रोग्रेस' : 'Campaign Progress', path: '/campaign-progress', icon: TrendingUp },
                 // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'My Booth Voters', path: '/voters', icon: Vote },
                 { name: lang === 'hi' ? 'हाउसहोल्ड मैपिंग' : 'Household Mapping', path: '/households', icon: Compass },
@@ -132,6 +133,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
             return [
                 // 📊 Overview
                 { name: lang === 'hi' ? 'पन्ना डैशबोर्ड' : 'Page Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                { name: lang === 'hi' ? 'कैंपेन प्रोग्रेस' : 'Campaign Progress', path: '/campaign-progress', icon: TrendingUp },
                 // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'आपका पन्ना' : 'Your Panna', path: '/voters?filter=my-panna', icon: BookOpen },
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Booth Voters', path: '/voters', icon: Users },
@@ -154,6 +156,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
             return [
                 // 📊 Overview
                 { name: lang === 'hi' ? 'कार्यकर्ता डैशबोर्ड' : 'Ground Worker Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                { name: lang === 'hi' ? 'कैंपेन प्रोग्रेस' : 'Campaign Progress', path: '/campaign-progress', icon: TrendingUp },
                 // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Users },
                 { name: lang === 'hi' ? 'हाउसहोल्ड मैपिंग' : 'Household Mapping', path: '/households', icon: Compass },
@@ -175,6 +178,7 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
             return [
                 // 📊 Overview
                 { name: lang === 'hi' ? 'कार्यकर्ता डैशबोर्ड' : 'Worker Dashboard', path: '/dashboard', icon: LayoutDashboard },
+                { name: lang === 'hi' ? 'कैंपेन प्रोग्रेस' : 'Campaign Progress', path: '/campaign-progress', icon: TrendingUp },
                 // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'मतदाता सूची' : 'Voter List', path: '/voters', icon: Vote },
                 { name: lang === 'hi' ? 'हाउसहोल्ड मैपिंग' : 'Household Mapping', path: '/households', icon: Compass },

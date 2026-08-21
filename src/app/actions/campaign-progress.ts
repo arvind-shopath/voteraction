@@ -5,15 +5,46 @@ import { auth } from '@/auth';
 
 const db = prisma as any;
 
-export async function getCampaignProgressStats(assemblyId?: number) {
+export async function getCampaignProgressStats(assemblyId?: number, boothNum?: number) {
     const session = await auth();
     const user = session?.user as any;
     const targetAssemblyId = assemblyId || user?.assemblyId || 1;
 
+    // Detect worker profile if logged in as worker or passed boothNum
+    let assignedBoothNumber: number | null = boothNum || null;
+    let workerProfile: any = null;
+
+    if (!assignedBoothNumber && (user?.role === 'WORKER' || user?.workerId)) {
+        if (user?.workerId) {
+            workerProfile = await db.worker.findUnique({
+                where: { id: user.workerId },
+                include: { booth: true }
+            });
+        }
+        if (!workerProfile && user?.id) {
+            workerProfile = await db.worker.findFirst({
+                where: {
+                    OR: [
+                        { userId: Number(user.id) },
+                        { mobile: user.mobile || user.phone || '' }
+                    ]
+                },
+                include: { booth: true }
+            });
+        }
+        if (workerProfile?.booth?.number) {
+            assignedBoothNumber = workerProfile.booth.number;
+        }
+    }
+
+    const boothFilter = assignedBoothNumber ? { number: assignedBoothNumber } : {};
+    const householdBoothFilter = assignedBoothNumber ? { boothNumber: assignedBoothNumber } : {};
+    const voterBoothFilter = assignedBoothNumber ? { boothNumber: assignedBoothNumber } : {};
+
     // 1. Organization & Booths
     const [booths, workers, totalVoters, assembly] = await Promise.all([
         db.booth.findMany({
-            where: { assemblyId: targetAssemblyId },
+            where: { assemblyId: targetAssemblyId, ...boothFilter },
             include: {
                 workers: {
                     select: { id: true, name: true, type: true, mobile: true }
@@ -22,14 +53,18 @@ export async function getCampaignProgressStats(assemblyId?: number) {
             orderBy: { number: 'asc' }
         }),
         db.worker.findMany({
-            where: { assemblyId: targetAssemblyId, deletedAt: null },
+            where: { 
+                assemblyId: targetAssemblyId, 
+                deletedAt: null,
+                ...(assignedBoothNumber ? { booth: { number: assignedBoothNumber } } : {})
+            },
             include: {
                 booth: { select: { number: true, name: true } },
                 householdVisits: { select: { id: true, status: true } },
                 tasks: { select: { id: true, status: true } }
             }
         }),
-        db.voter.count({ where: { assemblyId: targetAssemblyId } }),
+        db.voter.count({ where: { assemblyId: targetAssemblyId, ...voterBoothFilter } }),
         db.assembly.findUnique({
             where: { id: targetAssemblyId },
             select: { id: true, number: true, name: true, totalBooths: true, totalVoters: true }
@@ -38,11 +73,11 @@ export async function getCampaignProgressStats(assemblyId?: number) {
 
     // 2. Households & Field Visits
     const [totalHouseholds, verifiedHouseholds, geocodedHouseholds, visitedHouseholds, revisitHouseholds] = await Promise.all([
-        db.household.count({ where: { assemblyId: targetAssemblyId } }),
-        db.household.count({ where: { assemblyId: targetAssemblyId, locationStatus: 'Field_Verified' } }),
-        db.household.count({ where: { assemblyId: targetAssemblyId, locationStatus: 'Geocoded' } }),
-        db.household.count({ where: { assemblyId: targetAssemblyId, visits: { some: {} } } }),
-        db.household.count({ where: { assemblyId: targetAssemblyId, visits: { some: { status: 'Revisit_Required' } } } })
+        db.household.count({ where: { assemblyId: targetAssemblyId, ...householdBoothFilter } }),
+        db.household.count({ where: { assemblyId: targetAssemblyId, locationStatus: 'Field_Verified', ...householdBoothFilter } }),
+        db.household.count({ where: { assemblyId: targetAssemblyId, locationStatus: 'Geocoded', ...householdBoothFilter } }),
+        db.household.count({ where: { assemblyId: targetAssemblyId, visits: { some: {} }, ...householdBoothFilter } }),
+        db.household.count({ where: { assemblyId: targetAssemblyId, visits: { some: { status: 'Revisit_Required' } }, ...householdBoothFilter } })
     ]);
 
     // 3. Events
@@ -59,11 +94,17 @@ export async function getCampaignProgressStats(assemblyId?: number) {
     // 4. Tasks & Issues
     const [tasks, issues] = await Promise.all([
         db.task.findMany({
-            where: { assemblyId: targetAssemblyId },
+            where: { 
+                assemblyId: targetAssemblyId,
+                ...(workerProfile ? { OR: [{ workerId: workerProfile.id }, { boothId: workerProfile.boothId }] } : {})
+            },
             select: { id: true, status: true }
         }),
         db.issue.findMany({
-            where: { assemblyId: targetAssemblyId },
+            where: { 
+                assemblyId: targetAssemblyId,
+                ...(assignedBoothNumber ? { boothNumber: assignedBoothNumber } : {})
+            },
             select: { id: true, status: true, priority: true }
         })
     ]);

@@ -1083,11 +1083,23 @@ export async function syncGitHubApps() {
 
             fs.writeFileSync(tempZip, Buffer.from(buffer));
 
-            // Extract using CLI unzip
-            await execAsync(`unzip -o ${tempZip} -d ${appsDir}`);
+            // Extract cross-platform (PowerShell on Windows, unzip/tar on Linux)
+            const isWin = process.platform === 'win32';
+            if (isWin) {
+                const cmd = `powershell -NoProfile -Command "Expand-Archive -LiteralPath '${tempZip}' -DestinationPath '${appsDir}' -Force"`;
+                await execAsync(cmd);
+            } else {
+                try {
+                    await execAsync(`unzip -o "${tempZip}" -d "${appsDir}"`);
+                } catch {
+                    await execAsync(`tar -xf "${tempZip}" -C "${appsDir}"`);
+                }
+            }
 
             // Cleanup zip
-            fs.unlinkSync(tempZip);
+            if (fs.existsSync(tempZip)) {
+                fs.unlinkSync(tempZip);
+            }
 
             // Move/Rename file if needed (e.g., app-debug.apk -> voteraction.apk)
             const files = fs.readdirSync(appsDir);
