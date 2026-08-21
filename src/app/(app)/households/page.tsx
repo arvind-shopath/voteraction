@@ -413,10 +413,10 @@ export default function HouseholdsPage() {
 
                                         {/* House Info */}
                                         <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A', marginBottom: '4px' }}>
-                                            मकान नं. {h.houseNumber} • {h.village}
+                                            मकान नं. {(h.houseNumber || '').replace(/[०-९]/g, d => '०१२३४५६७८९'.indexOf(d).toString())} • {h.village}
                                         </h3>
                                         <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '12px' }}>
-                                            <MapPin size={13} color="#EF4444" /> {h.fullAddress || `${h.village}, मकान संख्या: ${h.houseNumber}`}
+                                            <MapPin size={13} color="#EF4444" /> मकान संख्या: {(h.houseNumber || '').replace(/[०-९]/g, d => '०१२३४५६७८९'.indexOf(d).toString())}, {h.village}
                                         </div>
 
                                         {/* Head & Voters Info */}
