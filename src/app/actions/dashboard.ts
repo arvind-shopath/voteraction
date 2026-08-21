@@ -5,26 +5,59 @@ import { prisma as prismaClient } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 const prisma = prismaClient as any;
 
+// Fast In-Memory TTL Cache for Dashboard & Analytics
+const memoryCache = new Map<string, { data: any, expiresAt: number }>();
+
+function getFromCache(key: string) {
+    const item = memoryCache.get(key);
+    if (!item) return null;
+    if (Date.now() > item.expiresAt) {
+        memoryCache.delete(key);
+        return null;
+    }
+    return item.data;
+}
+
+function setInCache(key: string, data: any, ttlMs: number = 30000) {
+    if (memoryCache.size > 200) {
+        const firstKey = memoryCache.keys().next().value;
+        if (firstKey) memoryCache.delete(firstKey);
+    }
+    memoryCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
 export async function getBoothSentimentAnalytics(assemblyId: number) {
-    const voters = await prisma.voter.findMany({
-        where: { assemblyId },
-        select: { boothNumber: true, supportStatus: true }
-    });
+    const cacheKey = `sentiment_${assemblyId}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) return cached;
+
+    // Fast SQL GROUP BY directly in SQLite engine
+    const rows: any[] = await prisma.$queryRaw`
+        SELECT 
+            boothNumber, 
+            supportStatus, 
+            COUNT(*) as count
+        FROM Voter
+        WHERE assemblyId = ${assemblyId} AND boothNumber IS NOT NULL
+        GROUP BY boothNumber, supportStatus
+    `.catch(() => []);
 
     const boothStats: Record<number, { support: number, neutral: number, oppose: number }> = {};
 
-    voters.forEach((v: any) => {
-        if (!v.boothNumber) return;
-        if (!boothStats[v.boothNumber]) {
-            boothStats[v.boothNumber] = { support: 0, neutral: 0, oppose: 0 };
+    rows.forEach((r: any) => {
+        const bn = Number(r.boothNumber);
+        if (!bn) return;
+        if (!boothStats[bn]) {
+            boothStats[bn] = { support: 0, neutral: 0, oppose: 0 };
         }
-        const status = v.supportStatus || 'Neutral';
-        if (status === 'Support') boothStats[v.boothNumber].support++;
-        else if (status === 'Oppose') boothStats[v.boothNumber].oppose++;
-        else boothStats[v.boothNumber].neutral++;
+        const count = Number(r.count) || 0;
+        const status = r.supportStatus || 'Neutral';
+        if (status === 'Support') boothStats[bn].support += count;
+        else if (status === 'Oppose') boothStats[bn].oppose += count;
+        else boothStats[bn].neutral += count;
     });
 
-    return Object.entries(boothStats).map(([booth, stats]) => {
+    const res = Object.entries(boothStats).map(([booth, stats]) => {
         const total = stats.support + stats.neutral + stats.oppose;
         let dominant = 'Neutral';
         if (stats.support > stats.neutral && stats.support > stats.oppose) dominant = 'Support';
@@ -32,67 +65,90 @@ export async function getBoothSentimentAnalytics(assemblyId: number) {
 
         return {
             boothNumber: parseInt(booth),
-            support: Math.round((stats.support / total) * 100),
-            neutral: Math.round((stats.neutral / total) * 100),
-            oppose: Math.round((stats.oppose / total) * 100),
+            support: total > 0 ? Math.round((stats.support / total) * 100) : 0,
+            neutral: total > 0 ? Math.round((stats.neutral / total) * 100) : 0,
+            oppose: total > 0 ? Math.round((stats.oppose / total) * 100) : 0,
             dominant
         };
     }).sort((a, b) => a.boothNumber - b.boothNumber);
+
+    setInCache(cacheKey, res, 45000);
+    return res;
 }
 
 export async function getCasteAnalytics(assemblyId: number) {
-    const voters = await prisma.voter.findMany({
-        where: { 
-            assemblyId,
-            caste: { not: null }
-        },
-        select: { caste: true }
-    });
+    const cacheKey = `caste_${assemblyId}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) return cached;
 
-    const counts: Record<string, number> = {};
-    voters.forEach((v: any) => {
-        if (!v.caste || v.caste === 'अन्य / अज्ञात' || v.caste.trim() === '') return;
-        const caste = v.caste.trim();
-        counts[caste] = (counts[caste] || 0) + 1;
-    });
+    // Fast SQL aggregation directly in SQLite
+    const rows: any[] = await prisma.$queryRaw`
+        SELECT 
+            TRIM(caste) as name, 
+            COUNT(*) as count
+        FROM Voter
+        WHERE assemblyId = ${assemblyId} 
+          AND caste IS NOT NULL 
+          AND TRIM(caste) != '' 
+          AND caste != 'अन्य / अज्ञात'
+        GROUP BY TRIM(caste)
+        ORDER BY count DESC
+    `.catch(() => []);
 
-    // Convert to array and sort by count descending
-    return Object.entries(counts)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count);
+    const res = rows.map((r: any) => ({
+        name: String(r.name),
+        count: Number(r.count) || 0
+    }));
+
+    setInCache(cacheKey, res, 45000);
+    return res;
 }
 
 export async function getAgeAnalytics(assemblyId: number) {
-    const voters = await prisma.voter.findMany({
-        where: { 
-            assemblyId,
-            age: { not: null }
-        },
-        select: { age: true }
-    });
+    const cacheKey = `age_${assemblyId}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) return cached;
 
-    const groups = {
+    // Fast SQL CASE aggregation
+    const rows: any[] = await prisma.$queryRaw`
+        SELECT 
+            CASE 
+                WHEN age <= 25 THEN '18-25 (युवा)'
+                WHEN age <= 45 THEN '26-45 (युवा/प्रौढ़)'
+                WHEN age <= 60 THEN '46-60 (प्रौढ़)'
+                ELSE '60+ (वरिष्ठ)'
+            END as range,
+            COUNT(*) as count
+        FROM Voter
+        WHERE assemblyId = ${assemblyId} AND age IS NOT NULL AND age >= 18
+        GROUP BY range
+    `.catch(() => []);
+
+    const groupMap: Record<string, number> = {
         '18-25 (युवा)': 0,
         '26-45 (युवा/प्रौढ़)': 0,
         '46-60 (प्रौढ़)': 0,
         '60+ (वरिष्ठ)': 0
     };
 
-    voters.forEach((v: any) => {
-        const age = v.age;
-        if (!age || age < 18) return;
-        if (age <= 25) groups['18-25 (युवा)']++;
-        else if (age <= 45) groups['26-45 (युवा/प्रौढ़)']++;
-        else if (age <= 60) groups['46-60 (प्रौढ़)']++;
-        else groups['60+ (वरिष्ठ)']++;
+    rows.forEach((r: any) => {
+        if (r.range && groupMap[r.range] !== undefined) {
+            groupMap[r.range] = Number(r.count) || 0;
+        }
     });
 
-    return Object.entries(groups).map(([range, count]) => ({ range, count }));
+    const res = Object.entries(groupMap).map(([range, count]) => ({ range, count }));
+    setInCache(cacheKey, res, 45000);
+    return res;
 }
 
 export async function getDashboardStats(role: string, assemblyId: number, userId?: number) {
-    // If we have an assemblyId, always return assembly-specific stats for the dashboard view
+    // If we have an assemblyId, check cache first
     if (assemblyId) {
+        const cacheKey = `stats_${assemblyId}_${role}_${userId || 'all'}`;
+        const cached = getFromCache(cacheKey);
+        if (cached) return cached;
+
         const assembly = await prisma.assembly.findUnique({
             where: { id: assemblyId }
         });
@@ -119,16 +175,22 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
             where: { assemblyId },
             _count: { id: true }
         }).catch(() => []);
-        const boothVisited = await prisma.householdVisit.findMany({
-            where: { household: { assemblyId } },
-            select: { household: { select: { boothNumber: true } } },
-            distinct: ['householdId']
-        }).catch(() => []);
+
+        // Fast SQL join instead of deep findMany
+        const boothVisitedRows: any[] = await prisma.$queryRaw`
+            SELECT h.boothNumber, COUNT(DISTINCT hv.householdId) as visitedCount
+            FROM HouseholdVisit hv
+            JOIN Household h ON hv.householdId = h.id
+            WHERE h.assemblyId = ${assemblyId}
+            GROUP BY h.boothNumber
+        `.catch(() => []);
+
         const boothVisitedMap: Record<number, number> = {};
-        boothVisited.forEach((v: any) => {
-            const bn = v.household?.boothNumber;
-            if (bn) boothVisitedMap[bn] = (boothVisitedMap[bn] || 0) + 1;
+        boothVisitedRows.forEach((r: any) => {
+            const bn = Number(r.boothNumber);
+            if (bn) boothVisitedMap[bn] = Number(r.visitedCount) || 0;
         });
+
         const boothCoverageBreakdown = boothHouseholds.map((b: any) => ({
             boothNumber: b.boothNumber,
             total: b._count.id,
@@ -219,7 +281,7 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
             ? Math.round(availableComponents.reduce((s, c) => s + (c.score! * c.weight), 0) / totalWeight)
             : null;
 
-        return {
+        const result = {
             voters: voters || 0,
             booths: booths || 0,
             workers: workers || 0,
@@ -256,6 +318,9 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
             boothReadiness: { ready: readyBooths, attention: attentionBooths, critical: criticalBooths, total: allBooths.length, priorityBooths },
             electionReadiness: { score: weightedScore, components: readinessComponents },
         };
+
+        setInCache(cacheKey, result, 30000);
+        return result;
     }
 
 
@@ -323,6 +388,10 @@ export async function getBoothDashboardStats(userId: number, assemblyId?: number
 async function getStatsForBooth(booth: any, assemblyId: number, workerId: number | null) {
     const boothId = booth.id;
     const boothNumber = booth.number;
+    const cacheKey = `booth_stats_${assemblyId}_${boothNumber}_${workerId || 'none'}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) return cached;
+
     const now = new Date();
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
@@ -462,7 +531,7 @@ async function getStatsForBooth(booth: any, assemblyId: number, workerId: number
         }
     }) : null;
 
-    return {
+    const result = {
         booth: booth,
         worker: workerObj,
         assembly: assemblyObj,
@@ -498,12 +567,20 @@ async function getStatsForBooth(booth: any, assemblyId: number, workerId: number
         historicalResults: booth.historicalResults,
         casteEquation: booth.casteEquation
     };
+
+    setInCache(cacheKey, result, 30000);
+    return result;
 }
 
 export async function getPannaDashboardStats(userId: number, assemblyId?: number) {
     const uId = Number(userId);
     const aId = assemblyId ? Number(assemblyId) : undefined;
     if (!uId) return null;
+
+    const cacheKey = `panna_stats_${uId}_${aId || 'default'}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) return cached;
+
     let worker = await prisma.worker.findUnique({
         where: { userId: uId },
         include: {
@@ -679,7 +756,7 @@ export async function getPannaDashboardStats(userId: number, assemblyId?: number
         ? Math.round(availableComponents.reduce((s, c) => s + (c.score! * c.weight), 0) / totalWeight)
         : null;
 
-    return {
+    const result = {
         worker: {
             ...worker,
             booth: booth || worker.booth,
@@ -723,6 +800,9 @@ export async function getPannaDashboardStats(userId: number, assemblyId?: number
         ].sort((a: any, b: any) => b.date.getTime() - a.date.getTime()).slice(0, 5),
         recentActivity: recentPrReports
     };
+
+    setInCache(cacheKey, result, 30000);
+    return result;
 }
 
 export async function updateBoothAnalytics(boothId: number, data: { historicalResults?: string, casteEquation?: string }) {
