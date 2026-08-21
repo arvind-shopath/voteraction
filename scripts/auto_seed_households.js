@@ -1,6 +1,30 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+function normalizeHouseNumber(str) {
+    if (!str) return '1';
+    const devanagariMap = {
+        '०': '0', '१': '1', '२': '2', '३': '3', '४': '4',
+        '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
+    };
+    let clean = String(str).replace(/[०-९]/g, d => devanagariMap[d] || d).trim();
+    // Remove leading zeroes e.g. '03' -> '3', '001' -> '1'
+    clean = clean.replace(/^0+(?=\d)/, '');
+    return clean || '1';
+}
+
+function getNumericValue(hNo) {
+    const match = hNo.match(/\d+/);
+    if (!match) return 0;
+    const base = parseInt(match[0], 10);
+    // If suffix exists like 'क' or 'A', add slight offset so 14क comes right after 14
+    const suffix = hNo.replace(match[0], '').trim();
+    if (suffix) {
+        return base + 0.1;
+    }
+    return base;
+}
+
 // Deterministic 2D distribution function
 function getRealisticOffset(seedStr, stdDev = 0.0035) {
     let hash = 0;
@@ -34,7 +58,7 @@ const BOOTH_CENTROIDS = {
 };
 
 async function run() {
-    console.log('Regenerating households with strict natural numeric ordering (1, 2, 3, 4, 5...)...');
+    console.log('Regenerating households with English standard numbers (1, 2, 3, 4, 5...) and strict numeric sorting...');
 
     // 1. Clear previous records
     await prisma.householdVisit.deleteMany({});
@@ -69,8 +93,9 @@ async function run() {
         const bMap = boothGroups.get(bNum);
         
         const vil = (v.village || v.villageHi || 'सामान्य').trim();
-        const hNo = (v.houseNoClean || v.houseNumber || '0').trim();
-        const key = `${vil}__${hNo}`;
+        const rawHNo = v.houseNoClean || v.houseNumber || '1';
+        const cleanHNo = normalizeHouseNumber(rawHNo);
+        const key = `${vil}__${cleanHNo}`;
 
         if (!bMap.has(key)) {
             bMap.set(key, []);
@@ -83,14 +108,14 @@ async function run() {
     for (const [boothNumber, householdsMap] of boothGroups.entries()) {
         const center = BOOTH_CENTROIDS[boothNumber] || { lat: 25.580 + (boothNumber * 0.003), lng: 83.570 + (boothNumber * 0.003) };
 
-        // Sort households strictly numerically by house number (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11...)
+        // Sort households strictly numerically by English house numbers (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12...)
         const sortedEntries = Array.from(householdsMap.entries()).sort((a, b) => {
             const [vilA, hNoA] = a[0].split('__');
             const [vilB, hNoB] = b[0].split('__');
             if (vilA !== vilB) return vilA.localeCompare(vilB);
             
-            const numA = parseInt(hNoA.replace(/\D/g, '')) || 0;
-            const numB = parseInt(hNoB.replace(/\D/g, '')) || 0;
+            const numA = getNumericValue(hNoA);
+            const numB = getNumericValue(hNoB);
             if (numA !== numB) return numA - numB;
             return hNoA.localeCompare(hNoB);
         });
@@ -110,8 +135,8 @@ async function run() {
                     boothNumber,
                     village,
                     villageHi: vList[0].villageHi || village,
-                    houseNumber: houseNo,
-                    fullAddress: vList[0].fullAddressHi || `${village}, मकान नं ${houseNo}`,
+                    houseNumber: houseNo, // English number e.g. "1", "2", "3", "4"...
+                    fullAddress: `${village}, मकान नं ${houseNo}`,
                     locationStatus: 'Approximate',
                     latitude: center.lat + offset.dLat,
                     longitude: center.lng + offset.dLng
@@ -121,7 +146,10 @@ async function run() {
             const vIds = vList.map(v => v.id);
             await prisma.voter.updateMany({
                 where: { id: { in: vIds } },
-                data: { householdId: hh.id }
+                data: { 
+                    householdId: hh.id,
+                    houseNoClean: houseNo
+                }
             });
 
             seq++;
@@ -129,7 +157,7 @@ async function run() {
         }
     }
 
-    console.log(`Successfully created ${totalHouseholds} households with perfect 1, 2, 3, 4, 5... numerical ordering!`);
+    console.log(`Successfully created ${totalHouseholds} households with 1, 2, 3, 4, 5... standard English numbers!`);
 }
 
 run()
