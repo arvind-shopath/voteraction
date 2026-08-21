@@ -212,7 +212,7 @@ const IGNORE_WORDS = new Set([
     'mr', 'mrs', 'ms', 'dr'
 ]);
 
-function predict(name, relativeName) {
+function predictIndividual(name, relativeName) {
     const cleanName = (name || '').trim();
     const cleanRel = (relativeName || '').trim();
 
@@ -277,7 +277,8 @@ function predict(name, relativeName) {
             caste: mapped.caste,
             subCaste: mapped.subCaste,
             casteCategory: mapped.category,
-            surname: extractedSurname
+            surname: extractedSurname,
+            isDetermined: true
         };
     }
 
@@ -286,60 +287,150 @@ function predict(name, relativeName) {
             religion: 'मुस्लिम',
             caste: 'मुस्लिम समुदाय',
             casteCategory: 'Muslim',
-            surname: extractedSurname || 'खान'
+            surname: extractedSurname || 'खान',
+            isDetermined: true
         };
     }
 
-    // Voters whose surname does not match any caste dictionary MUST be classified as Unknown / अज्ञात
     return {
         religion: 'हिंदू',
         caste: 'अज्ञात / अनिर्धारित',
         casteCategory: 'Unknown',
         subCaste: null,
-        surname: extractedSurname || null
+        surname: extractedSurname || null,
+        isDetermined: false
     };
 }
 
 async function run() {
-    console.log('Recalculating all voter castes with strict Unknown classification for undetermined voters...');
+    console.log('Fetching all voters and applying Family-Level Caste Propagation...');
     const voters = await prisma.voter.findMany({
-        select: { id: true, name: true, relativeName: true, caste: true, religion: true, casteCategory: true, subCaste: true, surname: true }
+        select: { 
+            id: true, 
+            name: true, 
+            relativeName: true, 
+            caste: true, 
+            religion: true, 
+            casteCategory: true, 
+            subCaste: true, 
+            surname: true,
+            boothNumber: true,
+            village: true,
+            houseNumber: true,
+            houseNoClean: true,
+            householdId: true
+        }
     });
 
     console.log(`Analyzing ${voters.length} voters...`);
-    let updated = 0;
+
+    // 1. Group voters by Family / Household
+    const familyGroups = new Map();
 
     for (const v of voters) {
-        const pred = predict(v.name, v.relativeName);
-        if (v.caste !== pred.caste || v.religion !== pred.religion || v.casteCategory !== pred.casteCategory || v.subCaste !== pred.subCaste) {
-            await prisma.voter.update({
-                where: { id: v.id },
-                data: {
-                    caste: pred.caste,
-                    subCaste: pred.subCaste || null,
-                    casteCategory: pred.casteCategory || 'Unknown',
-                    religion: pred.religion,
-                    surname: pred.surname || null
+        const bNum = v.boothNumber || 1;
+        const vil = (v.village || 'सामान्य').trim();
+        const hNo = (v.houseNoClean || v.houseNumber || '0').trim();
+        const familyKey = v.householdId ? `hh_${v.householdId}` : `b_${bNum}_v_${vil}_h_${hNo}`;
+
+        if (!familyGroups.has(familyKey)) {
+            familyGroups.set(familyKey, []);
+        }
+        familyGroups.get(familyKey).push(v);
+    }
+
+    console.log(`Found ${familyGroups.size} unique family/household clusters.`);
+
+    let updatedCount = 0;
+
+    for (const [fKey, members] of familyGroups.entries()) {
+        // Step 1: Predict for each member
+        const predictions = members.map(m => ({
+            member: m,
+            pred: predictIndividual(m.name, m.relativeName)
+        }));
+
+        // Step 2: Check if ANY family member has a determined caste
+        const determinedPreds = predictions.filter(p => p.pred.isDetermined && p.pred.casteCategory !== 'Unknown');
+
+        let familyCaste = 'अज्ञात / अनिर्धारित';
+        let familyCategory = 'Unknown';
+        let familySubCaste = null;
+        let familyReligion = 'हिंदू';
+
+        if (determinedPreds.length > 0) {
+            // Find most frequent caste in this household
+            const casteCounts = new Map();
+            for (const dp of determinedPreds) {
+                const cName = dp.pred.caste;
+                if (!casteCounts.has(cName)) {
+                    casteCounts.set(cName, { count: 0, sample: dp.pred });
                 }
-            });
-            updated++;
+                casteCounts.get(cName).count++;
+            }
+
+            let bestSample = determinedPreds[0].pred;
+            let maxCount = 0;
+            for (const item of casteCounts.values()) {
+                if (item.count > maxCount) {
+                    maxCount = item.count;
+                    bestSample = item.sample;
+                }
+            }
+
+            familyCaste = bestSample.caste;
+            familyCategory = bestSample.casteCategory;
+            familySubCaste = bestSample.subCaste;
+            familyReligion = bestSample.religion;
+        } else {
+            // Check if any member has Muslim marker
+            const muslimMember = predictions.find(p => p.pred.religion === 'मुस्लिम');
+            if (muslimMember) {
+                familyReligion = 'मुस्लिम';
+                familyCategory = 'Muslim';
+                familyCaste = 'मुस्लिम समुदाय';
+            }
+        }
+
+        // Step 3: Apply Family Caste to all members
+        for (const item of predictions) {
+            const v = item.member;
+            const targetCaste = item.pred.isDetermined ? item.pred.caste : familyCaste;
+            const targetCategory = item.pred.isDetermined ? item.pred.casteCategory : familyCategory;
+            const targetSubCaste = item.pred.isDetermined ? item.pred.subCaste : familySubCaste;
+            const targetReligion = item.pred.isDetermined ? item.pred.religion : familyReligion;
+            const targetSurname = item.pred.surname || (familySubCaste || null);
+
+            if (v.caste !== targetCaste || v.casteCategory !== targetCategory || v.subCaste !== targetSubCaste || v.religion !== targetReligion) {
+                await prisma.voter.update({
+                    where: { id: v.id },
+                    data: {
+                        caste: targetCaste,
+                        casteCategory: targetCategory,
+                        subCaste: targetSubCaste,
+                        religion: targetReligion,
+                        surname: targetSurname
+                    }
+                });
+                updatedCount++;
+            }
         }
     }
 
-    console.log(`Successfully updated ${updated} voters!`);
+    console.log(`Successfully updated ${updatedCount} voters with Family-Level Caste Propagation!`);
 
     const categories = await prisma.voter.groupBy({
         by: ['casteCategory'],
         _count: { id: true }
     });
-    console.log('Categories Summary:', categories);
+    console.log('Updated Categories Summary:', categories);
 
-    const generalCastes = await prisma.voter.groupBy({
+    const topCastes = await prisma.voter.groupBy({
         by: ['caste'],
-        where: { casteCategory: 'General' },
-        _count: { id: true }
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } }
     });
-    console.log('General Castes:', generalCastes);
+    console.log('Top Castes:', topCastes.slice(0, 15));
 }
 
 run()
