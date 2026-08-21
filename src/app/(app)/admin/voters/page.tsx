@@ -347,6 +347,7 @@ export default function AdminVotersPage() {
             booth: 'सभी बूथ',
             boothName: 'सभी बूथ नाम',
             status: 'सभी स्थिति',
+            contactStatus: 'सभी',
             gender: 'सभी',
             village: 'सभी गांव',
             casteCategory: 'सभी वर्ग',
@@ -359,6 +360,8 @@ export default function AdminVotersPage() {
             isHead: false,
             isPwD: false,
             isImportant: false,
+            isVoted: 'All',
+            votedPartyId: '',
             page: 1,
             pageSize: 50
         });
