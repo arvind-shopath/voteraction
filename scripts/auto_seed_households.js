@@ -2,9 +2,19 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function run() {
-    console.log('Fetching unlinked voters...');
+    console.log('Resetting and regenerating clean, realistic households...');
+
+    // 1. Clear previous auto-visits that were artificially added
+    await prisma.householdVisit.deleteMany({});
+    
+    // 2. Clear previous household linkages
+    await prisma.voter.updateMany({
+        data: { householdId: null }
+    });
+    await prisma.household.deleteMany({});
+
+    console.log('Fetching all voters...');
     const voters = await prisma.voter.findMany({
-        where: { householdId: null },
         select: { 
             id: true, 
             assemblyId: true, 
@@ -14,23 +24,32 @@ async function run() {
             houseNumber: true, 
             houseNoClean: true, 
             fullAddressHi: true 
-        }
+        },
+        orderBy: [{ boothNumber: 'asc' }, { id: 'asc' }]
     });
-    console.log(`Found ${voters.length} unlinked voters.`);
 
-    const groups = new Map();
+    console.log(`Processing ${voters.length} voters...`);
+
+    // Group voters by boothNumber, village, and houseNumber
+    const boothGroups = new Map();
+
     for (const v of voters) {
         const bNum = v.boothNumber || 1;
+        if (!boothGroups.has(bNum)) {
+            boothGroups.set(bNum, new Map());
+        }
+        const bMap = boothGroups.get(bNum);
+        
         const vil = (v.village || v.villageHi || 'सामान्य').trim();
         const hNo = (v.houseNoClean || v.houseNumber || '0').trim();
-        const key = `${bNum}__${vil}__${hNo}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(v);
-    }
-    console.log(`Total unique household groups: ${groups.size}`);
+        const key = `${vil}__${hNo}`;
 
-    let count = 0;
-    // Ghazipur Sadar center roughly 25.58, 83.57
+        if (!bMap.has(key)) {
+            bMap.set(key, []);
+        }
+        bMap.get(key).push(v);
+    }
+
     const boothGeo = {
         1: { lat: 25.584, lng: 83.572 },
         2: { lat: 25.591, lng: 83.580 },
@@ -44,61 +63,48 @@ async function run() {
         10: { lat: 25.565, lng: 83.570 },
     };
 
-    for (const [key, vList] of groups.entries()) {
-        const [bNumStr, village, houseNo] = key.split('__');
-        const boothNumber = parseInt(bNumStr) || 1;
-        const assemblyId = vList[0].assemblyId || 1;
-        
-        const countInBooth = await prisma.household.count({ where: { assemblyId, boothNumber } });
-        const code = `H-${boothNumber}-${String(countInBooth + 1).padStart(4, '0')}`;
-        
+    let totalHouseholds = 0;
+
+    for (const [boothNumber, householdsMap] of boothGroups.entries()) {
+        let seq = 1;
         const center = boothGeo[boothNumber] || { lat: 25.580 + (boothNumber * 0.003), lng: 83.570 + (boothNumber * 0.003) };
-        // Jitter within ~200-500 meters
-        const jitterLat = (Math.sin(count * 7) * 0.0045) + ((count % 5) * 0.0008);
-        const jitterLng = (Math.cos(count * 7) * 0.0045) + ((count % 5) * 0.0008);
 
-        const lat = center.lat + jitterLat;
-        const lng = center.lng + jitterLng;
+        for (const [key, vList] of householdsMap.entries()) {
+            const [village, houseNo] = key.split('__');
+            const assemblyId = vList[0].assemblyId || 1;
+            const code = `H-${boothNumber}-${seq}`;
 
-        const locStatus = count % 4 === 0 ? 'Field_Verified' : (count % 3 === 0 ? 'Geocoded' : 'Approximate');
+            // Real approximate spread across the village/booth area
+            const jitterLat = (Math.sin(seq * 13) * 0.0035);
+            const jitterLng = (Math.cos(seq * 13) * 0.0035);
 
-        const hh = await prisma.household.create({
-            data: {
-                householdCode: code,
-                assemblyId,
-                boothNumber,
-                village,
-                villageHi: vList[0].villageHi || village,
-                houseNumber: houseNo,
-                fullAddress: vList[0].fullAddressHi || `${village}, मकान नं ${houseNo}`,
-                locationStatus: locStatus,
-                latitude: lat,
-                longitude: lng
-            }
-        });
-        
-        // Add a sample visit for verified / geocoded households
-        if (locStatus === 'Field_Verified' || count % 2 === 0) {
-            await prisma.householdVisit.create({
+            const hh = await prisma.household.create({
                 data: {
-                    householdId: hh.id,
-                    status: 'Visited',
-                    notes: 'परिवार से संपर्क किया गया, समर्थन सकारात्मक है।',
-                    latitude: lat,
-                    longitude: lng
+                    householdCode: code,
+                    assemblyId,
+                    boothNumber,
+                    village,
+                    villageHi: vList[0].villageHi || village,
+                    houseNumber: houseNo,
+                    fullAddress: vList[0].fullAddressHi || `${village}, मकान नं ${houseNo}`,
+                    locationStatus: 'Approximate', // Strictly unverified until real field verification
+                    latitude: center.lat + jitterLat,
+                    longitude: center.lng + jitterLng
                 }
             });
-        }
 
-        const vIds = vList.map(v => v.id);
-        await prisma.voter.updateMany({
-            where: { id: { in: vIds } },
-            data: { householdId: hh.id }
-        });
-        count++;
+            const vIds = vList.map(v => v.id);
+            await prisma.voter.updateMany({
+                where: { id: { in: vIds } },
+                data: { householdId: hh.id }
+            });
+
+            seq++;
+            totalHouseholds++;
+        }
     }
 
-    console.log(`Successfully created and mapped ${count} households with voters!`);
+    console.log(`Successfully generated ${totalHouseholds} clean households with sequential numbering (1, 2, 3, ...) and pure real status!`);
 }
 
 run()
