@@ -64,18 +64,13 @@ const Sidebar = ({ candidateName, candidateImageUrl, partyLogoUrl, realUserName,
             return [
                 // 📊 Overview
                 { name: lang === 'hi' ? 'कंट्रोल हाउस' : 'Control House', path: '/admin', icon: Activity },
-                { name: lang === 'hi' ? 'कैंपेन प्रोग्रेस' : 'Campaign Progress', path: '/campaign-progress', icon: TrendingUp },
                 // 🗂️ Electoral Data
                 { name: lang === 'hi' ? 'मतदाता मास्टर डेटा' : 'Voter Master Data', path: '/admin/voters', icon: Vote },
-                { name: lang === 'hi' ? 'हाउसहोल्ड व नक्शा' : 'Household Map', path: '/households', icon: Compass },
-                { name: lang === 'hi' ? 'निर्वाचन आयोग अपडेट' : 'ECI Updates', path: '/eci-updates', icon: ShieldCheck },
                 // 🏛️ Administration
                 { name: lang === 'hi' ? 'प्रत्याशी और टीमें' : 'Candidates & Teams', path: '/admin/candidates', icon: Star },
                 { name: lang === 'hi' ? 'यूजर मास्टर' : 'User Master', path: '/admin/users', icon: Users },
                 { name: lang === 'hi' ? 'विधानसभा प्रबंधन' : 'Assembly Management', path: '/admin/assemblies', icon: Tent },
                 { name: lang === 'hi' ? 'पार्टी प्रबंधन' : 'Party Management', path: '/admin/parties', icon: Flag },
-                // 📅 Field & Events
-                { name: lang === 'hi' ? 'इवेंट्स व सभाएं' : 'Events & Meetings', path: '/events', icon: Calendar },
                 // ⚡ Live
                 { name: lang === 'hi' ? 'मतदान वार रूम' : 'War Room (LIVE)', path: '/poll-day', icon: Zap },
                 // ⚙️ System
