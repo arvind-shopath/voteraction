@@ -221,7 +221,7 @@ export async function getVoters(filters: {
         where.eciStatus = { notIn: ['NEW_REQUEST', 'NOT_IN_LIST', 'RESOLVED_DELETED'] };
     }
 
-    if (village && village !== 'सभी गांव') {
+    if (village && village !== 'सभी गांव' && village !== 'सभी गांव / वार्ड' && village !== 'ALL') {
         where.village = village;
     }
 

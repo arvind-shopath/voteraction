@@ -205,7 +205,7 @@ export default function CandidateVotersView() {
         totalVoters: lang === 'hi' ? 'कुल मतदाता' : 'Total Voters',
         searchPlaceholder: lang === 'hi' ? 'खोजें (नाम, फोन, EPIC)...' : 'Search (Name, Phone, EPIC)...',
         allBooths: lang === 'hi' ? 'सभी बूथ' : 'All Booths',
-        allVillages: lang === 'hi' ? 'सभी गांव' : 'All Villages',
+        allVillages: lang === 'hi' ? 'सभी गांव / वार्ड' : 'All Villages / Wards',
         allPanna: lang === 'hi' ? 'सभी पन्ना प्रमुख' : 'All Page Leads',
         allCaste: lang === 'hi' ? 'सभी जाति' : 'All Castes',
         allFamily: lang === 'hi' ? 'सभी परिवार' : 'All Families',
@@ -438,7 +438,7 @@ export default function CandidateVotersView() {
     });
 
     const [filters, setFilters] = useState({
-        search: '', booth: 'सभी बूथ', boothName: 'सभी बूथ नाम', status: 'सभी स्थिति', contactStatus: 'सभी', gender: 'सभी', village: 'सभी गांव',
+        search: '', booth: 'सभी बूथ', boothName: 'सभी बूथ नाम', status: 'सभी स्थिति', contactStatus: 'सभी', gender: 'सभी', village: 'सभी गांव / वार्ड',
         casteCategory: 'सभी वर्ग', caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
         familySize: 'सभी परिवार', ageFilter: 'सभी आयु', pannaId: 'सभी पन्ना प्रमुख',
         isHead: false, isPwD: false, isImportant: false, isVoted: 'All', votedPartyId: '',
@@ -489,7 +489,7 @@ export default function CandidateVotersView() {
     }, [isBoothManager, session?.user?.id, assemblyId]);
 
     const selectedBoothNum = filters.booth !== 'सभी बूथ' ? parseInt(filters.booth) : null;
-    const selectedVillageName = filters.village !== 'सभी गांव' ? filters.village : null;
+    const selectedVillageName = filters.village !== 'सभी गांव' && filters.village !== 'सभी गांव / वार्ड' ? filters.village : null;
 
     const availableVillages = useMemo(() => {
         let vList = options.villages || [];
@@ -748,7 +748,7 @@ export default function CandidateVotersView() {
         if (filters.status && filters.status !== 'सभी स्थिति') count++;
         if (filters.contactStatus && filters.contactStatus !== 'सभी') count++;
         if (filters.gender && filters.gender !== 'सभी') count++;
-        if (filters.village && filters.village !== 'सभी गांव') count++;
+        if (filters.village && filters.village !== 'सभी गांव' && filters.village !== 'सभी गांव / वार्ड') count++;
         if (filters.casteCategory && filters.casteCategory !== 'सभी वर्ग') count++;
         if (filters.caste && filters.caste !== 'सभी जाति') count++;
         if (filters.subCaste && filters.subCaste !== 'सभी उपजाति') count++;
@@ -773,7 +773,7 @@ export default function CandidateVotersView() {
             status: 'सभी स्थिति',
             contactStatus: 'सभी',
             gender: 'सभी',
-            village: 'सभी गांव',
+            village: 'सभी गांव / वार्ड',
             casteCategory: 'सभी वर्ग',
             caste: 'सभी जाति',
             subCaste: 'सभी उपजाति',
@@ -878,7 +878,7 @@ export default function CandidateVotersView() {
 
                 {/* Active Filter Chips (Hindi) */}
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: isMobile ? '16px' : '24px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                    {filters.village !== 'सभी गांव' && <FilterChip label={filters.village} />}
+                    {filters.village !== 'सभी गांव / वार्ड' && <FilterChip label={filters.village} />}
                     {filters.caste !== 'सभी जाति' && <FilterChip label={filters.caste} />}
                     {filters.gender !== 'सभी' && <FilterChip label={filters.gender === 'M' ? 'पुरुष' : 'महिला'} />}
                     {filters.status !== 'सभी स्थिति' && <FilterChip label={filters.status} color={filters.status === 'Support' ? '#22C55E' : '#EF4444'} />}
@@ -974,7 +974,7 @@ export default function CandidateVotersView() {
                                             if (Array.isArray(options.villageBooths)) {
                                                 const matches = options.villageBooths.filter((vb: any) => vb.boothNumber === selectedNum).map((vb: any) => vb.village);
                                                 if (matches.length > 0 && !matches.includes(filters.village)) {
-                                                    validVillage = 'सभी गांव';
+                                                    validVillage = 'सभी गांव / वार्ड';
                                                 }
                                             }
                                         }
@@ -1006,7 +1006,7 @@ export default function CandidateVotersView() {
                                             if (Array.isArray(options.villageBooths)) {
                                                 const matches = options.villageBooths.filter((vb: any) => vb.boothNumber === num).map((vb: any) => vb.village);
                                                 if (matches.length > 0 && !matches.includes(filters.village)) {
-                                                    validVillage = 'सभी गांव';
+                                                    validVillage = 'सभी गांव / वार्ड';
                                                 }
                                             }
                                         }
@@ -1018,12 +1018,12 @@ export default function CandidateVotersView() {
                             />
 
                             <SearchableSelect
-                                options={['सभी गांव', ...availableVillages]}
+                                options={['सभी गांव / वार्ड', ...availableVillages]}
                                 value={filters.village}
                                 onChange={(val) => {
                                     let validBooth = filters.booth;
                                     let validBoothName = filters.boothName;
-                                    if (val !== 'सभी गांव' && Array.isArray(options.villageBooths)) {
+                                    if (val !== 'सभी गांव' && val !== 'सभी गांव / वार्ड' && Array.isArray(options.villageBooths)) {
                                         const matchedBoothNums = options.villageBooths.filter((vb: any) => vb.village === val).map((vb: any) => vb.boothNumber);
                                         if (matchedBoothNums.length > 0 && selectedBoothNum && !matchedBoothNums.includes(selectedBoothNum)) {
                                             validBooth = 'सभी बूथ';
@@ -1033,7 +1033,7 @@ export default function CandidateVotersView() {
                                     setFilters(prev => ({ ...prev, village: val, booth: validBooth, boothName: validBoothName, page: 1 }));
                                 }}
                                 placeholder={t.allVillages}
-                                searchPlaceholder="गांव/वार्ड खोजें..."
+                                searchPlaceholder="गांव / वार्ड खोजें..."
                             />
 
                             <SearchableSelect

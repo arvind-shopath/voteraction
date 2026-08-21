@@ -254,7 +254,7 @@ export default function HouseholdMapPage() {
                         <Search size={14} color="#94A3B8" style={{ position: 'absolute', left: '10px', top: '10px' }} />
                         <input
                             type="text"
-                            placeholder="नक्शे में खोजें (कोड, नाम, गांव)..."
+                            placeholder="नक्शे में खोजें (कोड, नाम, गांव/वार्ड)..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             style={{
@@ -291,7 +291,7 @@ export default function HouseholdMapPage() {
                         onChange={(e) => setVillageFilter(e.target.value)}
                         style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '12px', fontWeight: 800, background: 'white' }}
                     >
-                        <option value="ALL">सभी गांव / मोहल्ले</option>
+                        <option value="ALL">सभी गांव / वार्ड</option>
                         {uniqueVillages.map(v => (
                             <option key={v} value={v}>{v}</option>
                         ))}

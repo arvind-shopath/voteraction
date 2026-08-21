@@ -353,7 +353,7 @@ export default function WorkerVotersView() {
     });
 
     const [filters, setFilters] = useState({
-        search: '', status: 'सभी स्थिति', gender: 'सभी', village: 'सभी गांव',
+        search: '', status: 'सभी स्थिति', gender: 'सभी', village: 'सभी गांव / वार्ड',
         caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
         familySize: 'सभी परिवार', ageFilter: 'सभी आयु',
         isHead: false, isPwD: false, isImportant: false, isVoted: 'All', votedPartyId: '',
@@ -505,7 +505,7 @@ export default function WorkerVotersView() {
         if (filters.search && filters.search.trim() !== '') count++;
         if (filters.status && filters.status !== 'सभी स्थिति') count++;
         if (filters.gender && filters.gender !== 'सभी') count++;
-        if (filters.village && filters.village !== 'सभी गांव') count++;
+        if (filters.village && filters.village !== 'सभी गांव' && filters.village !== 'सभी गांव / वार्ड') count++;
         if (filters.casteCategory && filters.casteCategory !== 'सभी वर्ग') count++;
         if (filters.caste && filters.caste !== 'सभी जाति') count++;
         if (filters.subCaste && filters.subCaste !== 'सभी उपजाति') count++;
@@ -526,7 +526,7 @@ export default function WorkerVotersView() {
             search: '',
             status: 'सभी स्थिति',
             gender: 'सभी',
-            village: 'सभी गांव',
+            village: 'सभी गांव / वार्ड',
             casteCategory: 'सभी वर्ग',
             caste: 'सभी जाति',
             subCaste: 'सभी उपजाति',
@@ -691,7 +691,7 @@ export default function WorkerVotersView() {
                             </div>
 
                             <StyledSelect name="village" value={filters.village} onChange={handleFilterChange}>
-                                <option value="सभी गांव">{lang === 'hi' ? 'सभी गांव' : 'All Villages'}</option>
+                                <option value="सभी गांव / वार्ड">{lang === 'hi' ? 'सभी गांव / वार्ड' : 'All Villages / Wards'}</option>
                                 {options.villages.map((v: any) => <option key={v} value={v}>{v}</option>)}
                             </StyledSelect>
 

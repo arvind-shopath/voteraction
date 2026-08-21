@@ -266,15 +266,15 @@ export default function HouseholdsPage() {
                         </select>
                     </div>
 
-                    {/* Village / Mohalla Filter */}
+                    {/* Village / Ward Filter */}
                     <div>
-                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', display: 'block', marginBottom: '4px' }}>गांव / मोहल्ला</label>
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#475569', display: 'block', marginBottom: '4px' }}>गांव / वार्ड</label>
                         <select
                             value={villageFilter}
                             onChange={(e) => { setVillageFilter(e.target.value); setPage(1); }}
                             style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '12px', fontWeight: 700, background: 'white' }}
                         >
-                            <option value="ALL">सभी गांव / मोहल्ले</option>
+                            <option value="ALL">सभी गांव / वार्ड</option>
                             {options.villages.map(v => (
                                 <option key={v} value={v}>{v}</option>
                             ))}

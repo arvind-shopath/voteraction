@@ -102,7 +102,7 @@ export async function getHouseholds(filters: {
         if (!isNaN(bNum)) where.boothNumber = bNum;
     }
 
-    if (filters.village && filters.village !== 'ALL' && filters.village !== 'सभी गांव') {
+    if (filters.village && filters.village !== 'ALL' && filters.village !== 'सभी गांव' && filters.village !== 'सभी गांव / वार्ड' && filters.village !== 'सभी गांव / मोहल्ले') {
         where.village = filters.village;
     }
 
@@ -331,7 +331,7 @@ export async function getHouseholdMapPoints(filters?: {
         where.boothNumber = filters.boothNumber;
     }
 
-    if (filters?.village && filters.village !== 'ALL' && filters.village !== 'सभी गांव') {
+    if (filters?.village && filters.village !== 'ALL' && filters.village !== 'सभी गांव' && filters.village !== 'सभी गांव / वार्ड' && filters.village !== 'सभी गांव / मोहल्ले') {
         where.village = filters.village;
     }
 
