@@ -1102,32 +1102,26 @@ export async function syncGitHubApps() {
             }
 
             // Move/Rename file if needed (e.g., app-debug.apk -> voteraction.apk)
-            const files = fs.readdirSync(appsDir);
-
-            // Filter to find the NEWLY extracted file, not the existing target (if meaningful)
-            // Strategy: Find any file that matches extension AND is NOT the target name.
-            // If the zip contained the target name itself, we are good (overwrite happened).
-            // If zip contained 'app-debug.apk', we want valid candidates.
-
-            let extractedFile = files.find(f => {
-                const isTarget = f === targetFileName;
-                const isAndroidSource = artifact.name.includes('Android') && f.endsWith('.apk') && !isTarget;
-                const isWindowsSource = artifact.name.includes('Windows') && f.endsWith('.exe') && !isTarget;
-                return isAndroidSource || isWindowsSource;
+            // Find the newly extracted file by matching candidate names or latest mtime
+            let candidateFiles = files.filter(f => {
+                if (f === targetFileName) return false;
+                if (f.startsWith('creatiav')) return false; // ignore legacy files
+                if (artifact.name.includes('Android')) return f.endsWith('.apk');
+                if (artifact.name.includes('Windows')) return f.endsWith('.exe');
+                return false;
             });
 
-            // If we didn't find a "new" file, maybe the zip DID contain the target name.
-            if (!extractedFile) {
-                if (fs.existsSync(path.join(appsDir, targetFileName))) {
-                    // It exists, assuming it was updated by unzip
-                    return true;
-                }
-                return false;
-            }
+            // Sort by latest modified time
+            candidateFiles.sort((a, b) => {
+                const statA = fs.statSync(path.join(appsDir, a));
+                const statB = fs.statSync(path.join(appsDir, b));
+                return statB.mtimeMs - statA.mtimeMs;
+            });
+
+            let extractedFile = candidateFiles[0];
 
             if (extractedFile) {
                 const finalPath = path.join(appsDir, targetFileName);
-                // Remove old target if exists to ensure clean rename
                 if (fs.existsSync(finalPath)) {
                     fs.unlinkSync(finalPath);
                 }
@@ -1136,7 +1130,8 @@ export async function syncGitHubApps() {
                 fs.chmodSync(finalPath, 0o644);
                 return true;
             }
-            return false;
+
+            return fs.existsSync(path.join(appsDir, targetFileName));
         }
 
         if (androidArtifact) {
