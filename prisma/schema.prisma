@@ -62,6 +62,8 @@ model Assembly {
   workerSocialTasks     WorkerSocialTask[]
   centralContentTasks   CentralContentTask[]
   voterEditRequests     VoterEditRequest[]
+  households            Household[]
+  events                Event[]
 
   @@index([number])
 }
@@ -246,16 +248,19 @@ model Voter {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   pannaPramukhId     Int?
+  householdId        Int?
   votedSentiment     String?         // Legacy: for Support/Oppose/Neutral
   votedPartyId       Int?            // New: Link to specific Party
   importJob          ImportJob?      @relation(fields: [importJobId], references: [id])
   assembly           Assembly        @relation(fields: [assemblyId], references: [id])
   pannaPramukh       Worker?         @relation("PannaPramukhVoters", fields: [pannaPramukhId], references: [id])
+  household          Household?      @relation(fields: [householdId], references: [id])
   votedParty         Party?          @relation(fields: [votedPartyId], references: [id])
   feedbacks          VoterFeedback[]
 
   @@index([boothNumber])
   @@index([pannaPramukhId])
+  @@index([householdId])
   @@index([surname])
   @@index([caste])
   @@index([village])
@@ -344,6 +349,8 @@ model Worker {
   deletedAt         DateTime?
   tasks             Task[]
   assignedVoters    Voter[]            @relation("PannaPramukhVoters")
+  assignedHouseholds Household[]       @relation("AssignedHouseholds")
+  householdVisits   HouseholdVisit[]
   user              User?              @relation(fields: [userId], references: [id])
   booth             Booth?             @relation(fields: [boothId], references: [id])
   campaign          Campaign?          @relation(fields: [campaignId], references: [id])
@@ -762,3 +769,98 @@ model SystemSettings {
 
   @@index([key])
 }
+
+model Household {
+  id                 Int              @id @default(autoincrement())
+  householdCode      String           // e.g. H-125-0042
+  assemblyId         Int
+  boothNumber        Int
+  village            String?
+  villageEn          String?
+  villageHi          String?
+  houseNumber        String?
+  fullAddress        String?
+  tehsil             String?
+  district           String?
+  state              String           @default("Uttar Pradesh")
+  pincode            String?
+  latitude           Float?
+  longitude          Float?
+  locationStatus     String           @default("Unmapped") // Unmapped, Approximate, Geocoded, Field_Verified
+  assignedWorkerId   Int?
+  verifiedAt         DateTime?
+  verifiedByWorkerId Int?
+  notes              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  assembly           Assembly         @relation(fields: [assemblyId], references: [id])
+  assignedWorker     Worker?          @relation("AssignedHouseholds", fields: [assignedWorkerId], references: [id])
+  voters             Voter[]
+  visits             HouseholdVisit[]
+
+  @@unique([assemblyId, boothNumber, village, houseNumber])
+  @@index([assemblyId])
+  @@index([boothNumber])
+  @@index([village])
+  @@index([locationStatus])
+  @@index([assignedWorkerId])
+}
+
+model HouseholdVisit {
+  id          Int       @id @default(autoincrement())
+  householdId Int
+  workerId    Int?
+  visitDate   DateTime  @default(now())
+  status      String    @default("Visited") // Visited, Revisit_Required, Unable_to_Contact, Scheduled_Followup
+  notes       String?
+  latitude    Float?
+  longitude   Float?
+  eventId     Int?
+  createdAt   DateTime  @default(now())
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  worker      Worker?   @relation(fields: [workerId], references: [id])
+  event       Event?    @relation(fields: [eventId], references: [id])
+
+  @@index([householdId])
+  @@index([workerId])
+  @@index([status])
+}
+
+model Event {
+  id                  Int              @id @default(autoincrement())
+  title               String
+  type                String           @default("Public_Meeting") // Public_Meeting, Door_To_Door, Worker_Meeting, Nukkad_Sabha, Rally, Training, Other
+  assemblyId          Int
+  campaignId          Int?
+  date                DateTime
+  startTime           String?
+  endTime             String?
+  location            String?
+  address             String?
+  latitude            Float?
+  longitude           Float?
+  responsibleName     String?
+  responsibleMobile   String?
+  responsibleWorkerId Int?
+  assignedWorkerIds   String?          // JSON array of worker IDs
+  expectedAttendance  Int              @default(0)
+  actualAttendance    Int              @default(0)
+  status              String           @default("Scheduled") // Draft, Scheduled, Upcoming, Ongoing, Completed, Cancelled, Postponed
+  priority            String           @default("Medium") // High, Medium, Low
+  description         String?
+  notes               String?
+  attachments         String?          // JSON array of photo/file URLs
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  assembly            Assembly         @relation(fields: [assemblyId], references: [id])
+  visits              HouseholdVisit[]
+
+  @@index([assemblyId])
+  @@index([date])
+  @@index([status])
+  @@index([type])
+}
+
