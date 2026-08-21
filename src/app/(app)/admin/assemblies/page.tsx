@@ -37,13 +37,13 @@ export default function AssembliesPage() {
         setBulkMsg(prev => ({ ...prev, [assembly.id]: 'ZIP अपलोड और अनजिप हो रही है...' }));
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('assemblyId', assembly.id.toString());
-
-            const res = await fetch('/api/assembly/upload-zip', {
+            const url = `/api/assembly/upload-zip?assemblyId=${assembly.id}&fileName=${encodeURIComponent(file.name)}`;
+            const res = await fetch(url, {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/octet-stream'
+                },
+                body: file
             });
 
             const data = await res.json();

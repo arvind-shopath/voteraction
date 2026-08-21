@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { existsSync, mkdirSync, unlinkSync, readdirSync, statSync, renameSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, readdirSync, statSync, renameSync, createWriteStream } from 'fs';
 import { join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
 import { processImportQueue } from '@/lib/queue-processor';
 
 const execAsync = promisify(exec);
@@ -36,48 +38,79 @@ function flattenPdfFiles(dir: string, targetDir: string) {
 /**
  * POST /api/assembly/upload-zip
  * 
- * Form Data:
- * - file: File (.zip)
- * - assemblyId: number
+ * Supports both:
+ * 1. Direct binary streaming (via query params: ?assemblyId=X&fileName=Y)
+ * 2. Multipart FormData (file, assemblyId)
  */
 export async function POST(req: Request) {
     let tempZipPath = '';
     try {
-        const formData = await req.formData();
-        const file = formData.get('file') as File;
-        const assemblyId = formData.get('assemblyId') as string;
+        const { searchParams } = new URL(req.url);
+        let assemblyId = searchParams.get('assemblyId');
+        let fileName = searchParams.get('fileName') || 'upload.zip';
 
-        if (!file || !assemblyId) {
-            return NextResponse.json({ error: 'file and assemblyId are required' }, { status: 400 });
+        const contentType = req.headers.get('content-type') || '';
+        let assembly: any = null;
+
+        // If streamed directly via octet-stream
+        if (assemblyId && (contentType.includes('application/octet-stream') || req.body)) {
+            assembly = await (prisma as any).assembly.findUnique({
+                where: { id: parseInt(String(assemblyId)) },
+                select: { id: true, name: true, number: true }
+            });
+
+            if (!assembly) {
+                return NextResponse.json({ error: 'Assembly not found' }, { status: 404 });
+            }
+
+            const targetDir = join(process.cwd(), 'public', 'uploads', 'assembly_pdfs', String(assembly.number));
+            if (!existsSync(targetDir)) {
+                mkdirSync(targetDir, { recursive: true });
+            }
+
+            tempZipPath = join(targetDir, `upload_${Date.now()}.zip`);
+
+            if (req.body) {
+                const nodeStream = Readable.fromWeb(req.body as any);
+                const fileStream = createWriteStream(tempZipPath);
+                await pipeline(nodeStream, fileStream);
+            } else {
+                return NextResponse.json({ error: 'No data streamed' }, { status: 400 });
+            }
+
+            console.log(`[ZIP UPLOAD] Streamed ZIP file to ${tempZipPath}`);
+        } else {
+            // FormData Fallback
+            const formData = await req.formData();
+            const file = formData.get('file') as File;
+            assemblyId = formData.get('assemblyId') as string;
+
+            if (!file || !assemblyId) {
+                return NextResponse.json({ error: 'file and assemblyId are required' }, { status: 400 });
+            }
+
+            assembly = await (prisma as any).assembly.findUnique({
+                where: { id: parseInt(String(assemblyId)) },
+                select: { id: true, name: true, number: true }
+            });
+
+            if (!assembly) {
+                return NextResponse.json({ error: 'Assembly not found' }, { status: 404 });
+            }
+
+            const targetDir = join(process.cwd(), 'public', 'uploads', 'assembly_pdfs', String(assembly.number));
+            if (!existsSync(targetDir)) {
+                mkdirSync(targetDir, { recursive: true });
+            }
+
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            tempZipPath = join(targetDir, `upload_${Date.now()}.zip`);
+            require('fs').writeFileSync(tempZipPath, buffer);
+            console.log(`[ZIP UPLOAD] Saved ZIP (${(buffer.length / 1024 / 1024).toFixed(2)} MB) to ${tempZipPath}`);
         }
 
-        const assembly = await (prisma as any).assembly.findUnique({
-            where: { id: parseInt(String(assemblyId)) },
-            select: { id: true, name: true, number: true }
-        });
-
-        if (!assembly) {
-            return NextResponse.json({ error: 'Assembly not found' }, { status: 404 });
-        }
-
-        // Check zip filename extension
-        if (!file.name.toLowerCase().endsWith('.zip')) {
-            return NextResponse.json({ error: 'कृपया केवल .zip फ़ाइल अपलोड करें' }, { status: 400 });
-        }
-
-        // Create target directory: public/uploads/assembly_pdfs/<number>/
         const targetDir = join(process.cwd(), 'public', 'uploads', 'assembly_pdfs', String(assembly.number));
-        if (!existsSync(targetDir)) {
-            mkdirSync(targetDir, { recursive: true });
-        }
-
-        // Save uploaded ZIP file temporarily
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        tempZipPath = join(targetDir, `upload_${Date.now()}.zip`);
-        require('fs').writeFileSync(tempZipPath, buffer);
-
-        console.log(`[ZIP UPLOAD] Saved ZIP (${(buffer.length / 1024 / 1024).toFixed(2)} MB) to ${tempZipPath}`);
 
         // Extract ZIP file cross-platform
         const isWin = process.platform === 'win32';
