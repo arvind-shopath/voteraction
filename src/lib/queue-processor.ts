@@ -788,32 +788,48 @@ export async function processImportQueue() {
                     }
                 }).catch(() => {});
 
-                // Sync Families & Inheritance
+                // Sync Families & Safe Caste Inheritance
                 for (const fId of affectedFamilies) {
                     const familyVoters = await prisma.$queryRaw`
-                        SELECT id, age, caste, religion FROM "Voter"
+                        SELECT id, name, "nameHi", age, caste, "subCaste", "casteCategory", religion FROM "Voter"
                         WHERE "familyId" = ${fId}
                         ORDER BY age DESC
                     ` as any[];
 
                     if (familyVoters.length > 0) {
-                        // Senior head member caste inheritance
                         const headVoter = familyVoters[0];
+                        // Reset head marking for this family
                         await prisma.$executeRaw`
                             UPDATE "Voter" SET
                                 "familySize" = ${familyVoters.length},
-                                caste = ${headVoter.caste},
-                                religion = ${headVoter.religion}
+                                "isHead" = 0
                             WHERE "familyId" = ${fId}
-                        `;
-                        // Reset head marking for this family
-                        await prisma.$executeRaw`
-                            UPDATE "Voter" SET "isHead" = 0 WHERE "familyId" = ${fId}
                         `;
                         // Mark head voter
                         await prisma.$executeRaw`
                             UPDATE "Voter" SET "isHead" = 1 WHERE id = ${headVoter.id}
                         `;
+
+                        // Find if any member in the family has a determined valid caste
+                        const determinedMember = familyVoters.find(v => 
+                            v.caste && 
+                            v.caste !== 'अज्ञात / अनिर्धारित' && 
+                            v.casteCategory && 
+                            v.casteCategory !== 'Unknown'
+                        );
+
+                        if (determinedMember) {
+                            // Propagate determined caste to undetermined members in the same household
+                            await prisma.$executeRaw`
+                                UPDATE "Voter" SET
+                                    caste = ${determinedMember.caste},
+                                    "subCaste" = ${determinedMember.subCaste},
+                                    "casteCategory" = ${determinedMember.casteCategory},
+                                    religion = ${determinedMember.religion}
+                                WHERE "familyId" = ${fId}
+                                  AND (caste IS NULL OR caste = 'अज्ञात / अनिर्धारित' OR "casteCategory" IS NULL OR "casteCategory" = 'Unknown')
+                            `;
+                        }
                     }
                 }
 
