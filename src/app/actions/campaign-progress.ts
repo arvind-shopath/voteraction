@@ -3,6 +3,8 @@
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 
+const db = prisma as any;
+
 export async function getCampaignProgressStats(assemblyId?: number) {
     const session = await auth();
     const user = session?.user as any;
@@ -10,7 +12,7 @@ export async function getCampaignProgressStats(assemblyId?: number) {
 
     // 1. Organization & Booths
     const [booths, workers, totalVoters, assembly] = await Promise.all([
-        prisma.booth.findMany({
+        db.booth.findMany({
             where: { assemblyId: targetAssemblyId },
             include: {
                 workers: {
@@ -19,7 +21,7 @@ export async function getCampaignProgressStats(assemblyId?: number) {
             },
             orderBy: { number: 'asc' }
         }),
-        prisma.worker.findMany({
+        db.worker.findMany({
             where: { assemblyId: targetAssemblyId, deletedAt: null },
             include: {
                 booth: { select: { number: true, name: true } },
@@ -27,8 +29,8 @@ export async function getCampaignProgressStats(assemblyId?: number) {
                 tasks: { select: { id: true, status: true } }
             }
         }),
-        prisma.voter.count({ where: { assemblyId: targetAssemblyId } }),
-        prisma.assembly.findUnique({
+        db.voter.count({ where: { assemblyId: targetAssemblyId } }),
+        db.assembly.findUnique({
             where: { id: targetAssemblyId },
             select: { id: true, number: true, name: true, totalBooths: true, totalVoters: true }
         })
@@ -36,48 +38,48 @@ export async function getCampaignProgressStats(assemblyId?: number) {
 
     // 2. Households & Field Visits
     const [totalHouseholds, verifiedHouseholds, geocodedHouseholds, visitedHouseholds, revisitHouseholds] = await Promise.all([
-        prisma.household.count({ where: { assemblyId: targetAssemblyId } }),
-        prisma.household.count({ where: { assemblyId: targetAssemblyId, locationStatus: 'Field_Verified' } }),
-        prisma.household.count({ where: { assemblyId: targetAssemblyId, locationStatus: 'Geocoded' } }),
-        prisma.household.count({ where: { assemblyId: targetAssemblyId, visits: { some: {} } } }),
-        prisma.household.count({ where: { assemblyId: targetAssemblyId, visits: { some: { status: 'Revisit_Required' } } } })
+        db.household.count({ where: { assemblyId: targetAssemblyId } }),
+        db.household.count({ where: { assemblyId: targetAssemblyId, locationStatus: 'Field_Verified' } }),
+        db.household.count({ where: { assemblyId: targetAssemblyId, locationStatus: 'Geocoded' } }),
+        db.household.count({ where: { assemblyId: targetAssemblyId, visits: { some: {} } } }),
+        db.household.count({ where: { assemblyId: targetAssemblyId, visits: { some: { status: 'Revisit_Required' } } } })
     ]);
 
     // 3. Events
-    const events = await prisma.event.findMany({
+    const events = await db.event.findMany({
         where: { assemblyId: targetAssemblyId },
         select: { id: true, status: true, expectedAttendance: true, actualAttendance: true }
     });
 
     const totalEvents = events.length;
-    const completedEvents = events.filter(e => e.status === 'Completed').length;
-    const ongoingEvents = events.filter(e => e.status === 'Ongoing').length;
-    const scheduledEvents = events.filter(e => e.status === 'Scheduled' || e.status === 'Upcoming').length;
+    const completedEvents = events.filter((e: any) => e.status === 'Completed').length;
+    const ongoingEvents = events.filter((e: any) => e.status === 'Ongoing').length;
+    const scheduledEvents = events.filter((e: any) => e.status === 'Scheduled' || e.status === 'Upcoming').length;
 
     // 4. Tasks & Issues
     const [tasks, issues] = await Promise.all([
-        prisma.task.findMany({
+        db.task.findMany({
             where: { assemblyId: targetAssemblyId },
             select: { id: true, status: true }
         }),
-        prisma.issue.findMany({
+        db.issue.findMany({
             where: { assemblyId: targetAssemblyId },
             select: { id: true, status: true, priority: true }
         })
     ]);
 
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(t => t.status === 'Completed' || t.status === 'Resolved').length;
+    const completedTasks = tasks.filter((t: any) => t.status === 'Completed' || t.status === 'Resolved').length;
 
-    const openIssues = issues.filter(i => i.status !== 'Resolved').length;
-    const urgentIssues = issues.filter(i => i.status !== 'Resolved' && i.priority === 'Urgent').length;
+    const openIssues = issues.filter((i: any) => i.status !== 'Resolved').length;
+    const urgentIssues = issues.filter((i: any) => i.status !== 'Resolved' && i.priority === 'Urgent').length;
 
     // 5. Calculate Weighted Explainable Readiness Score
     const mappedHouseholds = verifiedHouseholds + geocodedHouseholds;
     const householdMappingRate = totalHouseholds > 0 ? (mappedHouseholds / totalHouseholds) * 100 : 40;
     const fieldCoverageRate = totalHouseholds > 0 ? (visitedHouseholds / totalHouseholds) * 100 : 30;
 
-    const assignedBoothsCount = booths.filter(b => b.workers.length > 0).length;
+    const assignedBoothsCount = booths.filter((b: any) => b.workers && b.workers.length > 0).length;
     const teamAssignmentRate = booths.length > 0 ? (assignedBoothsCount / booths.length) * 100 : 50;
 
     const eventExecutionRate = totalEvents > 0 ? (completedEvents / totalEvents) * 100 : 70;
@@ -93,13 +95,13 @@ export async function getCampaignProgressStats(assemblyId?: number) {
     ));
 
     // 6. Booth-wise Drill-down
-    const householdsByBooth = await prisma.household.groupBy({
+    const householdsByBooth = await db.household.groupBy({
         by: ['boothNumber'],
         where: { assemblyId: targetAssemblyId },
         _count: { id: true }
     });
 
-    const visitsByBooth = await prisma.household.groupBy({
+    const visitsByBooth = await db.household.groupBy({
         by: ['boothNumber'],
         where: {
             assemblyId: targetAssemblyId,
@@ -108,14 +110,14 @@ export async function getCampaignProgressStats(assemblyId?: number) {
         _count: { id: true }
     });
 
-    const householdBoothMap = new Map(householdsByBooth.map(h => [h.boothNumber, h._count.id]));
-    const visitBoothMap = new Map(visitsByBooth.map(v => [v.boothNumber, v._count.id]));
+    const householdBoothMap = new Map<number, number>(householdsByBooth.map((h: any) => [Number(h.boothNumber), Number(h._count.id)]));
+    const visitBoothMap = new Map<number, number>(visitsByBooth.map((v: any) => [Number(v.boothNumber), Number(v._count.id)]));
 
-    const boothDrillDown = booths.map(b => {
-        const hCount = householdBoothMap.get(b.number) || 0;
-        const vCount = visitBoothMap.get(b.number) || 0;
+    const boothDrillDown = booths.map((b: any) => {
+        const hCount: number = householdBoothMap.get(b.number) || 0;
+        const vCount: number = visitBoothMap.get(b.number) || 0;
         const visitPercent = hCount > 0 ? Math.round((vCount / hCount) * 100) : 0;
-        const hasTeam = b.workers.length > 0;
+        const hasTeam = b.workers && b.workers.length > 0;
 
         return {
             boothNumber: b.number,
@@ -123,18 +125,18 @@ export async function getCampaignProgressStats(assemblyId?: number) {
             totalHouseholds: hCount,
             visitedHouseholds: vCount,
             visitPercent,
-            workerCount: b.workers.length,
-            workers: b.workers.map(w => ({ name: w.name, type: w.type, mobile: w.mobile })),
+            workerCount: b.workers?.length || 0,
+            workers: (b.workers || []).map((w: any) => ({ name: w.name, type: w.type, mobile: w.mobile })),
             hasTeam,
             status: visitPercent > 70 ? 'Good' : (visitPercent > 30 ? 'Average' : 'Needs_Attention')
         };
     });
 
     // 7. Worker-wise Progress
-    const workerProgress = workers.map(w => {
-        const totalVisits = w.householdVisits.length;
-        const assignedTasks = w.tasks.length;
-        const completedTasksCount = w.tasks.filter(t => t.status === 'Completed').length;
+    const workerProgress = workers.map((w: any) => {
+        const totalVisits = w.householdVisits?.length || 0;
+        const assignedTasks = w.tasks?.length || 0;
+        const completedTasksCount = (w.tasks || []).filter((t: any) => t.status === 'Completed').length;
 
         return {
             id: w.id,

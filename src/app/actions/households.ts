@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
 
+const db = prisma as any;
+
 export async function getHouseholds(filters: {
     search?: string;
     boothNumber?: number | string;
@@ -59,7 +61,7 @@ export async function getHouseholds(filters: {
     }
 
     const [households, totalCount, statsRaw] = await Promise.all([
-        prisma.household.findMany({
+        db.household.findMany({
             where,
             include: {
                 voters: {
@@ -77,16 +79,16 @@ export async function getHouseholds(filters: {
             skip,
             take: pageSize
         }),
-        prisma.household.count({ where }),
-        prisma.household.groupBy({
+        db.household.count({ where }),
+        db.household.groupBy({
             by: ['locationStatus'],
             where: { assemblyId: targetAssemblyId },
             _count: { id: true }
         })
     ]);
 
-    const totalInAssembly = await prisma.household.count({ where: { assemblyId: targetAssemblyId } });
-    const visitedCount = await prisma.household.count({
+    const totalInAssembly = await db.household.count({ where: { assemblyId: targetAssemblyId } });
+    const visitedCount = await db.household.count({
         where: {
             assemblyId: targetAssemblyId,
             visits: { some: {} }
@@ -100,16 +102,16 @@ export async function getHouseholds(filters: {
         Unmapped: 0
     };
 
-    statsRaw.forEach(s => {
+    statsRaw.forEach((s: any) => {
         if (s.locationStatus) statusCounts[s.locationStatus] = s._count.id;
     });
 
     return {
-        households: households.map(h => ({
+        households: households.map((h: any) => ({
             ...h,
-            voterCount: h.voters.length,
-            headVoter: h.voters.find(v => v.isHead) || h.voters[0] || null,
-            lastVisit: h.visits[0] || null
+            voterCount: h.voters?.length || 0,
+            headVoter: (h.voters || []).find((v: any) => v.isHead) || h.voters?.[0] || null,
+            lastVisit: h.visits?.[0] || null
         })),
         totalCount,
         page,
@@ -127,7 +129,7 @@ export async function getHouseholds(filters: {
 }
 
 export async function getHouseholdDetails(id: number) {
-    const household = await prisma.household.findUnique({
+    const household = await db.household.findUnique({
         where: { id },
         include: {
             voters: {
@@ -152,7 +154,7 @@ export async function getHouseholdDetails(id: number) {
 }
 
 export async function autoGenerateHouseholdsFromVoters(assemblyId: number) {
-    const unlinkedVoters = await prisma.voter.findMany({
+    const unlinkedVoters = await db.voter.findMany({
         where: {
             assemblyId,
             householdId: null
@@ -175,7 +177,7 @@ export async function autoGenerateHouseholdsFromVoters(assemblyId: number) {
     }
 
     // Group voters by (boothNumber, village, houseNumber)
-    const groups = new Map<string, typeof unlinkedVoters>();
+    const groups = new Map<string, any[]>();
     for (const v of unlinkedVoters) {
         const bNum = v.boothNumber || 1;
         const vil = (v.village || v.villageHi || v.villageEn || 'सामान्य').trim();
@@ -197,7 +199,7 @@ export async function autoGenerateHouseholdsFromVoters(assemblyId: number) {
         const firstVoter = votersInGroup[0];
 
         // Check if household already exists
-        let household = await prisma.household.findFirst({
+        let household = await db.household.findFirst({
             where: {
                 assemblyId,
                 boothNumber,
@@ -207,7 +209,7 @@ export async function autoGenerateHouseholdsFromVoters(assemblyId: number) {
         });
 
         if (!household) {
-            const countInBooth = await prisma.household.count({
+            const countInBooth = await db.household.count({
                 where: { assemblyId, boothNumber }
             });
             const code = `H-${boothNumber}-${String(countInBooth + 1).padStart(4, '0')}`;
@@ -216,7 +218,7 @@ export async function autoGenerateHouseholdsFromVoters(assemblyId: number) {
             const baseLat = 25.58 + (boothNumber * 0.002);
             const baseLng = 83.57 + (boothNumber * 0.002);
 
-            household = await prisma.household.create({
+            household = await db.household.create({
                 data: {
                     householdCode: code,
                     assemblyId,
@@ -235,8 +237,8 @@ export async function autoGenerateHouseholdsFromVoters(assemblyId: number) {
         }
 
         // Link voters to this household
-        const voterIds = votersInGroup.map(v => v.id);
-        await prisma.voter.updateMany({
+        const voterIds = votersInGroup.map((v: any) => v.id);
+        await db.voter.updateMany({
             where: { id: { in: voterIds } },
             data: { householdId: household.id }
         });
@@ -264,7 +266,7 @@ export async function verifyHouseholdLocation(data: {
     const user = session?.user as any;
     const workerId = data.workerId || user?.workerId || null;
 
-    const updated = await prisma.household.update({
+    const updated = await db.household.update({
         where: { id: data.householdId },
         data: {
             latitude: data.latitude,
@@ -294,7 +296,7 @@ export async function recordHouseholdVisit(data: {
     const user = session?.user as any;
     const workerId = data.workerId || user?.workerId || null;
 
-    const visit = await prisma.householdVisit.create({
+    const visit = await db.householdVisit.create({
         data: {
             householdId: data.householdId,
             workerId,
@@ -308,7 +310,7 @@ export async function recordHouseholdVisit(data: {
 
     // If coordinates were submitted with visit, update household location
     if (data.latitude && data.longitude) {
-        await prisma.household.update({
+        await db.household.update({
             where: { id: data.householdId },
             data: {
                 latitude: data.latitude,
@@ -326,7 +328,7 @@ export async function recordHouseholdVisit(data: {
 }
 
 export async function assignHouseholdWorker(householdId: number, workerId: number | null) {
-    const updated = await prisma.household.update({
+    const updated = await db.household.update({
         where: { id: householdId },
         data: { assignedWorkerId: workerId }
     });
@@ -348,7 +350,7 @@ export async function getHouseholdMapPoints(assemblyId?: number, boothNumber?: n
         where.boothNumber = boothNumber;
     }
 
-    const households = await prisma.household.findMany({
+    const households = await db.household.findMany({
         where,
         select: {
             id: true,
@@ -370,7 +372,7 @@ export async function getHouseholdMapPoints(assemblyId?: number, boothNumber?: n
         take: 2000
     });
 
-    return households.map(h => ({
+    return households.map((h: any) => ({
         id: h.id,
         code: h.householdCode,
         boothNumber: h.boothNumber,
@@ -380,8 +382,8 @@ export async function getHouseholdMapPoints(assemblyId?: number, boothNumber?: n
         lng: h.longitude || 83.57,
         locationStatus: h.locationStatus,
         address: h.fullAddress,
-        voterCount: h._count.voters,
-        lastVisitStatus: h.visits[0]?.status || 'Not_Visited',
-        lastVisitDate: h.visits[0]?.visitDate || null
+        voterCount: h._count?.voters || 0,
+        lastVisitStatus: h.visits?.[0]?.status || 'Not_Visited',
+        lastVisitDate: h.visits?.[0]?.visitDate || null
     }));
 }

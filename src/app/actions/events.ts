@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
 
+const db = prisma as any;
+
 export async function getEvents(filters: {
     search?: string;
     type?: string;
@@ -45,7 +47,7 @@ export async function getEvents(filters: {
         ];
     }
 
-    const events = await prisma.event.findMany({
+    const events = await db.event.findMany({
         where,
         orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
         include: {
@@ -56,7 +58,7 @@ export async function getEvents(filters: {
     });
 
     const now = new Date();
-    const allEventsInAssembly = await prisma.event.findMany({
+    const allEventsInAssembly = await db.event.findMany({
         where: { assemblyId: targetAssemblyId },
         select: { status: true, expectedAttendance: true, actualAttendance: true, date: true }
     });
@@ -67,7 +69,7 @@ export async function getEvents(filters: {
     let completedCount = 0;
     let ongoingCount = 0;
 
-    allEventsInAssembly.forEach(e => {
+    allEventsInAssembly.forEach((e: any) => {
         totalExpected += e.expectedAttendance || 0;
         totalActual += e.actualAttendance || 0;
         if (e.status === 'Completed') completedCount++;
@@ -76,9 +78,9 @@ export async function getEvents(filters: {
     });
 
     return {
-        events: events.map(e => ({
+        events: events.map((e: any) => ({
             ...e,
-            visitCount: e.visits.length
+            visitCount: e.visits?.length || 0
         })),
         stats: {
             total: allEventsInAssembly.length,
@@ -92,7 +94,7 @@ export async function getEvents(filters: {
 }
 
 export async function getEventById(id: number) {
-    const event = await prisma.event.findUnique({
+    const event = await db.event.findUnique({
         where: { id },
         include: {
             assembly: {
@@ -138,7 +140,7 @@ export async function createEvent(data: {
     const user = session?.user as any;
     const targetAssemblyId = data.assemblyId || user?.assemblyId || 1;
 
-    const event = await prisma.event.create({
+    const event = await db.event.create({
         data: {
             title: data.title,
             type: data.type || 'Public_Meeting',
@@ -176,7 +178,7 @@ export async function updateEvent(id: number, data: any) {
         data.assignedWorkerIds = JSON.stringify(data.assignedWorkerIds);
     }
 
-    const event = await prisma.event.update({
+    const event = await db.event.update({
         where: { id },
         data
     });
@@ -187,7 +189,7 @@ export async function updateEvent(id: number, data: any) {
 }
 
 export async function deleteEvent(id: number) {
-    await prisma.event.delete({ where: { id } });
+    await db.event.delete({ where: { id } });
     revalidatePath('/events');
     revalidatePath('/campaign-progress');
     return { success: true };
@@ -198,7 +200,7 @@ export async function recordEventAttendance(id: number, data: {
     notes?: string;
     attachments?: string[];
 }) {
-    const event = await prisma.event.update({
+    const event = await db.event.update({
         where: { id },
         data: {
             actualAttendance: data.actualAttendance,
