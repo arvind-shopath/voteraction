@@ -101,6 +101,124 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
         const workers = await prisma.worker.count({ where: { assemblyId } });
         const tasks = await prisma.task.count({ where: { assemblyId, status: 'Completed' } });
 
+        // === NEW: Household Coverage Stats ===
+        const totalHouseholds = await prisma.household.count({ where: { assemblyId } });
+        const visitedHouseholds = await prisma.householdVisit.groupBy({
+            by: ['householdId'],
+            where: { household: { assemblyId } }
+        });
+        const revisitHouseholds = await prisma.householdVisit.count({
+            where: { household: { assemblyId }, visitStatus: 'Revisit_Required' }
+        });
+        const visitedCount = visitedHouseholds.length;
+        const pendingHouseholds = Math.max(0, totalHouseholds - visitedCount);
+
+        // Booth-wise household breakdown (top 5 priority — low coverage)
+        const boothHouseholds = await prisma.household.groupBy({
+            by: ['boothNumber'],
+            where: { assemblyId },
+            _count: { id: true }
+        });
+        const boothVisited = await prisma.householdVisit.findMany({
+            where: { household: { assemblyId } },
+            select: { household: { select: { boothNumber: true } } },
+            distinct: ['householdId']
+        });
+        const boothVisitedMap: Record<number, number> = {};
+        boothVisited.forEach((v: any) => {
+            const bn = v.household?.boothNumber;
+            if (bn) boothVisitedMap[bn] = (boothVisitedMap[bn] || 0) + 1;
+        });
+        const boothCoverageBreakdown = boothHouseholds.map((b: any) => ({
+            boothNumber: b.boothNumber,
+            total: b._count.id,
+            visited: boothVisitedMap[b.boothNumber] || 0,
+            pending: b._count.id - (boothVisitedMap[b.boothNumber] || 0)
+        })).sort((a: any, b: any) => (a.visited / (a.total || 1)) - (b.visited / (b.total || 1))).slice(0, 5);
+
+        // === NEW: Upcoming Events (next 3) ===
+        const now = new Date();
+        const upcomingEvents = await prisma.event.findMany({
+            where: { assemblyId, eventDate: { gte: now } },
+            orderBy: { eventDate: 'asc' },
+            take: 3,
+            select: { id: true, name: true, eventDate: true, location: true, eventType: true, expectedAttendance: true }
+        }).catch(() => []);
+
+        // === NEW: Today's Events count ===
+        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+        const todayEventsCount = await prisma.event.count({
+            where: { assemblyId, eventDate: { gte: todayStart, lte: todayEnd } }
+        }).catch(() => 0);
+
+        // === NEW: Today's Field Visits (household visits created today) ===
+        const todayVisits = await prisma.householdVisit.count({
+            where: { household: { assemblyId }, createdAt: { gte: todayStart, lte: todayEnd } }
+        }).catch(() => 0);
+
+        // === NEW: Active Workers Today ===
+        const activeWorkersToday = await prisma.worker.count({
+            where: { assemblyId, lastActiveAt: { gte: todayStart } }
+        }).catch(() => workers);
+
+        // === NEW: Tasks Stats ===
+        const pendingTasksCount = await prisma.task.count({ where: { assemblyId, status: { in: ['Pending', 'In_Progress'] } } }).catch(() => 0);
+        const overdueTasks = await prisma.task.count({ where: { assemblyId, status: { notIn: ['Completed'] }, dueDate: { lt: now } } }).catch(() => 0);
+
+        // === NEW: Critical Issues ===
+        const criticalIssues = await prisma.issue.count({ where: { assemblyId, priority: 'Critical', status: { notIn: ['Resolved', 'Closed'] } } }).catch(() => 0);
+        const totalOpenIssues = await prisma.issue.count({ where: { assemblyId, status: { notIn: ['Resolved', 'Closed'] } } }).catch(() => 0);
+        const topIssues = await prisma.issue.findMany({
+            where: { assemblyId, status: { notIn: ['Resolved', 'Closed'] } },
+            orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
+            take: 3,
+            select: { id: true, title: true, priority: true, boothNumber: true }
+        }).catch(() => []);
+
+        // === NEW: Booth Readiness ===
+        const allBooths = await prisma.booth.findMany({ where: { assemblyId }, select: { id: true, number: true, inchargeName: true } }).catch(() => []);
+        const boothWithWorkers = await prisma.worker.groupBy({ by: ['boothNumber'], where: { assemblyId }, _count: { id: true } }).catch(() => []);
+        const boothWorkerMap: Record<number, number> = {};
+        boothWithWorkers.forEach((b: any) => { if (b.boothNumber) boothWorkerMap[b.boothNumber] = b._count.id; });
+        
+        let readyBooths = 0, attentionBooths = 0, criticalBooths = 0;
+        const priorityBooths: any[] = [];
+        allBooths.forEach((b: any) => {
+            const workerCount = boothWorkerMap[b.number] || 0;
+            const coverage = boothCoverageBreakdown.find((bc: any) => bc.boothNumber === b.number);
+            const coveragePct = coverage ? Math.round((coverage.visited / (coverage.total || 1)) * 100) : null;
+            
+            if (workerCount === 0 || (coveragePct !== null && coveragePct < 20)) {
+                criticalBooths++;
+                if (priorityBooths.length < 3) priorityBooths.push({ boothNumber: b.number, reason: workerCount === 0 ? 'Team नियुक्त नहीं' : `Coverage: ${coveragePct}%`, status: 'critical' });
+            } else if (workerCount < 2 || (coveragePct !== null && coveragePct < 50)) {
+                attentionBooths++;
+                if (priorityBooths.length < 3) priorityBooths.push({ boothNumber: b.number, reason: workerCount < 2 ? 'कम कार्यकर्ता' : `Coverage: ${coveragePct}%`, status: 'attention' });
+            } else {
+                readyBooths++;
+            }
+        });
+
+        // === NEW: Election Readiness Score ===
+        const hhCoverage = totalHouseholds > 0 ? Math.round((visitedCount / totalHouseholds) * 100) : null;
+        const boothAssignment = allBooths.length > 0 ? Math.round((readyBooths + attentionBooths) / allBooths.length * 100) : null;
+        const taskCompletion = (tasks + pendingTasksCount) > 0 ? Math.round((tasks / (tasks + pendingTasksCount)) * 100) : null;
+
+        const readinessComponents = [
+            { label: 'Household Coverage', weight: 25, score: hhCoverage, icon: '🏠' },
+            { label: 'Door-to-Door Visits', weight: 25, score: hhCoverage, icon: '🚪' },
+            { label: 'Booth Team Assignment', weight: 15, score: boothAssignment, icon: '🏛️' },
+            { label: 'Campaign Events', weight: 10, score: null, icon: '📅' },
+            { label: 'Task Completion', weight: 10, score: taskCompletion, icon: '✅' },
+            { label: 'Reporting Coverage', weight: 15, score: null, icon: '📊' },
+        ];
+        const availableComponents = readinessComponents.filter(c => c.score !== null);
+        const totalWeight = availableComponents.reduce((s, c) => s + c.weight, 0);
+        const weightedScore = totalWeight > 0
+            ? Math.round(availableComponents.reduce((s, c) => s + (c.score! * c.weight), 0) / totalWeight)
+            : null;
+
         return {
             voters: voters || 0,
             booths: booths || 0,
@@ -123,9 +241,23 @@ export async function getDashboardStats(role: string, assemblyId: number, userId
             partyDetails: (await prisma.party.findMany()).reduce((acc: any, p) => {
                 acc[p.name] = { logo: p.logo, color: p.color };
                 return acc;
-            }, {})
+            }, {}),
+            // NEW fields
+            householdStats: { total: totalHouseholds, visited: visitedCount, pending: pendingHouseholds, revisit: revisitHouseholds, boothBreakdown: boothCoverageBreakdown },
+            upcomingEvents,
+            todayEventsCount,
+            todayVisits,
+            activeWorkersToday,
+            pendingTasksCount,
+            overdueTasks,
+            criticalIssues,
+            totalOpenIssues,
+            topIssues,
+            boothReadiness: { ready: readyBooths, attention: attentionBooths, critical: criticalBooths, total: allBooths.length, priorityBooths },
+            electionReadiness: { score: weightedScore, components: readinessComponents },
         };
     }
+
 
     // Fallback for global admin view without specific assembly (if needed elsewhere)
     if (role === 'ADMIN' || role === 'SUPERADMIN') {
