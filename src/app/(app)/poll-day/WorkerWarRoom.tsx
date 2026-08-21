@@ -250,14 +250,14 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
                     />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
                     {/* Pending Voters Section */}
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                             <div style={{ width: '8px', height: '8px', background: '#EF4444', borderRadius: '50%' }}></div>
-                            <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A' }}>मतदान शेष (Pending - {voters.filter(v => !v.isVoted).length})</h3>
+                            <h3 style={{ fontSize: '17px', fontWeight: '900', color: '#0F172A' }}>मतदान शेष (Pending - {voters.filter(v => !v.isVoted).length})</h3>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: '12px' }}>
                             {voters.filter(v => !v.isVoted).map(v => (
                                 <VoterCard key={v.id} v={v} handleMarkVoted={handleMarkVoted} parties={parties} />
                             ))}
@@ -267,11 +267,11 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
                     {/* Completed Voters Section */}
                     {voters.some(v => v.isVoted) && (
                         <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                                 <div style={{ width: '8px', height: '8px', background: '#10B981', borderRadius: '50%' }}></div>
-                                <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A' }}>मतदान पूर्ण (Completed - {voters.filter(v => v.isVoted).length})</h3>
+                                <h3 style={{ fontSize: '17px', fontWeight: '900', color: '#0F172A' }}>मतदान पूर्ण (Completed - {voters.filter(v => v.isVoted).length})</h3>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: '12px' }}>
                                 {voters.filter(v => v.isVoted).map(v => (
                                     <VoterCard key={v.id} v={v} handleMarkVoted={handleMarkVoted} parties={parties} />
                                 ))}
@@ -475,25 +475,26 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
 function VoterCard({ v, handleMarkVoted, parties }: { v: any, handleMarkVoted: (v: any) => void, parties: any[] }) {
     return (
         <div style={{
-            padding: '20px', borderRadius: '24px', border: '1px solid #F1F5F9',
+            padding: '14px 16px', borderRadius: '18px', border: '1px solid #F1F5F9',
             background: v.isVoted ? '#F0FDF4' : 'white',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            gap: '10px', minWidth: 0,
             transition: 'all 0.2s',
-            boxShadow: v.isVoted ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+            boxShadow: v.isVoted ? 'none' : '0 2px 4px rgba(0, 0, 0, 0.04)'
         }}>
-            <div>
-                <div style={{ fontSize: '16px', fontWeight: '950', color: '#0F172A' }}>{v.name}</div>
-                <div style={{ fontSize: '13px', color: '#64748B', fontWeight: '700', marginTop: '2px' }}>
-                    Epic: {v.epic} • Age: {v.age}
+            <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: '15px', fontWeight: '950', color: '#0F172A', wordBreak: 'break-word' }}>{v.name}</div>
+                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '700', marginTop: '2px', wordBreak: 'break-word' }}>
+                    Epic: {v.epic || '-'} • Age: {v.age || '-'}
                 </div>
                 {v.mobile && (
                     <div style={{ marginTop: '6px' }}>
                         <a href={`tel:${v.mobile}`} style={{
                             display: 'inline-flex', alignItems: 'center', gap: '4px',
-                            textDecoration: 'none', color: '#3B82F6', fontSize: '13px', fontWeight: '800',
-                            padding: '4px 8px', background: '#EFF6FF', borderRadius: '8px'
+                            textDecoration: 'none', color: '#3B82F6', fontSize: '12px', fontWeight: '800',
+                            padding: '3px 8px', background: '#EFF6FF', borderRadius: '8px'
                         }}>
-                            <Phone size={12} fill="#3B82F6" /> {v.mobile}
+                            <Phone size={11} fill="#3B82F6" /> {v.mobile}
                         </a>
                     </div>
                 )}
@@ -503,20 +504,21 @@ function VoterCard({ v, handleMarkVoted, parties }: { v: any, handleMarkVoted: (
                 style={{
                     background: v.isVoted ? '#22C55E' : '#EEF2FF',
                     color: v.isVoted ? 'white' : '#4F46E5',
-                    padding: '10px 16px',
-                    borderRadius: '12px',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
                     border: 'none',
                     fontWeight: '900',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '4px',
-                    minWidth: '80px'
+                    gap: '3px',
+                    flexShrink: 0,
+                    minWidth: '65px'
                 }}
             >
-                {v.isVoted ? <CheckCircle2 size={18} /> : <div style={{ width: 18, height: 18, border: '2px solid #4F46E5', borderRadius: '50%' }}></div>}
-                <span style={{ fontSize: '11px' }}>{v.isVoted ? (parties.find(p => p.id === v.votedPartyId)?.name || 'Voted') : 'Vote?'}</span>
+                {v.isVoted ? <CheckCircle2 size={16} /> : <div style={{ width: 16, height: 16, border: '2px solid #4F46E5', borderRadius: '50%' }}></div>}
+                <span style={{ fontSize: '10px' }}>{v.isVoted ? (parties.find(p => p.id === v.votedPartyId)?.name || 'Voted') : 'Vote?'}</span>
             </button>
         </div>
     );

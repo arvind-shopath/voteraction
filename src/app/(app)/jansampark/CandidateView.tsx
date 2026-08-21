@@ -58,59 +58,68 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
         v.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     return (
         <div style={{ marginBottom: '80px', animation: 'fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1)' }}>
             {/* Header & Global Stats Area */}
-            <div style={{ marginBottom: '40px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '20px' }}>
+            <div style={{ marginBottom: isMobile ? '24px' : '40px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', marginBottom: isMobile ? '20px' : '32px', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
-                        <h2 style={{ fontSize: '32px', fontWeight: '950', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '16px', letterSpacing: '-1px' }}>
+                        <h2 style={{ fontSize: isMobile ? '22px' : '32px', fontWeight: '950', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.5px' }}>
                             <div style={{
-                                background: 'linear-gradient(135deg, #2563EB, #4F46E5)', padding: '12px', borderRadius: '20px',
-                                boxShadow: '0 10px 20px -5px rgba(37, 99, 235, 0.4)'
+                                background: 'linear-gradient(135deg, #2563EB, #4F46E5)', padding: isMobile ? '8px' : '12px', borderRadius: '16px',
+                                boxShadow: '0 10px 20px -5px rgba(37, 99, 235, 0.4)', display: 'flex'
                             }}>
-                                <Navigation size={32} color="white" />
+                                <Navigation size={isMobile ? 22 : 32} color="white" />
                             </div>
                             जनसंपर्क कमांड सेंटर
                         </h2>
-                        <p style={{ color: '#64748B', fontWeight: '700', marginTop: '4px', fontSize: '15px' }}>विधानसभा क्षेत्र में जनसंपर्क और समर्थन की वास्तविक स्थिति</p>
+                        <p style={{ color: '#64748B', fontWeight: '700', marginTop: '4px', fontSize: isMobile ? '13px' : '15px' }}>विधानसभा क्षेत्र में जनसंपर्क और समर्थन की वास्तविक स्थिति</p>
                     </div>
                     <button
                         onClick={() => setShowCreate(true)}
                         style={{
-                            background: 'linear-gradient(135deg, #0F172A, #1E293B)', color: 'white', padding: '16px 32px', borderRadius: '22px', border: 'none',
-                            fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
-                            boxShadow: '0 12px 20px -6px rgba(15, 23, 42, 0.3)', transition: 'all 0.3s ease'
+                            background: 'linear-gradient(135deg, #0F172A, #1E293B)', color: 'white', padding: isMobile ? '12px 20px' : '16px 32px', borderRadius: '18px', border: 'none',
+                            fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                            boxShadow: '0 12px 20px -6px rgba(15, 23, 42, 0.3)', transition: 'all 0.3s ease', fontSize: isMobile ? '14px' : '15px'
                         }}
                     >
-                        <Plus size={22} /> नया रूट प्लान तैयार करें
+                        <Plus size={isMobile ? 18 : 22} /> नया रूट प्लान तैयार करें
                     </button>
                 </div>
 
                 {/* --- PREMIUM SUPPORT SUMMARY CARDS --- */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '40px' }}>
-                    <div style={{ background: 'white', padding: '30px', borderRadius: '32px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', top: 0, right: 0, padding: '20px', opacity: 0.1 }}><BarChart3 size={80} color="#2563EB" /></div>
-                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>कुल समर्थन (Support Score)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: isMobile ? '14px' : '24px', marginBottom: isMobile ? '24px' : '40px' }}>
+                    <div style={{ background: 'white', padding: isMobile ? '20px' : '30px', borderRadius: isMobile ? '20px' : '32px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', top: 0, right: 0, padding: '20px', opacity: 0.1 }}><BarChart3 size={60} color="#2563EB" /></div>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>कुल समर्थन (Support Score)</div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                            <div style={{ fontSize: '42px', fontWeight: '950', color: '#0F172A' }}>{supportPercent}%</div>
-                            <div style={{ fontSize: '15px', fontWeight: '700', color: '#10B981' }}>सर्वेक्षण आधारित</div>
+                            <div style={{ fontSize: isMobile ? '32px' : '42px', fontWeight: '950', color: '#0F172A' }}>{supportPercent}%</div>
+                            <div style={{ fontSize: '14px', fontWeight: '700', color: '#10B981' }}>सर्वेक्षण आधारित</div>
                         </div>
                         <div style={{ height: '8px', background: '#F1F5F9', borderRadius: '4px', marginTop: '16px', overflow: 'hidden' }}>
                             <div style={{ width: `${supportPercent}%`, height: '100%', background: 'linear-gradient(90deg, #2563EB, #60A5FA)', borderRadius: '4px' }} />
                         </div>
                     </div>
 
-                    <div style={{ background: 'white', padding: '30px', borderRadius: '32px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>मतदाता प्रतिक्रिया (Overall Summary)</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ background: 'white', padding: isMobile ? '20px' : '30px', borderRadius: isMobile ? '20px' : '32px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>मतदाता प्रतिक्रिया (Overall Summary)</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px' }}><CheckCircle2 size={18} color="#22C55E" /> फेवर में (Positive)</div>
-                                <div style={{ fontSize: '20px', fontWeight: '950', color: '#15803D' }}>{totalPositive}</div>
+                                <div style={{ fontSize: isMobile ? '14px' : '16px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px' }}><CheckCircle2 size={16} color="#22C55E" /> फेवर में (Positive)</div>
+                                <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '950', color: '#15803D' }}>{totalPositive}</div>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px' }}><AlertCircle size={18} color="#94A3B8" /> न्यूट्रल/अन्य</div>
-                                <div style={{ fontSize: '20px', fontWeight: '950', color: '#475569' }}>{totalVoters - totalPositive}</div>
+                                <div style={{ fontSize: isMobile ? '14px' : '16px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '8px' }}><AlertCircle size={16} color="#94A3B8" /> न्यूट्रल/अन्य</div>
+                                <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '950', color: '#475569' }}>{totalVoters - totalPositive}</div>
                             </div>
                         </div>
                     </div>
@@ -119,31 +128,31 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
 
             {/* 🆕 MERGED VILLAGE COMMAND CENTER */}
             <div style={{ marginBottom: '50px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', marginBottom: isMobile ? '20px' : '32px', flexWrap: 'wrap', gap: '16px' }}>
                     <div>
-                        <h3 style={{ fontSize: '24px', fontWeight: '950', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '12px', letterSpacing: '-0.5px' }}>
-                            <TrendingUp size={28} color="#4F46E5" /> गांव-वार विश्लेषण (VILLAGE ANALYTICS)
+                        <h3 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: '950', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.5px' }}>
+                            <TrendingUp size={isMobile ? 22 : 28} color="#4F46E5" /> गांव-वार विश्लेषण (VILLAGE ANALYTICS)
                         </h3>
-                        <p style={{ color: '#64748B', fontSize: '15px', marginTop: '4px', fontWeight: '700' }}>समर्थन, बूथ और जनसंपर्क की विस्तृत जानकारी</p>
+                        <p style={{ color: '#64748B', fontSize: isMobile ? '13px' : '15px', marginTop: '4px', fontWeight: '700' }}>समर्थन, बूथ और जनसंपर्क की विस्तृत जानकारी</p>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <div style={{ position: 'relative', width: '280px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ position: 'relative', width: isMobile ? '100%' : '260px' }}>
                             <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
                             <input
                                 placeholder="गांव खोजें..."
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 style={{
-                                    width: '100%', padding: '12px 16px 12px 48px', borderRadius: '16px', border: '1px solid #E2E8F0',
-                                    fontSize: '15px', fontWeight: '700', outline: 'none', background: 'white'
+                                    width: '100%', padding: '10px 14px 10px 44px', borderRadius: '14px', border: '1px solid #E2E8F0',
+                                    fontSize: '14px', fontWeight: '700', outline: 'none', background: 'white'
                                 }}
                             />
                         </div>
                         <select
                             value={coverageFilter}
                             onChange={(e) => setCoverageFilter(e.target.value)}
-                            style={{ padding: '12px 16px', borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '14px', fontWeight: '800', background: 'white', cursor: 'pointer', outline: 'none' }}
+                            style={{ flex: isMobile ? 1 : 'none', padding: '10px 14px', borderRadius: '14px', border: '1px solid #E2E8F0', fontSize: '13px', fontWeight: '800', background: 'white', cursor: 'pointer', outline: 'none' }}
                         >
                             <option value="All">विजिट स्थिति</option>
                             <option value="Done">विजिट पूर्ण</option>
@@ -152,7 +161,7 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
                         <select
                             value={supportFilter}
                             onChange={(e) => setSupportFilter(e.target.value)}
-                            style={{ padding: '12px 16px', borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '14px', fontWeight: '800', background: 'white', cursor: 'pointer', outline: 'none' }}
+                            style={{ flex: isMobile ? 1 : 'none', padding: '10px 14px', borderRadius: '14px', border: '1px solid #E2E8F0', fontSize: '13px', fontWeight: '800', background: 'white', cursor: 'pointer', outline: 'none' }}
                         >
                             <option value="All">समर्थन टाइप</option>
                             <option value="Support">पक्ष में</option>
@@ -162,7 +171,7 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: isMobile ? '16px' : '24px' }}>
                     {villageCoverage
                         .filter(vc => {
                             // Search Filter
@@ -201,35 +210,35 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
 
                             return (
                                 <div key={vc.village} style={{
-                                    background: bgColor, padding: '32px', borderRadius: '32px', border: `1px solid ${borderColor}`,
+                                    background: bgColor, padding: isMobile ? '20px 16px' : '28px', borderRadius: isMobile ? '20px' : '28px', border: `1px solid ${borderColor}`,
                                     position: 'relative', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)',
-                                    transition: 'all 0.3s ease'
+                                    transition: 'all 0.3s ease', minWidth: 0
                                 }}>
                                     {/* Top Status */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                                         <div>
-                                            <div style={{ fontWeight: '950', color: '#0F172A', fontSize: '22px', marginBottom: '4px' }}>{vc.village}</div>
-                                            <div style={{ fontSize: '13px', color: '#64748B', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <MapPin size={14} color="#9333EA" />
+                                            <div style={{ fontWeight: '950', color: '#0F172A', fontSize: isMobile ? '18px' : '20px', marginBottom: '4px' }}>{vc.village}</div>
+                                            <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <MapPin size={13} color="#9333EA" />
                                                 बूथ: {vc.booths.length > 0 ? vc.booths.sort((a: any, b: any) => a - b).join(', ') : 'N/A'}
                                             </div>
                                         </div>
                                         <div style={{
-                                            padding: '6px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: '900',
+                                            padding: '4px 10px', borderRadius: '10px', fontSize: '11px', fontWeight: '900',
                                             background: vc.jansamparkDone ? '#16A34A' : '#F1F5F9',
                                             color: vc.jansamparkDone ? 'white' : '#64748B', display: 'flex', alignItems: 'center', gap: '4px'
                                         }}>
-                                            {vc.jansamparkDone ? <><CheckCircle2 size={14} /> किया</> : '⏳ बाकी'}
+                                            {vc.jansamparkDone ? <><CheckCircle2 size={13} /> किया</> : '⏳ बाकी'}
                                         </div>
                                     </div>
 
                                     {/* Support Level Bar */}
-                                    <div style={{ marginBottom: '24px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '800', color: '#64748B', marginBottom: '8px', textTransform: 'uppercase' }}>
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '6px', textTransform: 'uppercase' }}>
                                             <span>समर्थन स्तर</span>
                                             <span style={{ color: accentColor }}>{supportPercent}%</span>
                                         </div>
-                                        <div style={{ height: '10px', borderRadius: '5px', background: 'rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex' }}>
+                                        <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex' }}>
                                             <div style={{ width: `${(vc.support.positive / (total || 1)) * 100}%`, background: '#22C55E' }} />
                                             <div style={{ width: `${(vc.support.neutral / (total || 1)) * 100}%`, background: '#94A3B8' }} />
                                             <div style={{ width: `${(vc.support.negative / (total || 1)) * 100}%`, background: '#EF4444' }} />
@@ -237,20 +246,20 @@ export default function CandidateJansamparkView({ assemblyId }: { assemblyId: nu
                                     </div>
 
                                     {/* Stats Grid */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', textAlign: 'center', marginBottom: '24px', background: 'rgba(255,255,255,0.4)', padding: '16px', borderRadius: '20px', border: '1px solid rgba(0,0,0,0.03)' }}>
-                                        <div><div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>पक्ष</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#15803D' }}>{vc.support.positive}</div></div>
-                                        <div><div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>तटस्थ</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#475569' }}>{vc.support.neutral}</div></div>
-                                        <div><div style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', marginBottom: '4px' }}>विरोध</div><div style={{ fontSize: '18px', fontWeight: '950', color: '#B91C1C' }}>{vc.support.negative}</div></div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center', marginBottom: '18px', background: 'rgba(255,255,255,0.4)', padding: '12px 8px', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.03)' }}>
+                                        <div><div style={{ fontSize: '10px', fontWeight: '800', color: '#64748B', marginBottom: '2px' }}>पक्ष</div><div style={{ fontSize: '16px', fontWeight: '950', color: '#15803D' }}>{vc.support.positive}</div></div>
+                                        <div><div style={{ fontSize: '10px', fontWeight: '800', color: '#64748B', marginBottom: '2px' }}>तटस्थ</div><div style={{ fontSize: '16px', fontWeight: '950', color: '#475569' }}>{vc.support.neutral}</div></div>
+                                        <div><div style={{ fontSize: '10px', fontWeight: '800', color: '#64748B', marginBottom: '2px' }}>विरोध</div><div style={{ fontSize: '16px', fontWeight: '950', color: '#B91C1C' }}>{vc.support.negative}</div></div>
                                     </div>
 
                                     {/* Footer Details */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ fontSize: '13px', color: '#64748B', fontWeight: '800' }}>
+                                        <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '800' }}>
                                             कुल मतदाता: <span style={{ color: '#0F172A' }}>{vc.totalVoters}</span>
                                         </div>
                                         {vc.lastVisit && (
-                                            <div style={{ fontSize: '12px', color: '#16A34A', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <Calendar size={14} /> {new Date(vc.lastVisit).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short' })}
+                                            <div style={{ fontSize: '11px', color: '#16A34A', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Calendar size={13} /> {new Date(vc.lastVisit).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short' })}
                                             </div>
                                         )}
                                     </div>

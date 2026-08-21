@@ -43,13 +43,12 @@ export async function getBooths(assemblyIdRaw?: any) {
     const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     const booths = await prisma.booth.findMany({
         where: { assemblyId },
-        include: {
-            workers: {
-                where: { deletedAt: null },
-                select: { id: true, name: true, mobile: true, type: true, user: { select: { mobile: true } } }
-            }
-        },
         orderBy: { number: 'asc' }
+    });
+
+    const allWorkers = await prisma.worker.findMany({
+        where: { assemblyId, deletedAt: null },
+        select: { id: true, name: true, mobile: true, type: true, boothId: true, boothIds: true, user: { select: { mobile: true } } }
     });
 
     // Calculate real stats from voters
@@ -101,10 +100,22 @@ export async function getBooths(assemblyIdRaw?: any) {
             });
             const dominantCaste = casteStats.length > 0 ? (casteStats[0].caste || 'Unknown') : 'Unknown';
 
-            const bm = booth.workers.find((w: any) => w.type === 'BOOTH_MANAGER' || w.type === 'BOOTH');
+            // Match all workers assigned to this booth (via direct boothId or boothIds JSON array)
+            const boothWorkers = allWorkers.filter((w: any) => {
+                if (w.boothId === booth.id) return true;
+                if (w.boothIds) {
+                    try {
+                        const ids = JSON.parse(w.boothIds).map(String);
+                        if (ids.includes(booth.id.toString()) || ids.includes(booth.number.toString())) return true;
+                    } catch { }
+                }
+                return false;
+            });
+
+            const bm = boothWorkers.find((w: any) => w.type === 'BOOTH_MANAGER' || w.type === 'BOOTH');
             const boothManagerName = bm?.name || booth.inchargeName || null;
             const boothManagerMobile = bm?.mobile || bm?.user?.mobile || booth.inchargeMobile || null;
-            const pannaWorkers = booth.workers.filter((w: any) => w.type === 'PANNA_PRAMUKH' || w.type === 'PANNA');
+            const pannaWorkers = boothWorkers.filter((w: any) => w.type === 'PANNA_PRAMUKH' || w.type === 'PANNA');
             const pannaCount = pannaWorkers.length;
 
             const displayLocation = booth.villageNameHi || booth.localityMohallaHi || booth.area || booth.villageNameEn || booth.nameHi || booth.name || null;
@@ -178,30 +189,59 @@ export async function getBoothsWithAssignment(assemblyIdRaw?: any) {
     const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     const booths = await prisma.booth.findMany({
         where: { assemblyId },
-        include: {
-            workers: {
-                where: { type: 'BOOTH_MANAGER' },
-                select: { id: true, name: true }
-            }
-        },
         orderBy: { number: 'asc' }
     });
-    return booths;
+
+    const allManagers = await prisma.worker.findMany({
+        where: { assemblyId, type: 'BOOTH_MANAGER', deletedAt: null },
+        select: { id: true, name: true, boothId: true, boothIds: true }
+    });
+
+    return booths.map((b: any) => {
+        const assignedManager = allManagers.find((m: any) => {
+            if (m.boothId === b.id) return true;
+            if (m.boothIds) {
+                try {
+                    const ids = JSON.parse(m.boothIds).map(String);
+                    return ids.includes(b.id.toString()) || ids.includes(b.number.toString());
+                } catch { }
+            }
+            return false;
+        });
+
+        return {
+            ...b,
+            workers: assignedManager ? [{ id: assignedManager.id, name: assignedManager.name }] : []
+        };
+    });
 }
 
 export async function getBoothCoverageStats(assemblyIdRaw?: any) {
     const assemblyId = await resolveAssemblyId(assemblyIdRaw);
     const totalBooths = await prisma.booth.count({ where: { assemblyId } });
-    const assignedBooths = await prisma.worker.groupBy({
-        by: ['boothId'],
+    const allManagers = await prisma.worker.findMany({
         where: {
             assemblyId,
             type: 'BOOTH_MANAGER',
-            boothId: { not: null }
+            deletedAt: null
+        },
+        select: { boothId: true, boothIds: true }
+    });
+
+    const assignedSet = new Set<string>();
+    allManagers.forEach((m: any) => {
+        if (m.boothId) assignedSet.add(m.boothId.toString());
+        if (m.boothIds) {
+            try {
+                const ids = JSON.parse(m.boothIds);
+                if (Array.isArray(ids)) {
+                    ids.forEach((id: any) => assignedSet.add(id.toString()));
+                }
+            } catch { }
         }
     });
 
-    const assignedCount = assignedBooths.length;
+    const assignedCount = assignedSet.size;
     return {
         total: totalBooths,
         assigned: assignedCount,

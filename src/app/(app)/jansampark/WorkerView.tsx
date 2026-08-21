@@ -216,42 +216,51 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
         }
     };
 
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     const t = (hi: string, en: string) => lang === 'hi' ? hi : en;
 
     return (
         <div>
             {/* 1. My Report Header & Actions (Moved to TOP) */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '22px', fontWeight: '950', color: '#1E293B' }}>{t('मेरी जनसंपर्क रिपोर्ट', 'My PR Report')}</h2>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={() => setShowVoterModal({ id: null })} style={{ background: '#10B981', color: 'white', padding: '12px 20px', borderRadius: '14px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <UserPlus size={18} /> {t('नया वोटर', 'New Voter')}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', marginBottom: '20px', gap: '12px' }}>
+                <h2 style={{ fontSize: isMobile ? '20px' : '22px', fontWeight: '950', color: '#1E293B' }}>{t('मेरी जनसंपर्क रिपोर्ट', 'My PR Report')}</h2>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => setShowVoterModal({ id: null })} style={{ flex: 1, background: '#10B981', color: 'white', padding: '10px 16px', borderRadius: '12px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: isMobile ? '13px' : '14px' }}>
+                        <UserPlus size={16} /> {t('नया वोटर', 'New Voter')}
                     </button>
-                    <button onClick={() => { setSelectedVoter(null); setPrForm({ personName: '', mobile: '', village: '', atmosphere: 'Neutral', description: '', imageUrl: '' }); setShowPRForm(true); }} style={{ background: '#2563EB', color: 'white', padding: '12px 24px', borderRadius: '14px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Plus size={20} /> {t('नई एंट्री', 'New Entry')}
+                    <button onClick={() => { setSelectedVoter(null); setPrForm({ personName: '', mobile: '', village: '', atmosphere: 'Neutral', description: '', imageUrl: '' }); setShowPRForm(true); }} style={{ flex: 1, background: '#2563EB', color: 'white', padding: '10px 18px', borderRadius: '12px', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: isMobile ? '13px' : '14px' }}>
+                        <Plus size={18} /> {t('नई एंट्री', 'New Entry')}
                     </button>
                 </div>
             </div>
 
             {/* 2. Voter Search List */}
-            <div style={{ position: 'relative', marginBottom: '30px' }}>
-                <div style={{ position: 'absolute', left: '20px', top: '18px', color: '#94A3B8' }}><Search size={24} /></div>
-                <input type="text" placeholder={t('वोटर खोजें...', 'Search voter...')} value={searchTerm} onChange={(e) => performSearch(e.target.value)} style={{ width: '100%', padding: '18px 20px 18px 60px', borderRadius: '20px', border: '1px solid #E2E8F0', fontSize: '16px' }} />
-                {searching && <div style={{ position: 'absolute', right: '20px', top: '18px' }}><Loader2 className="animate-spin" size={24} color="#2563EB" /></div>}
+            <div style={{ position: 'relative', marginBottom: isMobile ? '20px' : '30px' }}>
+                <div style={{ position: 'absolute', left: '16px', top: '16px', color: '#94A3B8' }}><Search size={20} /></div>
+                <input type="text" placeholder={t('वोटर खोजें...', 'Search voter...')} value={searchTerm} onChange={(e) => performSearch(e.target.value)} style={{ width: '100%', padding: '14px 16px 14px 48px', borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '15px' }} />
+                {searching && <div style={{ position: 'absolute', right: '16px', top: '16px' }}><Loader2 className="animate-spin" size={20} color="#2563EB" /></div>}
             </div>
 
             {/* Search Results List */}
             {voters.length > 0 && (
-                <div style={{ marginBottom: '40px', background: '#F1F5F9', padding: '24px', borderRadius: '28px' }}>
+                <div style={{ marginBottom: '30px', background: '#F1F5F9', padding: isMobile ? '14px' : '24px', borderRadius: isMobile ? '18px' : '28px' }}>
                     {voters.map(v => (
-                        <div key={v.id} style={{ background: 'white', borderRadius: '20px', padding: '20px', border: `1px solid #E2E8F0`, marginBottom: '10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <div style={{ fontWeight: '900', fontSize: '17px' }}>{v.name}</div>
-                                    <div style={{ fontSize: '13px', color: '#64748B' }}>{v.village} • H.No: {v.houseNumber}</div>
+                        <div key={v.id} style={{ background: 'white', borderRadius: '16px', padding: '14px', border: `1px solid #E2E8F0`, marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: '900', fontSize: '15px' }}>{v.name}</div>
+                                    <div style={{ fontSize: '12px', color: '#64748B' }}>{v.village} • H.No: {v.houseNumber}</div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '6px' }}>
-                                    <button onClick={() => { setSelectedVoter(v); setPrForm({ personName: v.name, mobile: v.mobile || '', village: v.village || '', atmosphere: v.supportStatus || 'Neutral', description: '', imageUrl: '' }); setShowPRForm(true); }} style={{ background: '#EEF2FF', border: 'none', padding: '10px 16px', borderRadius: '12px', color: '#4F46E5', fontWeight: '800', cursor: 'pointer' }}>{t('एंट्री करें', 'Make Entry')}</button>
+                                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                    <button onClick={() => { setSelectedVoter(v); setPrForm({ personName: v.name, mobile: v.mobile || '', village: v.village || '', atmosphere: v.supportStatus || 'Neutral', description: '', imageUrl: '' }); setShowPRForm(true); }} style={{ background: '#EEF2FF', border: 'none', padding: '8px 12px', borderRadius: '10px', color: '#4F46E5', fontWeight: '800', cursor: 'pointer', fontSize: '12px' }}>{t('एंट्री करें', 'Make Entry')}</button>
                                 </div>
                             </div>
                         </div>
@@ -260,32 +269,32 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
             )}
 
             {/* 3. Candidate Upcoming Schedule */}
-            <div style={{ marginBottom: '40px' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: '950', color: '#1E293B', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ background: '#2563EB15', padding: '8px', borderRadius: '12px' }}><Navigation size={24} color="#2563EB" /></div>
+            <div style={{ marginBottom: '32px' }}>
+                <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '950', color: '#1E293B', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#2563EB15', padding: '6px', borderRadius: '10px', display: 'flex' }}><Navigation size={20} color="#2563EB" /></div>
                     {t('कैंडिडेट का आगामी कार्यक्रम', 'Upcoming Schedule')}
                 </h2>
-                <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px', scrollbarWidth: 'none' }}>
+                <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '12px', scrollbarWidth: 'none' }}>
                     {routes.filter(r => new Date(r.date) >= new Date(new Date().setHours(0, 0, 0, 0))).map((r: any) => (
-                        <div key={r.id} style={{ flex: '0 0 300px', background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                        <div key={r.id} style={{ flex: isMobile ? '0 0 260px' : '0 0 300px', background: 'white', padding: isMobile ? '16px' : '24px', borderRadius: '20px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
                             <div style={{ fontSize: '11px', fontWeight: '900', color: '#2563EB', textTransform: 'uppercase', marginBottom: '4px' }}>
                                 {new Date(r.date).toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-US', { weekday: 'long' })}
                             </div>
-                            <div style={{ fontSize: '18px', fontWeight: '950', color: '#1E293B', marginBottom: '16px' }}>
+                            <div style={{ fontSize: '17px', fontWeight: '950', color: '#1E293B', marginBottom: '12px' }}>
                                 {new Date(r.date).toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-US', { day: 'numeric', month: 'long' })}
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {r.visits?.map((v: any, idx: number) => (
-                                    <div key={v.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', color: '#475569', padding: '8px 12px', background: '#F8FAFC', borderRadius: '12px' }}>
+                                    <div key={v.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#475569', padding: '6px 10px', background: '#F8FAFC', borderRadius: '10px' }}>
                                         <span style={{ fontWeight: '800' }}>{idx + 1}. {v.village}</span>
-                                        <span style={{ fontSize: '12px', opacity: 0.7 }}><Clock size={12} style={{ display: 'inline', marginRight: '4px' }} />{v.time || 'N/A'}</span>
+                                        <span style={{ fontSize: '11px', opacity: 0.7 }}><Clock size={11} style={{ display: 'inline', marginRight: '3px' }} />{v.time || 'N/A'}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     ))}
                     {routes.filter(r => new Date(r.date) >= new Date()).length === 0 && (
-                        <div style={{ padding: '30px', background: 'white', borderRadius: '24px', border: '1px dashed #CBD5E1', color: '#94A3B8', textAlign: 'center', width: '100%' }}>
+                        <div style={{ padding: '24px', background: 'white', borderRadius: '20px', border: '1px dashed #CBD5E1', color: '#94A3B8', textAlign: 'center', width: '100%' }}>
                             {t('कोई आगामी कार्यक्रम निर्धारित नहीं है।', 'No upcoming schedule set.')}
                         </div>
                     )}
@@ -293,11 +302,11 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
             </div>
 
             {/* 4. Village Coverage Status (Now Filtered by Booth for Managers) */}
-            <div style={{ background: 'white', borderRadius: '28px', padding: '32px', marginBottom: '32px', border: '1px solid #E2E8F0' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: '950', color: '#0F172A', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Target size={24} color="#7C3AED" /> {t('गांव-वार जनसंपर्क स्थिति', 'Village Coverage Status')}
+            <div style={{ background: 'white', borderRadius: isMobile ? '20px' : '28px', padding: isMobile ? '20px 16px' : '32px', marginBottom: '28px', border: '1px solid #E2E8F0' }}>
+                <h3 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '950', color: '#0F172A', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Target size={22} color="#7C3AED" /> {t('गांव-वार जनसंपर्क स्थिति', 'Village Coverage Status')}
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: '14px' }}>
                     {villageCoverage.map((vc: any) => {
                         const supportTotal = vc.support.positive + vc.support.neutral + vc.support.negative;
                         const supportPercent = supportTotal > 0 ? Math.round((vc.support.positive / supportTotal) * 100) : 0;
@@ -306,24 +315,24 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
                             <div key={vc.village} style={{
                                 background: vc.jansamparkDone ? '#F0FDF4' : '#FEF9F3',
                                 border: `2px solid ${vc.jansamparkDone ? '#BBF7D0' : '#FED7AA'}`,
-                                borderRadius: '20px',
-                                padding: '20px'
+                                borderRadius: '18px',
+                                padding: '16px'
                             }}>
                                 <div style={{
                                     display: 'inline-block',
-                                    padding: '4px 10px',
-                                    borderRadius: '8px',
+                                    padding: '3px 8px',
+                                    borderRadius: '6px',
                                     fontSize: '10px',
                                     fontWeight: '900',
                                     background: vc.jansamparkDone ? '#16A34A' : '#EA580C',
                                     color: 'white',
-                                    marginBottom: '12px',
+                                    marginBottom: '10px',
                                     textTransform: 'uppercase'
                                 }}>
                                     {vc.jansamparkDone ? t('✓ किया', '✓ Done') : t('⏳ बाकी', '⏳ Pending')}
                                 </div>
-                                <div style={{ fontSize: '18px', fontWeight: '950', color: '#0F172A', marginBottom: '6px' }}>{vc.village}</div>
-                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+                                <div style={{ fontSize: '17px', fontWeight: '950', color: '#0F172A', marginBottom: '4px' }}>{vc.village}</div>
+                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px' }}>
                                     <MapPin size={12} color="#9333EA" />
                                     {t('बूथ:', 'Booth:')}{(vc.booths || []).length > 0 ? vc.booths.sort((a: number, b: number) => a - b).join(', ') : 'N/A'}
                                 </div>
@@ -337,23 +346,23 @@ export default function WorkerJansamparkView({ assemblyId, workerType }: { assem
             </div>
 
             {/* 5. Past Entries Grid */}
-            <div style={{ background: 'white', borderRadius: '28px', padding: '30px', border: '1px solid #E2E8F0' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: '950', color: '#1E293B', marginBottom: '24px' }}>{t('पिछली एंट्रियां (History)', 'Recent History')}</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+            <div style={{ background: 'white', borderRadius: isMobile ? '20px' : '28px', padding: isMobile ? '20px 16px' : '30px', border: '1px solid #E2E8F0' }}>
+                <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '950', color: '#1E293B', marginBottom: '18px' }}>{t('पिछली एंट्रियां (History)', 'Recent History')}</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
                     {entries.map(e => (
-                        <div key={e.id} style={{ border: '1px solid #F1F5F9', borderRadius: '28px', overflow: 'hidden', background: '#F8FAFC' }}>
-                            <div style={{ padding: '20px' }}>
+                        <div key={e.id} style={{ border: '1px solid #F1F5F9', borderRadius: '20px', overflow: 'hidden', background: '#F8FAFC' }}>
+                            <div style={{ padding: '16px' }}>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'start' }}>
-                                    {e.imageUrl && <img src={e.imageUrl} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} />}
-                                    <div>
-                                        <div style={{ fontWeight: '950', fontSize: '18px' }}>{e.personName}</div>
-                                        <div style={{ fontSize: '12px', color: '#64748B' }}>{e.village} • {new Date(e.createdAt).toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-US')}</div>
+                                    {e.imageUrl && <img src={e.imageUrl} style={{ width: '50px', height: '50px', borderRadius: '10px', objectFit: 'cover' }} />}
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontWeight: '950', fontSize: '16px' }}>{e.personName}</div>
+                                        <div style={{ fontSize: '11px', color: '#64748B' }}>{e.village} • {new Date(e.createdAt).toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-US')}</div>
                                     </div>
                                 </div>
-                                <div style={{ marginTop: '10px', display: 'inline-block', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '900', background: e.atmosphere === 'Support' ? '#DCFCE7' : e.atmosphere === 'Oppose' ? '#FEE2E2' : '#E2E8F0', color: e.atmosphere === 'Support' ? '#166534' : e.atmosphere === 'Oppose' ? '#991B1B' : '#475569' }}>
+                                <div style={{ marginTop: '8px', display: 'inline-block', padding: '3px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', background: e.atmosphere === 'Support' ? '#DCFCE7' : e.atmosphere === 'Oppose' ? '#FEE2E2' : '#E2E8F0', color: e.atmosphere === 'Support' ? '#166534' : e.atmosphere === 'Oppose' ? '#991B1B' : '#475569' }}>
                                     {e.atmosphere === 'Support' ? t('समर्थक', 'Supporter') : e.atmosphere === 'Oppose' ? t('विरोधी', 'Opponent') : t('न्यूट्रल', 'Neutral')}
                                 </div>
-                                {e.description && <div style={{ marginTop: '12px', fontSize: '14px', color: '#334155', background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>{e.description}</div>}
+                                {e.description && <div style={{ marginTop: '10px', fontSize: '13px', color: '#334155', background: 'white', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0', wordBreak: 'break-word' }}>{e.description}</div>}
                             </div>
                         </div>
                     ))}

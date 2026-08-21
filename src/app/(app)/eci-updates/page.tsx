@@ -141,48 +141,58 @@ export default function ECIUpdatesPage() {
         v.mobile?.includes(search)
     );
 
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     const glassCardStyle: React.CSSProperties = {
         background: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(16px)',
-        borderRadius: '24px',
+        borderRadius: isMobile ? '18px' : '24px',
         border: '1px solid #E2E8F0',
         boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.05)',
         overflow: 'hidden'
     };
 
     const tabStyle = (active: boolean, color: string): React.CSSProperties => ({
-        flex: 1,
-        padding: '18px 24px',
+        flex: isMobile ? '1 1 auto' : 1,
+        padding: isMobile ? '12px 14px' : '18px 24px',
         border: 'none',
         background: active ? color : 'transparent',
         color: active ? 'white' : '#64748B',
         fontWeight: '800',
-        fontSize: '15px',
+        fontSize: isMobile ? '13px' : '15px',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '10px'
+        gap: '8px',
+        minWidth: isMobile ? '140px' : 'auto'
     });
 
     return (
-        <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'var(--font-geist-sans)' }}>
+        <div style={{ padding: isMobile ? '12px 8px' : '24px 32px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'var(--font-geist-sans)' }}>
             {/* Header Area */}
-            <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
+            <div style={{ marginBottom: isMobile ? '16px' : '28px', display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', flexDirection: isMobile ? 'column' : 'row', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                    <h1 style={{ fontSize: '30px', fontWeight: '900', color: '#0F172A', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ background: 'linear-gradient(135deg, #0F172A 0%, #334155 100%)', padding: '10px', borderRadius: '14px', color: 'white', display: 'flex' }}>
-                            <ShieldCheck size={28} />
+                    <h1 style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: '900', color: '#0F172A', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ background: 'linear-gradient(135deg, #0F172A 0%, #334155 100%)', padding: '8px', borderRadius: '12px', color: 'white', display: 'flex' }}>
+                            <ShieldCheck size={isMobile ? 22 : 26} />
                         </div>
                         {lang === 'hi' ? 'निर्वाचन आयोग (ECI) समन्वय' : 'ECI Coordination'}
                     </h1>
-                    <p style={{ color: '#64748B', fontSize: '14px', fontWeight: '600' }}>
+                    <p style={{ color: '#64748B', fontSize: isMobile ? '12px' : '14px', fontWeight: '600', lineHeight: 1.4 }}>
                         {lang === 'hi' ? 'मतदाता सूची में नए नाम जुड़वाने (Form 6) और मृतक/फर्जी नाम हटवाने (Form 7) की ट्रैकिंग' : 'Manage additions & deletions of voter rolls with ECI'}
                     </p>
                 </div>
 
-                <div style={{ position: 'relative', width: '320px' }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: isMobile ? '100%' : '320px' }}>
                     <Search style={{ position: 'absolute', left: '16px', top: '14px', color: '#94A3B8' }} size={18} />
                     <input
                         placeholder={lang === 'hi' ? 'नाम, फोन, EPIC, गांव से खोजें...' : 'Search by name, phone, village...'}
@@ -195,14 +205,14 @@ export default function ECIUpdatesPage() {
 
             {/* Main Tabs Card */}
             <div style={glassCardStyle}>
-                <div style={{ display: 'flex', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', flexWrap: isMobile ? 'nowrap' : 'wrap', overflowX: isMobile ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
                     <button
                         onClick={() => setTab('ADD')}
                         style={tabStyle(tab === 'ADD', '#0D9488')}
                     >
-                        <UserPlus size={18} />
-                        {lang === 'hi' ? 'ECI में जुड़वाएं (नया कार्ड)' : 'Add to ECI (New)'}
-                        <span style={{ background: tab === 'ADD' ? 'rgba(255,255,255,0.25)' : '#E2E8F0', padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
+                        <UserPlus size={isMobile ? 16 : 18} />
+                        {lang === 'hi' ? 'ECI में जुड़वाएं' : 'Add to ECI'}
+                        <span style={{ background: tab === 'ADD' ? 'rgba(255,255,255,0.25)' : '#E2E8F0', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' }}>
                             {counts.add}
                         </span>
                     </button>
@@ -210,9 +220,9 @@ export default function ECIUpdatesPage() {
                         onClick={() => setTab('REMOVE')}
                         style={tabStyle(tab === 'REMOVE', '#DC2626')}
                     >
-                        <UserMinus size={18} />
-                        {lang === 'hi' ? 'ECI से हटवाएं (मृतक/फर्जी)' : 'Remove from ECI (Delete)'}
-                        <span style={{ background: tab === 'REMOVE' ? 'rgba(255,255,255,0.25)' : '#E2E8F0', padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
+                        <UserMinus size={isMobile ? 16 : 18} />
+                        {lang === 'hi' ? 'ECI से हटवाएं' : 'Remove from ECI'}
+                        <span style={{ background: tab === 'REMOVE' ? 'rgba(255,255,255,0.25)' : '#E2E8F0', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' }}>
                             {counts.remove}
                         </span>
                     </button>
@@ -220,29 +230,29 @@ export default function ECIUpdatesPage() {
                         onClick={() => setTab('RESOLVED')}
                         style={tabStyle(tab === 'RESOLVED', '#2563EB')}
                     >
-                        <CheckCircle2 size={18} />
-                        {lang === 'hi' ? 'निस्तारित (Completed)' : 'Resolved Cases'}
-                        <span style={{ background: tab === 'RESOLVED' ? 'rgba(255,255,255,0.25)' : '#E2E8F0', padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
+                        <CheckCircle2 size={isMobile ? 16 : 18} />
+                        {lang === 'hi' ? 'निस्तारित' : 'Resolved'}
+                        <span style={{ background: tab === 'RESOLVED' ? 'rgba(255,255,255,0.25)' : '#E2E8F0', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '800' }}>
                             {counts.resolved}
                         </span>
                     </button>
                 </div>
 
-                <div style={{ padding: '28px' }}>
+                <div style={{ padding: isMobile ? '16px 12px' : '28px' }}>
                     {loading ? (
-                        <div style={{ textAlign: 'center', padding: '80px 0' }}>
-                            <Loader2 className="animate-spin" size={40} color="#0D9488" style={{ margin: '0 auto 16px' }} />
-                            <p style={{ fontWeight: '700', color: '#64748B' }}>डेटा लोड हो रहा है...</p>
+                        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+                            <Loader2 className="animate-spin" size={36} color="#0D9488" style={{ margin: '0 auto 12px' }} />
+                            <p style={{ fontWeight: '700', color: '#64748B', fontSize: '14px' }}>डेटा लोड हो रहा है...</p>
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '20px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: isMobile ? '14px' : '20px' }}>
                             {filteredVoters.length === 0 ? (
-                                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px 0', background: '#F8FAFC', borderRadius: '20px', border: '2px dashed #E2E8F0' }}>
-                                    <ShieldCheck size={44} color="#CBD5E1" style={{ margin: '0 auto 12px' }} />
-                                    <p style={{ fontWeight: '800', color: '#64748B', fontSize: '16px' }}>इस सेक्शन में कोई लंबित रिकॉर्ड नहीं है</p>
+                                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', background: '#F8FAFC', borderRadius: '16px', border: '2px dashed #E2E8F0' }}>
+                                    <ShieldCheck size={40} color="#CBD5E1" style={{ margin: '0 auto 10px' }} />
+                                    <p style={{ fontWeight: '800', color: '#64748B', fontSize: '15px' }}>इस सेक्शन में कोई लंबित रिकॉर्ड नहीं है</p>
                                 </div>
                             ) : filteredVoters.map((v: any) => (
-                                <div key={v.id} style={{ background: 'white', padding: '22px', borderRadius: '18px', border: '1px solid #E2E8F0', transition: 'all 0.2s', boxShadow: '0 4px 10px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                <div key={v.id} style={{ background: 'white', padding: isMobile ? '16px' : '20px', borderRadius: '16px', border: '1px solid #E2E8F0', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
                                     <div>
                                         {/* Card Header */}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>

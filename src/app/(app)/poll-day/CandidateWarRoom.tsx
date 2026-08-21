@@ -284,28 +284,28 @@ export default function CandidateWarRoom({ assemblyId }: { assemblyId: number })
                 </div>
 
                 {/* Stats Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: isMobile ? '12px' : '20px', marginTop: '30px', position: 'relative', zIndex: 10 }}>
-                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', marginBottom: '6px' }}>मतदान प्रतिशत</div>
-                        <div style={{ fontSize: isMobile ? '26px' : '36px', fontWeight: '950', color: stats.avgTurnout > 50 ? '#10B981' : '#F59E0B' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: isMobile ? '10px' : '20px', marginTop: isMobile ? '20px' : '30px', position: 'relative', zIndex: 10 }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: isMobile ? '12px 10px' : '20px', borderRadius: isMobile ? '16px' : '20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 0 }}>
+                        <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', marginBottom: '4px', wordBreak: 'break-word' }}>मतदान प्रतिशत</div>
+                        <div style={{ fontSize: isMobile ? '22px' : '36px', fontWeight: '950', color: stats.avgTurnout > 50 ? '#10B981' : '#F59E0B' }}>
                             {stats.avgTurnout}%
                         </div>
                     </div>
-                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', marginBottom: '6px' }}>कुल वोट पड़े</div>
-                        <div style={{ fontSize: isMobile ? '26px' : '36px', fontWeight: '950', color: 'white' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: isMobile ? '12px 10px' : '20px', borderRadius: isMobile ? '16px' : '20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 0 }}>
+                        <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', marginBottom: '4px', wordBreak: 'break-word' }}>कुल वोट पड़े</div>
+                        <div style={{ fontSize: isMobile ? '22px' : '36px', fontWeight: '950', color: 'white' }}>
                             {stats.totalVoted?.toLocaleString() || 0}
                         </div>
                     </div>
-                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', marginBottom: '6px' }}>सक्रिय शिकायतें (Alerts)</div>
-                        <div style={{ fontSize: isMobile ? '26px' : '36px', fontWeight: '950', color: (stats.activeIncidents || 0) > 0 ? '#EF4444' : '#10B981' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: isMobile ? '12px 10px' : '20px', borderRadius: isMobile ? '16px' : '20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 0 }}>
+                        <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', marginBottom: '4px', wordBreak: 'break-word' }}>सक्रिय अलर्ट्स</div>
+                        <div style={{ fontSize: isMobile ? '22px' : '36px', fontWeight: '950', color: (stats.activeIncidents || 0) > 0 ? '#EF4444' : '#10B981' }}>
                             {stats.activeIncidents || 0}
                         </div>
                     </div>
-                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', marginBottom: '6px' }}>कुल मतदाता</div>
-                        <div style={{ fontSize: isMobile ? '26px' : '36px', fontWeight: '950', color: '#94A3B8' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: isMobile ? '12px 10px' : '20px', borderRadius: isMobile ? '16px' : '20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 0 }}>
+                        <div style={{ fontSize: isMobile ? '10px' : '12px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', marginBottom: '4px', wordBreak: 'break-word' }}>कुल मतदाता</div>
+                        <div style={{ fontSize: isMobile ? '22px' : '36px', fontWeight: '950', color: '#94A3B8' }}>
                             {stats.totalVoters?.toLocaleString() || 0}
                         </div>
                     </div>
@@ -313,23 +313,24 @@ export default function CandidateWarRoom({ assemblyId }: { assemblyId: number })
 
                 {/* Party Breakdown Section */}
                 {stats.partyStats && stats.partyStats.length > 0 && (
-                    <div style={{ marginTop: '24px', position: 'relative', zIndex: 10 }}>
-                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#94A3B8', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
+                    <div style={{ marginTop: isMobile ? '18px' : '24px', position: 'relative', zIndex: 10, maxWidth: '100%', overflow: 'hidden' }}>
+                        <div style={{ fontSize: '11px', fontWeight: '800', color: '#94A3B8', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px' }}>
                             पार्टी-वार मतदान रुझान (Party-wise Share)
                         </div>
-                        <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none' }}>
+                        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none', maxWidth: '100%' }}>
                             {stats.partyStats.map((ps: any) => (
                                 <div key={ps.id} style={{
                                     background: 'rgba(255,255,255,0.05)',
-                                    minWidth: '150px',
-                                    padding: '14px 18px',
-                                    borderRadius: '16px',
+                                    minWidth: isMobile ? '120px' : '150px',
+                                    padding: isMobile ? '10px 14px' : '14px 18px',
+                                    borderRadius: '14px',
                                     border: `1px solid ${ps.color}44`,
-                                    borderLeft: `4px solid ${ps.color}`
+                                    borderLeft: `4px solid ${ps.color}`,
+                                    flexShrink: 0
                                 }}>
-                                    <div style={{ fontSize: '12px', color: '#94A3B8', fontWeight: '700', marginBottom: '2px' }}>{ps.name}</div>
-                                    <div style={{ fontSize: '22px', fontWeight: '950', color: ps.color }}>{ps.count.toLocaleString()}</div>
-                                    <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '800', marginTop: '2px' }}>
+                                    <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700', marginBottom: '2px' }}>{ps.name}</div>
+                                    <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: '950', color: ps.color }}>{ps.count.toLocaleString()}</div>
+                                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: '800', marginTop: '2px' }}>
                                         {Math.round((ps.count / (stats.totalVoted || 1)) * 100)}% शेयर
                                     </div>
                                 </div>
@@ -396,7 +397,7 @@ export default function CandidateWarRoom({ assemblyId }: { assemblyId: number })
             </div>
 
             {/* 3. INTERACTIVE BOOTH GRID (CLICKABLE CARDS) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: isMobile ? '12px' : '16px' }}>
                 {filteredBooths.map((b: any) => {
                     const isAlert = b.status === 'Alert';
                     const isLow = b.turnout < 30;
