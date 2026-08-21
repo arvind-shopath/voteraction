@@ -441,13 +441,21 @@ export default function CandidateWarRoom({ assemblyId }: { assemblyId: number })
                             </div>
 
                             {/* Progress bar */}
-                            <div style={{ height: '7px', width: '100%', background: '#F1F5F9', borderRadius: '4px', overflow: 'hidden', marginBottom: '14px' }}>
+                            <div style={{ height: '7px', width: '100%', background: '#F1F5F9', borderRadius: '4px', overflow: 'hidden', marginBottom: '10px' }}>
                                 <div style={{
                                     width: `${Math.min(100, b.turnout)}%`,
                                     height: '100%',
                                     background: isLow ? '#EF4444' : (b.turnout > 60 ? '#10B981' : '#2563EB'),
                                     transition: 'width 0.5s ease-in-out'
                                 }}></div>
+                            </div>
+
+                            {/* Booth Support Status Summary */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', fontWeight: '800', marginBottom: '12px', background: '#F8FAFC', padding: '5px 8px', borderRadius: '8px' }}>
+                                <span style={{ color: '#64748B' }}>समर्थन स्थिति:</span>
+                                <span style={{ color: (b.supportPercent || 0) > 50 ? '#16A34A' : ((b.supportPercent || 0) > 30 ? '#D97706' : '#DC2626'), fontWeight: '900' }}>
+                                    {b.supportPercent || 0}% (🟩 {b.supportStats?.support || 0} | ⬜ {b.supportStats?.neutral || 0} | 🟥 {b.supportStats?.oppose || 0})
+                                </span>
                             </div>
 
                             {isAlert && (
@@ -543,6 +551,29 @@ export default function CandidateWarRoom({ assemblyId }: { assemblyId: number })
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Support Status Banner in Booth Modal */}
+                                    {boothDetails.booth?.supportStats && (
+                                        <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '14px 18px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: '800', color: '#166534', textTransform: 'uppercase' }}>बूथ समर्थन स्थिति</div>
+                                                <div style={{ fontSize: '18px', fontWeight: '950', color: '#15803D', marginTop: '2px' }}>
+                                                    {boothDetails.booth.supportPercent}% पक्ष में
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span style={{ padding: '4px 10px', borderRadius: '8px', background: '#DCFCE7', color: '#166534', fontSize: '12px', fontWeight: '800' }}>
+                                                    ✓ समर्थक: {boothDetails.booth.supportStats.support || 0}
+                                                </span>
+                                                <span style={{ padding: '4px 10px', borderRadius: '8px', background: '#F1F5F9', color: '#475569', fontSize: '12px', fontWeight: '800' }}>
+                                                    ● न्यूट्रल: {boothDetails.booth.supportStats.neutral || 0}
+                                                </span>
+                                                <span style={{ padding: '4px 10px', borderRadius: '8px', background: '#FEE2E2', color: '#991B1B', fontSize: '12px', fontWeight: '800' }}>
+                                                    ✗ विरोधी: {boothDetails.booth.supportStats.oppose || 0}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Quick Actions Row */}
                                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>

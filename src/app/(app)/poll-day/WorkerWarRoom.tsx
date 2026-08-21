@@ -211,6 +211,29 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
                     </div>
                 </div>
 
+                {/* Booth Support Status Summary */}
+                {voters.length > 0 && (
+                    <div style={{ marginTop: '16px', background: 'rgba(255,255,255,0.06)', borderRadius: '16px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                            <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>बूथ समर्थन स्थिति</span>
+                            <div style={{ fontSize: '16px', fontWeight: '950', color: (voters.filter(v => v.supportStatus === 'Support').length / voters.length) > 0.5 ? '#86EFAC' : '#FCD34D' }}>
+                                {Math.round((voters.filter(v => v.supportStatus === 'Support').length / voters.length) * 100)}% समर्थक
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.4)', color: '#86EFAC', fontSize: '12px', fontWeight: '800' }}>
+                                ✓ समर्थक: {voters.filter(v => v.supportStatus === 'Support').length}
+                            </span>
+                            <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'rgba(148, 163, 184, 0.2)', border: '1px solid rgba(148, 163, 184, 0.4)', color: '#E2E8F0', fontSize: '12px', fontWeight: '800' }}>
+                                ● न्यूट्रल: {voters.filter(v => !v.supportStatus || v.supportStatus === 'Neutral').length}
+                            </span>
+                            <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#FCA5A5', fontSize: '12px', fontWeight: '800' }}>
+                                ✗ विरोधी: {voters.filter(v => v.supportStatus === 'Oppose').length}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Recent Reports Status */}
                 {myReports.length > 0 && (
                     <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
@@ -473,6 +496,9 @@ export default function WorkerWarRoom({ boothNumber, assemblyId }: { boothNumber
 }
 
 function VoterCard({ v, handleMarkVoted, parties }: { v: any, handleMarkVoted: (v: any) => void, parties: any[] }) {
+    const isSupport = v.supportStatus === 'Support';
+    const isOppose = v.supportStatus === 'Oppose';
+
     return (
         <div style={{
             padding: '14px 16px', borderRadius: '18px', border: '1px solid #F1F5F9',
@@ -483,7 +509,19 @@ function VoterCard({ v, handleMarkVoted, parties }: { v: any, handleMarkVoted: (
             boxShadow: v.isVoted ? 'none' : '0 2px 4px rgba(0, 0, 0, 0.04)'
         }}>
             <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: '15px', fontWeight: '950', color: '#0F172A', wordBreak: 'break-word' }}>{v.name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '950', color: '#0F172A', wordBreak: 'break-word' }}>{v.name}</div>
+                    <span style={{
+                        fontSize: '10px',
+                        fontWeight: '900',
+                        padding: '2px 6px',
+                        borderRadius: '6px',
+                        background: isSupport ? '#DCFCE7' : (isOppose ? '#FEE2E2' : '#F1F5F9'),
+                        color: isSupport ? '#166534' : (isOppose ? '#991B1B' : '#475569')
+                    }}>
+                        {isSupport ? '✓ समर्थक' : (isOppose ? '✗ विरोधी' : '● न्यूट्रल')}
+                    </span>
+                </div>
                 <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '700', marginTop: '2px', wordBreak: 'break-word' }}>
                     Epic: {v.epic || '-'} • Age: {v.age || '-'}
                 </div>

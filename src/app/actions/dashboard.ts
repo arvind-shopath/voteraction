@@ -231,9 +231,42 @@ async function getStatsForBooth(booth: any, assemblyId: number, workerId: number
         where: { workerId: workerId, status: 'Completed' }
     }) : 0;
 
+    let workerObj = null;
+    if (workerId) {
+        const w = await prisma.worker.findUnique({
+            where: { id: workerId },
+            include: {
+                user: { select: { id: true, name: true, mobile: true, image: true } },
+                booth: { select: { id: true, number: true, name: true } }
+            }
+        });
+        if (w) {
+            workerObj = {
+                ...w,
+                name: w.user?.name || w.name,
+                mobile: w.user?.mobile || w.mobile,
+                image: w.user?.image || null
+            };
+        }
+    }
+
+    const assemblyObj = assemblyId ? await prisma.assembly.findUnique({
+        where: { id: assemblyId },
+        select: {
+            id: true,
+            name: true,
+            themeColor: true,
+            candidateName: true,
+            candidateImageUrl: true,
+            party: true,
+            logoUrl: true
+        }
+    }) : null;
+
     return {
         booth: booth,
-        worker: workerId ? await prisma.worker.findUnique({ where: { id: workerId } }) : null,
+        worker: workerObj,
+        assembly: assemblyObj,
         stats: {
             voters: boothVoters.length,
             pannaPramukhs,
@@ -547,6 +580,26 @@ export async function getWarRoomStats(assemblyId: number) {
         where: { assemblyId, isVoted: true, NOT: { votedPartyId: null } }
     });
 
+    // SUPPORT-WISE AGGREGATION PER BOOTH
+    const supportByBooth = await prisma.voter.groupBy({
+        by: ['boothNumber', 'supportStatus'],
+        _count: { id: true },
+        where: { assemblyId, NOT: { boothNumber: null } }
+    });
+
+    const supportMap = new Map();
+    supportByBooth.forEach(s => {
+        if (!s.boothNumber) return;
+        if (!supportMap.has(s.boothNumber)) {
+            supportMap.set(s.boothNumber, { support: 0, neutral: 0, oppose: 0 });
+        }
+        const counts = supportMap.get(s.boothNumber);
+        const status = s.supportStatus || 'Neutral';
+        if (status === 'Support') counts.support += s._count.id;
+        else if (status === 'Oppose') counts.oppose += s._count.id;
+        else counts.neutral += s._count.id;
+    });
+
     let assemblyState = 'National';
     const assembly = await prisma.assembly.findUnique({ where: { id: assemblyId }, select: { state: true } });
     if (assembly) assemblyState = assembly.state;
@@ -591,6 +644,10 @@ export async function getWarRoomStats(assemblyId: number) {
     return {
         booths: booths.map((b: any) => {
             const realVoted = votedMap.get(b.number) || 0;
+            const supp = supportMap.get(b.number) || { support: 0, neutral: 0, oppose: 0 };
+            const suppTotal = supp.support + supp.neutral + supp.oppose;
+            const supportPercent = suppTotal > 0 ? Math.round((supp.support / suppTotal) * 100) : 0;
+
             return {
                 id: b.id,
                 number: b.number,
@@ -599,6 +656,8 @@ export async function getWarRoomStats(assemblyId: number) {
                 status: b.boothStatus || 'Normal',
                 voted: realVoted || Math.round(((b.turnout || 0) / 100) * (b.totalVoters || 0)),
                 total: b.totalVoters || 0,
+                supportPercent,
+                supportStats: supp,
                 lastUpdate: b.updatedAt
             };
         }),
@@ -706,13 +765,18 @@ export async function getBoothWarRoomDetails(boothNumber: number, assemblyId: nu
     // Voters in this booth
     const voters = await prisma.voter.findMany({
         where: { boothNumber, assemblyId },
-        select: { id: true, isVoted: true, pannaPramukhId: true }
+        select: { id: true, isVoted: true, pannaPramukhId: true, supportStatus: true }
     });
 
     const totalVoters = voters.length;
     const votedCount = voters.filter(v => v.isVoted).length;
     const pendingCount = totalVoters - votedCount;
     const turnout = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0;
+
+    const supportCount = voters.filter(v => v.supportStatus === 'Support').length;
+    const neutralCount = voters.filter(v => !v.supportStatus || v.supportStatus === 'Neutral').length;
+    const opposeCount = voters.filter(v => v.supportStatus === 'Oppose').length;
+    const supportPercent = totalVoters > 0 ? Math.round((supportCount / totalVoters) * 100) : 0;
 
     // Calculate Panna-wise progress
     const pannaDetails = pannaWorkers.map(p => {
@@ -750,6 +814,12 @@ export async function getBoothWarRoomDetails(boothNumber: number, assemblyId: nu
             votedCount,
             pendingCount,
             turnout,
+            supportPercent,
+            supportStats: {
+                support: supportCount,
+                neutral: neutralCount,
+                oppose: opposeCount
+            },
             boothStatus: booth?.boothStatus || 'Normal'
         },
         boothManager: boothManager ? {

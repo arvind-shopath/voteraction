@@ -83,6 +83,15 @@ export default function ProfilePage() {
         }
     };
 
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     if (loading) {
         return (
             <div style={{
@@ -108,21 +117,21 @@ export default function ProfilePage() {
     };
 
     return (
-        <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ padding: isMobile ? '12px 8px 40px 8px' : '24px', maxWidth: '800px', margin: '0 auto' }}>
             {/* Header Area */}
-            <div style={{ marginBottom: '32px' }}>
-                <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#1E293B', marginBottom: '8px' }}>
+            <div style={{ marginBottom: isMobile ? '20px' : '32px', textAlign: isMobile ? 'center' : 'left' }}>
+                <h1 style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: 900, color: '#1E293B', marginBottom: '6px' }}>
                     मेरी प्रोफाइल
                 </h1>
-                <p style={{ color: '#64748B' }}>अपनी व्यक्तिगत जानकारी और प्रोफाइल फोटो अपडेट करें।</p>
+                <p style={{ color: '#64748B', fontSize: isMobile ? '13px' : '15px' }}>अपनी व्यक्तिगत जानकारी और प्रोफाइल फोटो अपडेट करें।</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: isMobile ? '16px' : '24px' }}>
                 {/* Profile Card */}
                 <div style={{
                     background: 'white',
-                    borderRadius: '24px',
-                    padding: '32px',
+                    borderRadius: isMobile ? '20px' : '24px',
+                    padding: isMobile ? '20px 16px' : '32px',
                     boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
                     border: '1px solid #F1F5F9',
                     position: 'relative',
@@ -133,20 +142,26 @@ export default function ProfilePage() {
                         position: 'absolute',
                         top: 0,
                         right: 0,
-                        width: '200px',
-                        height: '200px',
+                        width: '160px',
+                        height: '160px',
                         background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(37, 99, 235, 0) 100%)',
-                        borderRadius: '0 0 0 200px',
+                        borderRadius: '0 0 0 160px',
                         zIndex: 0
                     }}></div>
 
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '32px', flexWrap: 'wrap' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            flexDirection: isMobile ? 'column' : 'row',
+                            textAlign: isMobile ? 'center' : 'left',
+                            gap: isMobile ? '18px' : '32px'
+                        }}>
                             {/* Image Section */}
-                            <div style={{ position: 'relative' }}>
+                            <div style={{ position: 'relative', margin: '0 auto' }}>
                                 <div style={{
-                                    width: '150px',
-                                    height: '150px',
+                                    width: isMobile ? '120px' : '140px',
+                                    height: isMobile ? '120px' : '140px',
                                     borderRadius: '50%',
                                     overflow: 'hidden',
                                     border: '4px solid white',
@@ -157,25 +172,25 @@ export default function ProfilePage() {
                                     justifyContent: 'center'
                                 }}>
                                     {uploading ? (
-                                        <Loader2 className="animate-spin" size={40} color="#2563EB" />
+                                        <Loader2 className="animate-spin" size={36} color="#2563EB" />
                                     ) : image ? (
                                         <img src={image} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <User size={60} color="#CBD5E1" />
+                                        <User size={50} color="#CBD5E1" />
                                     )}
                                 </div>
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
                                     style={{
                                         position: 'absolute',
-                                        bottom: '5px',
-                                        right: '5px',
-                                        width: '40px',
-                                        height: '40px',
+                                        bottom: '2px',
+                                        right: '2px',
+                                        width: '38px',
+                                        height: '38px',
                                         borderRadius: '50%',
                                         background: '#2563EB',
                                         color: 'white',
-                                        border: '4px solid white',
+                                        border: '3px solid white',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
@@ -185,7 +200,7 @@ export default function ProfilePage() {
                                     }}
                                     title="फोटो बदलें"
                                 >
-                                    <Camera size={18} />
+                                    <Camera size={16} />
                                 </button>
                                 <input
                                     type="file"
@@ -197,37 +212,37 @@ export default function ProfilePage() {
                             </div>
 
                             {/* Basic Info */}
-                            <div style={{ flex: 1, minWidth: '250px' }}>
+                            <div style={{ flex: 1, minWidth: 0, width: '100%' }}>
                                 <div style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '6px',
-                                    padding: '6px 12px',
+                                    padding: '5px 12px',
                                     background: '#EFF6FF',
                                     color: '#2563EB',
                                     borderRadius: '100px',
-                                    fontSize: '12px',
+                                    fontSize: '11px',
                                     fontWeight: 800,
                                     textTransform: 'uppercase',
-                                    marginBottom: '12px'
+                                    marginBottom: '8px'
                                 }}>
-                                    <Shield size={14} />
+                                    <Shield size={13} />
                                     {roleMap[userData?.role] || userData?.role}
                                 </div>
-                                <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#1E293B', marginBottom: '4px' }}>
+                                <h2 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 900, color: '#1E293B', marginBottom: '4px', wordBreak: 'break-word' }}>
                                     {userData?.name || 'User'}
                                 </h2>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontWeight: 600 }}>
-                                    <Phone size={16} />
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: '6px', color: '#64748B', fontWeight: 600, fontSize: '13px' }}>
+                                    <Phone size={15} />
                                     {userData?.mobile}
                                 </div>
                             </div>
                         </div>
 
                         {/* Edit Form */}
-                        <div style={{ marginTop: '40px', borderTop: '1px solid #F1F5F9', paddingTop: '32px' }}>
-                            <div style={{ marginBottom: '24px' }}>
-                                <label style={{ display: 'block', fontSize: '14px', fontWeight: '800', color: '#475569', marginBottom: '8px' }}>
+                        <div style={{ marginTop: isMobile ? '24px' : '36px', borderTop: '1px solid #F1F5F9', paddingTop: isMobile ? '20px' : '28px' }}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '800', color: '#475569', marginBottom: '6px' }}>
                                     पूरा नाम
                                 </label>
                                 <input
@@ -236,10 +251,10 @@ export default function ProfilePage() {
                                     onChange={(e) => { setName(e.target.value); setSaved(false); }}
                                     style={{
                                         width: '100%',
-                                        padding: '14px 18px',
+                                        padding: '12px 16px',
                                         borderRadius: '12px',
                                         border: '1px solid #E2E8F0',
-                                        fontSize: '16px',
+                                        fontSize: '15px',
                                         fontWeight: '600',
                                         outline: 'none',
                                         transition: 'all 0.2s',
@@ -256,31 +271,31 @@ export default function ProfilePage() {
                                 disabled={saving}
                                 style={{
                                     width: '100%',
-                                    padding: '16px',
-                                    borderRadius: '14px',
+                                    padding: '14px',
+                                    borderRadius: '12px',
                                     background: saved ? '#10B981' : '#2563EB',
                                     color: 'white',
                                     border: 'none',
-                                    fontSize: '16px',
+                                    fontSize: '15px',
                                     fontWeight: '800',
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: '10px',
+                                    gap: '8px',
                                     boxShadow: saved ? '0 10px 20px rgba(16, 185, 129, 0.2)' : '0 10px 20px rgba(37, 99, 235, 0.2)',
                                     transition: 'all 0.3s'
                                 }}
                             >
                                 {saving ? (
-                                    <Loader2 className="animate-spin" size={20} />
+                                    <Loader2 className="animate-spin" size={18} />
                                 ) : saved ? (
                                     <>
-                                        <Check size={20} /> अपडेट हो गया!
+                                        <Check size={18} /> अपडेट हो गया!
                                     </>
                                 ) : (
                                     <>
-                                        <Save size={20} /> सुरक्षित करें
+                                        <Save size={18} /> सुरक्षित करें
                                     </>
                                 )}
                             </button>
@@ -288,26 +303,26 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                {/* Additional Info Cards (Optional, adds premium feel) */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                    <div style={{ background: '#F8FAFC', borderRadius: '20px', padding: '20px', border: '1px solid #F1F5F9' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyItems: 'center', color: '#2563EB' }}>
-                                <Shield size={18} style={{ margin: '0 auto' }} />
+                {/* Additional Info Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: isMobile ? '12px' : '20px' }}>
+                    <div style={{ background: '#F8FAFC', borderRadius: '18px', padding: '16px', border: '1px solid #F1F5F9' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                            <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
+                                <Shield size={16} />
                             </div>
-                            <span style={{ fontWeight: 800, fontSize: '14px', color: '#1E293B' }}>पहुँच स्तर</span>
+                            <span style={{ fontWeight: 800, fontSize: '13px', color: '#1E293B' }}>पहुँच स्तर</span>
                         </div>
-                        <p style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>आपकी वर्तमान भूमिका: <span style={{ color: '#2563EB' }}>{roleMap[userData?.role] || userData?.role}</span></p>
+                        <p style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, margin: 0 }}>आपकी वर्तमान भूमिका: <span style={{ color: '#2563EB' }}>{roleMap[userData?.role] || userData?.role}</span></p>
                     </div>
 
-                    <div style={{ background: '#F8FAFC', borderRadius: '20px', padding: '20px', border: '1px solid #F1F5F9' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyItems: 'center', color: '#64748B' }}>
-                                <ExternalLink size={18} style={{ margin: '0 auto' }} />
+                    <div style={{ background: '#F8FAFC', borderRadius: '18px', padding: '16px', border: '1px solid #F1F5F9' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                            <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>
+                                <ExternalLink size={16} />
                             </div>
-                            <span style={{ fontWeight: 800, fontSize: '14px', color: '#1E293B' }}>अन्य जानकारी</span>
+                            <span style={{ fontWeight: 800, fontSize: '13px', color: '#1E293B' }}>अन्य जानकारी</span>
                         </div>
-                        <p style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>यूजर आईडी: <span style={{ color: '#2563EB' }}>#{userData?.id}</span></p>
+                        <p style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, margin: 0 }}>यूजर आईडी: <span style={{ color: '#2563EB' }}>#{userData?.id}</span></p>
                     </div>
                 </div>
             </div>

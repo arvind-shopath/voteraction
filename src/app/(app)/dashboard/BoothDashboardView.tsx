@@ -132,7 +132,7 @@ export default function BoothDashboardView({ userId, lang, assemblyId, isMobile,
 
     return (
         <div style={{ paddingBottom: '100px' }}>
-            {data.worker && <DigitalIdCard worker={data.worker} assemblyName={assemblyName || data.assembly?.name} />}
+            {data.worker && <DigitalIdCard worker={data.worker} assemblyName={assemblyName || data.assembly?.name} assembly={data.assembly} />}
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '20px', marginBottom: '32px' }}>
                 <div>
                     <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: '800' }}>बूथ डैशबोर्ड (Booth #{data.booth.number})</h1>
