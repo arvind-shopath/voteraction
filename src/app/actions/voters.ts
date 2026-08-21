@@ -11,6 +11,7 @@ export async function getVoters(filters: {
     booth?: string;
     gender?: string;
     status?: string;
+    contactStatus?: string;
     village?: string;
     casteCategory?: string;
     caste?: string;
@@ -23,9 +24,9 @@ export async function getVoters(filters: {
     pannaOnly?: boolean;
     verificationStatus?: string;
     eciStatus?: string;
-    isHead?: string;
-    isPwD?: string;
-    isImportant?: string;
+    isHead?: string | boolean;
+    isPwD?: string | boolean;
+    isImportant?: string | boolean;
     isVoted?: string;
     votedPartyId?: string;
     page?: number;
@@ -173,9 +174,9 @@ export async function getVoters(filters: {
         }
     }
 
-    if (filters.isHead === 'true') where.isHead = true;
-    if (filters.isPwD === 'true') where.isPwD = true;
-    if (filters.isImportant === 'true') where.isImportant = true;
+    if (filters.isHead === 'true' || filters.isHead === true) where.isHead = true;
+    if (filters.isPwD === 'true' || filters.isPwD === true) where.isPwD = true;
+    if (filters.isImportant === 'true' || filters.isImportant === true) where.isImportant = true;
 
     if (filters.pannaId && filters.pannaId !== 'सभी पन्ना प्रमुख') {
         const pId = parseInt(filters.pannaId.toString());
@@ -970,7 +971,7 @@ export async function getFilterOptions(assemblyId?: number) {
             where: {
                 ...where,
                 type: 'PANNA_PRAMUKH',
-                status: 'Active'
+                deletedAt: null
             },
             include: {
                 booth: true
@@ -981,7 +982,7 @@ export async function getFilterOptions(assemblyId?: number) {
             where: {
                 ...where,
                 type: 'BOOTH_MANAGER',
-                status: 'Active'
+                deletedAt: null
             },
             include: {
                 booth: true,
@@ -1057,8 +1058,8 @@ export async function getFilterOptions(assemblyId?: number) {
         booths: booths || [],
         villageBooths: villageBoothPairs.map(vb => ({ village: vb.village as string, boothNumber: vb.boothNumber as number })),
         parties: parties || [],
-        pannaPramukhs: pannaPramukhs.map(p => ({ id: p.id, name: p.name, boothNumber: p.booth?.number })),
-        boothManagers: boothManagers.map(bm => ({
+        pannaPramukhs: pannaPramukhs.map((p: any) => ({ id: p.id, name: p.name, boothNumber: p.booth?.number })),
+        boothManagers: boothManagers.map((bm: any) => ({
             id: bm.id,
             name: bm.name,
             mobile: bm.mobile || bm.user?.mobile || '',

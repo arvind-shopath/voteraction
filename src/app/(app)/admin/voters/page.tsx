@@ -147,7 +147,7 @@ export default function AdminVotersPage() {
         try {
             let votersToPrint: any[] = [];
             if (printAllVoters) {
-                const result = await getAllVotersForExport({ assemblyId: selectedAssembly! });
+                const result = await getAllVotersForExport(selectedAssembly!);
                 votersToPrint = result;
             } else {
                 const payload = { ...filters, assemblyId: selectedAssembly!, page: 1, pageSize: 99999 };
@@ -176,7 +176,7 @@ export default function AdminVotersPage() {
     const [filters, setFilters] = useState({
         search: '', booth: 'सभी बूथ', boothName: 'सभी बूथ नाम', status: 'सभी स्थिति', contactStatus: 'सभी', gender: 'सभी', village: 'सभी गांव',
         casteCategory: 'सभी वर्ग', caste: 'सभी जाति', subCaste: 'सभी उपजाति', surname: 'सभी उपनाम',
-        familySize: 'सभी परिवार', ageFilter: 'सभी आयु',
+        familySize: 'सभी परिवार', ageFilter: 'सभी आयु', pannaId: 'सभी पन्ना प्रमुख',
         isHead: false, isPwD: false, isImportant: false, isVoted: 'All', votedPartyId: '',
         page: 1, pageSize: 50
     });
