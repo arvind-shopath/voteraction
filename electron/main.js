@@ -52,7 +52,7 @@ function createWindow() {
     // This prevents the "Blank Screen" on user machines where isDev might falsely trigger
     const url = (process.env.NODE_ENV === 'development')
         ? 'http://localhost:3001'
-        : 'https://voteraction.creatiav.com';
+        : 'https://voteraction.thefreelance.in';
 
     win.loadURL(url);
 

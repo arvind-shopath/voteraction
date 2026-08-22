@@ -24,6 +24,8 @@ jobs:
         run: |
           mkdir out -ErrorAction SilentlyContinue
           echo "<html><body>Voteraction Wrapper</body></html>" > out/index.html
+      - name: Generate Prisma Client
+        run: npx prisma generate
       - name: Build Next.js
         run: npm run build
       - name: Build Electron App
@@ -58,6 +60,8 @@ jobs:
         run: |
           mkdir -p out
           echo "<html><body>Voteraction Wrapper</body></html>" > out/index.html
+      - name: Generate Prisma Client
+        run: npx prisma generate
       - name: Build Next.js
         run: npm run build
       - name: Capacitor Sync

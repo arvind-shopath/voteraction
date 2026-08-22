@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Voteraction',
   webDir: 'out',
   server: {
-    url: 'https://voteraction.creatiav.com',
+    url: 'https://voteraction.thefreelance.in',
     cleartext: true
   }
 };
